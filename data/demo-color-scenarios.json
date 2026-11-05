@@ -1,0 +1,54 @@
+{
+  "record_kind": "synthetic_test_only",
+  "products": [
+    {
+      "id": "DEMO-A",
+      "colors": [
+        "C",
+        "M",
+        "Y",
+        "K",
+        "368C"
+      ]
+    },
+    {
+      "id": "DEMO-B",
+      "colors": [
+        "C",
+        "M",
+        "Y",
+        "K",
+        "357C"
+      ]
+    },
+    {
+      "id": "DEMO-C",
+      "colors": [
+        "C",
+        "M",
+        "Y",
+        "K",
+        "185C"
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "products": [
+        "DEMO-A",
+        "DEMO-B"
+      ],
+      "unique_colors": 6,
+      "allowed": true
+    },
+    {
+      "products": [
+        "DEMO-A",
+        "DEMO-B",
+        "DEMO-C"
+      ],
+      "unique_colors": 7,
+      "allowed": false
+    }
+  ]
+}

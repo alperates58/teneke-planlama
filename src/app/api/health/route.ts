@@ -1,0 +1,11 @@
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  return NextResponse.json({
+    status: 'healthy',
+    project: 'Teneke Planlama',
+    phases_active: [0, 1],
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+}

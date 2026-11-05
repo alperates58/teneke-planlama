@@ -1,0 +1,5 @@
+Bu klasördeki Teneke Planlama projesini başlat. Önce kökteki AGENTS.md ve STATUS.json dosyalarını oku; AGENTS.md içindeki okuma sırasını izle. Kaynak bilgileri docs/ ve data/ altında hazırlanmış durumda; Excel ve görselleri yeniden yorumlaman gerekmiyor.
+
+Yalnız phases/FAZ-00-PROJE-TEMELI.md ve phases/FAZ-01-ILK-EKRANLAR.md kapsamını uygula. Yerel Docker'da çalışan uygulamayı oluştur, ekranları örnek verilerle çalıştır ve tarayıcıda doğrula. Levhaya sığdırma hesabı veya alternatif levha önerisi geliştirme. Belirsiz kuralları uydurma; bu fazların bağımsız işlerini tamamla.
+
+Sonunda çalışan yerel adresi, kontrol sonuçlarını ve açık kalan konuları paylaş; STATUS.json dosyasını gerçek duruma göre güncelle. Faz 2'ye geçme.

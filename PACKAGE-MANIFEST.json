@@ -1,0 +1,195 @@
+{
+  "package_version": "1.0",
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 7825,
+      "sha256": "ecafccbbf0754989511a8fd1db936989e6b9cd9f131585a28f6c51b7a9334caa"
+    },
+    {
+      "path": "BASLATMA-PROMPTU.txt",
+      "bytes": 788,
+      "sha256": "e55aa360f4bfd240f2e935e893c53ce65fde852ed853ee705a434a8b9948e3aa"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2037,
+      "sha256": "0c812d8d60010ba0b20c43e39e52e6dcae956d8a574034db4132cd96053cb21c"
+    },
+    {
+      "path": "SOURCE-MANIFEST.json",
+      "bytes": 2041,
+      "sha256": "608ac73570d819a9519dd4e880fc63ace7fc955e967606de0cb410d546a3be9a"
+    },
+    {
+      "path": "STATUS.json",
+      "bytes": 1649,
+      "sha256": "361b71e09b9db10abe567e82acdc321037127ff03e00e07d1c3a5fbf6781f7ec"
+    },
+    {
+      "path": "VALIDATION.md",
+      "bytes": 1001,
+      "sha256": "90ce6c151f9bb3e2aa560f0e5bebe241eaca1eed1b3df862cff6f8858497dc56"
+    },
+    {
+      "path": "data/capacities.json",
+      "bytes": 6050,
+      "sha256": "94684706b966b2524d80bf7737ab3c8f9588964d59f411ef4e203b1da9654b4d"
+    },
+    {
+      "path": "data/defaults.json",
+      "bytes": 395,
+      "sha256": "3b3f95883293e2905d102ad25eceec78ec9e1dbb62087b78dca82c2b98f77d42"
+    },
+    {
+      "path": "data/demo-color-scenarios.json",
+      "bytes": 736,
+      "sha256": "e99423957a73b47a854207b011770687103d7477ffcca0b02be859bf494bb679"
+    },
+    {
+      "path": "data/print-order-reference.json",
+      "bytes": 2163,
+      "sha256": "4d568a62d64331f7ded9ca243ad2e724777c99359e736e3791310ba9ff7c83b4"
+    },
+    {
+      "path": "data/product-technical.json",
+      "bytes": 15685,
+      "sha256": "65e4f2d7cb6c3a0575a64c3ff43041d8989412fe02feaa9676546795d3b10d99"
+    },
+    {
+      "path": "data/production-plan-reference.json",
+      "bytes": 7978,
+      "sha256": "1fd579fa07b88636858b885a51450086e5050488f625db04d5990d66876f443a"
+    },
+    {
+      "path": "data/raw-sheets.json",
+      "bytes": 6079,
+      "sha256": "a3f5339f9c4e40e5419df623f0825ba964511733c985d171b8ed31b3bc430c34"
+    },
+    {
+      "path": "data/source-workbook-cells.json",
+      "bytes": 4827,
+      "sha256": "468ce46e58fd683c7f660e7a5817fe0d9b1943856cb1eaadb9b569c3ff606f5d"
+    },
+    {
+      "path": "docs/ANA-YOL-HARITASI.md",
+      "bytes": 34613,
+      "sha256": "46425c5d989b53745e7957b15b5922a01bb479db83103de6d803a99ee5507c4f"
+    },
+    {
+      "path": "docs/EKRAN-SOZLESMESI.md",
+      "bytes": 3701,
+      "sha256": "9db03034afbde31fe157aa31be35c70366c2b12a99d66b2adb8bb186e4bb7d8c"
+    },
+    {
+      "path": "docs/FAZ-TESLIM-SABLONU.md",
+      "bytes": 482,
+      "sha256": "0b0c36806406fe00989ef5970547016b8af06c02ad8f5d9b0dd03271d4eb8af1"
+    },
+    {
+      "path": "docs/IS-KURALLARI-VE-ACIK-KARARLAR.md",
+      "bytes": 4978,
+      "sha256": "96bc382d5ff12149f6cc08a4fa83837c16a7092aedb8a03aef28559b6f1a77ff"
+    },
+    {
+      "path": "docs/KARAR-KAYDI.md",
+      "bytes": 967,
+      "sha256": "243a4959cd55fbad2ad9b4182a9cee7797632ebf8bf028513b4534a53554e8c2"
+    },
+    {
+      "path": "docs/KAYNAKLARDAN-CIKARILAN-BILGI.md",
+      "bytes": 13967,
+      "sha256": "fb41ef281999007bff6ba0fc17b6ebc3c8968b3a3a42bf06676242b495cf385f"
+    },
+    {
+      "path": "docs/SUREC-BELGESI-TAM-METIN.md",
+      "bytes": 7410,
+      "sha256": "5d8218759edd2f5e77c619c8789e739fdd6082f9eec9dbbe3326b39073ec0355"
+    },
+    {
+      "path": "docs/VERI-SOZLUGU.md",
+      "bytes": 2031,
+      "sha256": "2660be0f66f3bf9125a2ced755aecfa1603dedbd3ca8c5bcf52dcb1f21541ead"
+    },
+    {
+      "path": "phases/FAZ-00-PROJE-TEMELI.md",
+      "bytes": 1898,
+      "sha256": "b4cc95541174769765d97f9115adc5468bf859559b79eddd4923554cb710d8ae"
+    },
+    {
+      "path": "phases/FAZ-01-ILK-EKRANLAR.md",
+      "bytes": 3195,
+      "sha256": "af8f04ed3f20990400737657fb2b142e0452b812772186b61f13ec02f212256e"
+    },
+    {
+      "path": "phases/FAZ-02-PARAMETRE-VE-KALICI-VERI.md",
+      "bytes": 2769,
+      "sha256": "515ea631ea9e7cdd65b6aa1a66ea47d58fa0911227d46da2389f34b6fab19706"
+    },
+    {
+      "path": "phases/FAZ-03-SQL-ENTEGRASYONU.md",
+      "bytes": 2793,
+      "sha256": "ba8ee6154a62ef271a73cced2c81eb1bf52e13198627f543a6d751e59f5e3870"
+    },
+    {
+      "path": "phases/FAZ-04-KOMBINASYON-MOTORU.md",
+      "bytes": 3672,
+      "sha256": "924804f34da7986954a5bbc6452144b6bc5580254b8de976fe8ffc35b43dfc06"
+    },
+    {
+      "path": "phases/FAZ-05-URETIM-PLANLAMA.md",
+      "bytes": 2390,
+      "sha256": "fbc2c5296f8dca57d2388c91ce5e7512f455b5c895091bbc56c604e8e61914bb"
+    },
+    {
+      "path": "phases/FAZ-06-SIPARIS-VE-TAKIP.md",
+      "bytes": 3002,
+      "sha256": "50391b77d5493a7dce38bec91683b8806b67afae40f8e134918ad2e64dfdfc87"
+    },
+    {
+      "path": "phases/FAZ-07-KABUL-VE-COOLIFY.md",
+      "bytes": 2118,
+      "sha256": "103b4445bc8aee6accbf2af3ccfb652e2e8466b6519468cf6252cae45bd300f9"
+    },
+    {
+      "path": "sources/originals/SOFT ODA SPR 300 ML 30.10.2026.xls",
+      "bytes": 49152,
+      "sha256": "d61bd98566487eeb7c700287ff2ab2af4c7762d4a011eb55c314a9b6fe1c2086"
+    },
+    {
+      "path": "sources/originals/TENEKE KUTU ÜRETİM SÜRECİ(20261105-111835).docx",
+      "bytes": 17816,
+      "sha256": "9548269f59192888525695a60cb39e2e47f92e835ccfcb44540f2ae0001bbf5f"
+    },
+    {
+      "path": "sources/originals/image(20261105-111935).png",
+      "bytes": 50732,
+      "sha256": "e454ff0a225a0bbeae3a0700abd3d2862f4ff463ea6bdd172ae24e11b521c019"
+    },
+    {
+      "path": "sources/originals/image(20261105-112000).png",
+      "bytes": 167579,
+      "sha256": "c89824386e327bae07cbd97578cfdff50d7d35dfc8dac6f17805679eb528612b"
+    },
+    {
+      "path": "sources/originals/image(20261105-112516).png",
+      "bytes": 41903,
+      "sha256": "ee2c4ec3f57e3681d854924629eb4890e991c8cd9c0f6abb53ad3c972997bf0c"
+    },
+    {
+      "path": "sources/originals/image(20261105-112652).png",
+      "bytes": 87266,
+      "sha256": "170bc138a78f19b4436e5de65c4c2c29b7aeb297c57a277f1add8fec985d9068"
+    },
+    {
+      "path": "sources/originals/image(20261105-113531).png",
+      "bytes": 47265,
+      "sha256": "376b76e07a3e69949cc982f94379c7fb3d353ac3c4175cafa72823da3751bec5"
+    },
+    {
+      "path": "sources/originals/image(20261105-113846).png",
+      "bytes": 41094,
+      "sha256": "67189c96cb95bc1a7d0c8b5e99425b05b6be06de8364f49d6bd714256d77ee00"
+    }
+  ]
+}

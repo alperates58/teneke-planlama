@@ -1,0 +1,69 @@
+{
+  "project": "Teneke Planlama",
+  "package_version": "1.0",
+  "updated_at": "2026-11-05",
+  "document_status": "phase_2_printing_and_combination_rules_verified",
+  "authorized_initial_scope": [
+    0,
+    1,
+    2
+  ],
+  "current_phase": 2,
+  "phases": [
+    {
+      "number": 0,
+      "file": "phases/FAZ-00-PROJE-TEMELI.md",
+      "status": "completed",
+      "acceptance_verified": true
+    },
+    {
+      "number": 1,
+      "file": "phases/FAZ-01-ILK-EKRANLAR.md",
+      "status": "completed",
+      "acceptance_verified": true
+    },
+    {
+      "number": 2,
+      "file": "phases/FAZ-02-PARAMETRE-VE-KALICI-VERI.md",
+      "status": "completed",
+      "acceptance_verified": true
+    },
+    {
+      "number": 3,
+      "file": "phases/FAZ-03-SQL-ENTEGRASYONU.md",
+      "status": "planned",
+      "acceptance_verified": false
+    },
+    {
+      "number": 4,
+      "file": "phases/FAZ-04-KOMBINASYON-MOTORU.md",
+      "status": "planned",
+      "acceptance_verified": false
+    },
+    {
+      "number": 5,
+      "file": "phases/FAZ-05-URETIM-PLANLAMA.md",
+      "status": "planned",
+      "acceptance_verified": false
+    },
+    {
+      "number": 6,
+      "file": "phases/FAZ-06-SIPARIS-VE-TAKIP.md",
+      "status": "planned",
+      "acceptance_verified": false
+    },
+    {
+      "number": 7,
+      "file": "phases/FAZ-07-KABUL-VE-COOLIFY.md",
+      "status": "planned",
+      "acceptance_verified": false
+    }
+  ],
+  "critical_open_decisions": [
+    "Çeşit alanı ve geçerli tekrar dağılımları",
+    "Minimum baskı kapsamı",
+    "Kaynak ihtiyaç view brüt/net kapsamı",
+    "Kalınlık birimi",
+    "Gerçek hat/kapasite bilgileri"
+  ]
+}

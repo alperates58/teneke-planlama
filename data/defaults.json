@@ -1,0 +1,10 @@
+{
+  "max_unique_colors": 6,
+  "min_print_sheets": 1250,
+  "origin": "user_confirmed_defaults",
+  "not_source_cell_values": true,
+  "geometric_capacity_calculation": false,
+  "alternative_raw_sheet_suggestions": false,
+  "repeat_constraints": null,
+  "reference_note_57mm": "57 çap tüpler rutinde Sarten’de yaptırılıyor; sipariş özelinde tedarikçiden minimum adet bilgisi istenmeli."
+}

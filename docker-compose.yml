@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: teneke-planlama-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: teneke_planlama
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      TZ: Europe/Istanbul
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d teneke_planlama"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "project=teneke-planlama"
+      - "phase=faz-2"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: teneke-planlama-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - APP_NAME=Teneke Planlama
+      - APP_ENV=local_demo
+      - TZ=Europe/Istanbul
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/teneke_planlama
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "project=teneke-planlama"
+      - "phase=faz-2"
+
+volumes:
+  pgdata:
+    driver: local

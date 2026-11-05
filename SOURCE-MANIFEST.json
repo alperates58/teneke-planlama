@@ -1,0 +1,54 @@
+{
+  "source_count": 8,
+  "sources": [
+    {
+      "filename": "SOFT ODA SPR 300 ML 30.10.2026.xls",
+      "path": "sources/originals/SOFT ODA SPR 300 ML 30.10.2026.xls",
+      "bytes": 49152,
+      "sha256": "d61bd98566487eeb7c700287ff2ab2af4c7762d4a011eb55c314a9b6fe1c2086"
+    },
+    {
+      "filename": "TENEKE KUTU ÜRETİM SÜRECİ(20261105-111835).docx",
+      "path": "sources/originals/TENEKE KUTU ÜRETİM SÜRECİ(20261105-111835).docx",
+      "bytes": 17816,
+      "sha256": "9548269f59192888525695a60cb39e2e47f92e835ccfcb44540f2ae0001bbf5f"
+    },
+    {
+      "filename": "image(20261105-111935).png",
+      "path": "sources/originals/image(20261105-111935).png",
+      "bytes": 50732,
+      "sha256": "e454ff0a225a0bbeae3a0700abd3d2862f4ff463ea6bdd172ae24e11b521c019"
+    },
+    {
+      "filename": "image(20261105-112000).png",
+      "path": "sources/originals/image(20261105-112000).png",
+      "bytes": 167579,
+      "sha256": "c89824386e327bae07cbd97578cfdff50d7d35dfc8dac6f17805679eb528612b"
+    },
+    {
+      "filename": "image(20261105-112516).png",
+      "path": "sources/originals/image(20261105-112516).png",
+      "bytes": 41903,
+      "sha256": "ee2c4ec3f57e3681d854924629eb4890e991c8cd9c0f6abb53ad3c972997bf0c"
+    },
+    {
+      "filename": "image(20261105-112652).png",
+      "path": "sources/originals/image(20261105-112652).png",
+      "bytes": 87266,
+      "sha256": "170bc138a78f19b4436e5de65c4c2c29b7aeb297c57a277f1add8fec985d9068"
+    },
+    {
+      "filename": "image(20261105-113531).png",
+      "path": "sources/originals/image(20261105-113531).png",
+      "bytes": 47265,
+      "sha256": "376b76e07a3e69949cc982f94379c7fb3d353ac3c4175cafa72823da3751bec5"
+    },
+    {
+      "filename": "image(20261105-113846).png",
+      "path": "sources/originals/image(20261105-113846).png",
+      "bytes": 41094,
+      "sha256": "67189c96cb95bc1a7d0c8b5e99425b05b6be06de8364f49d6bd714256d77ee00"
+    }
+  ],
+  "extraction_scope": "All supplied documents and visible image rows; no hidden or cropped data inferred"
+}

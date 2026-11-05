@@ -1,0 +1,88 @@
+[
+  {
+    "sequence": 1,
+    "tube_size": "52x195",
+    "product_group": "SOFT ODA SPR 300 ML",
+    "items": [
+      {
+        "name": "VANILLA",
+        "repeats_per_sheet": 4,
+        "theoretical_units": 5000
+      },
+      {
+        "name": "OCEANIC",
+        "repeats_per_sheet": 8,
+        "theoretical_units": 10000
+      },
+      {
+        "name": "LAVENDER",
+        "repeats_per_sheet": 8,
+        "theoretical_units": 10000
+      }
+    ],
+    "inside": "GOLD",
+    "outside": "EMAYE",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K"
+    ],
+    "raw_sheet_dimensions_source": "0.17x832x800",
+    "sheet_count": 1250,
+    "order_date": "2026-10-30",
+    "delivery_date": "2026-11-06",
+    "product_revision_source": "SOFT REV NO:08",
+    "note_source": "CTP MONTAJ TRAFINIZA GÖNDERİLECEKTİR.",
+    "printer": "KONTENSAN",
+    "prepared_by_source": "Hazel ASLAN",
+    "form_number": "ÜR F21",
+    "form_publication_date": "2013-12-06",
+    "form_revision": "01",
+    "form_revision_date": "2014-04-14",
+    "source": "SOFT ODA SPR 300 ML 30.10.2026.xls"
+  },
+  {
+    "sequence": 2,
+    "tube_size": "52x195",
+    "product_group": "SOFT ODA SPR 300 ML",
+    "items": [
+      {
+        "name": "CITRUS",
+        "repeats_per_sheet": 4,
+        "theoretical_units": 5000
+      },
+      {
+        "name": "ANTİTÜTÜN",
+        "repeats_per_sheet": 8,
+        "theoretical_units": 10000
+      },
+      {
+        "name": "ROSE",
+        "repeats_per_sheet": 8,
+        "theoretical_units": 10000
+      }
+    ],
+    "inside": "GOLD",
+    "outside": "EMAYE",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K"
+    ],
+    "raw_sheet_dimensions_source": "0.17x832x800",
+    "sheet_count": 1250,
+    "order_date": "2026-10-30",
+    "delivery_date": "2026-11-06",
+    "product_revision_source": "SOFT REV NO:08",
+    "note_source": "CTP MONTAJ TRAFINIZA GÖNDERİLECEKTİR.",
+    "printer": "KONTENSAN",
+    "prepared_by_source": "Hazel ASLAN",
+    "form_number": "ÜR F21",
+    "form_publication_date": "2013-12-06",
+    "form_revision": "01",
+    "form_revision_date": "2014-04-14",
+    "source": "SOFT ODA SPR 300 ML 30.10.2026.xls"
+  }
+]

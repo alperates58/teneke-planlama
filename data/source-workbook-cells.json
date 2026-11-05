@@ -1,0 +1,214 @@
+{
+  "source": "SOFT ODA SPR 300 ML 30.10.2026.xls",
+  "datemode": 0,
+  "cells": [
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "B1",
+      "type": 1,
+      "raw_value": "          MATBAA  BASKI  SİPARİŞ FORMU   "
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "M1",
+      "type": 1,
+      "raw_value": " "
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "A3",
+      "type": 1,
+      "raw_value": "SIRA          NO"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "B3",
+      "type": 1,
+      "raw_value": "ÜRÜN CİNSİ"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "C3",
+      "type": 1,
+      "raw_value": "BASKI  İÇİ  DIŞI                        VE RENKLERİ"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "D3",
+      "type": 1,
+      "raw_value": "LEVHA EBADI"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "E3",
+      "type": 1,
+      "raw_value": "LEVHA ADETİ"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "F3",
+      "type": 1,
+      "raw_value": "SİPARİŞ VERİLİŞ TARİHİ"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "G3",
+      "type": 1,
+      "raw_value": "SİPARİŞ TESLİM TARİHİ"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "H3",
+      "type": 1,
+      "raw_value": "NOT:"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "A4",
+      "type": 2,
+      "raw_value": 1.0
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "B4",
+      "type": 1,
+      "raw_value": "52x195 SOFT ODA SPR 300 ML    VANILLAx4  OCEANICx8   LAVENDERx8                              "
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "C4",
+      "type": 1,
+      "raw_value": "İÇİ GOLD                                   DIŞI EMAYE                              CMYK"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "D4",
+      "type": 1,
+      "raw_value": "0.17x832x800"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "E4",
+      "type": 2,
+      "raw_value": 1250.0
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "F4",
+      "type": 3,
+      "raw_value": 46325.0,
+      "date_iso": "2026-10-30"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "G4",
+      "type": 3,
+      "raw_value": 46332.0,
+      "date_iso": "2026-11-06"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "H4",
+      "type": 1,
+      "raw_value": "SOFT REV NO:08"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "I4",
+      "type": 1,
+      "raw_value": "CTP MONTAJ TRAFINIZA GÖNDERİLECEKTİR.             "
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "IV4",
+      "type": 2,
+      "raw_value": 93908.0
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "A5",
+      "type": 2,
+      "raw_value": 2.0
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "B5",
+      "type": 1,
+      "raw_value": "52x195                                                                         SOFT ODA SPR 300 ML                                     CITRUSx4  ANTİTÜTÜNx8  ROSEx8"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "C5",
+      "type": 1,
+      "raw_value": "İÇİ GOLD                                   DIŞI EMAYE                              CMYK"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "D5",
+      "type": 1,
+      "raw_value": "0.17x832x800 "
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "E5",
+      "type": 2,
+      "raw_value": 1250.0
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "F5",
+      "type": 3,
+      "raw_value": 46325.0,
+      "date_iso": "2026-10-30"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "G5",
+      "type": 3,
+      "raw_value": 46332.0,
+      "date_iso": "2026-11-06"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "H5",
+      "type": 1,
+      "raw_value": "SOFT REV NO:08"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "I5",
+      "type": 1,
+      "raw_value": "CTP MONTAJ TRAFINIZA GÖNDERİLECEKTİR.             "
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "IV5",
+      "type": 2,
+      "raw_value": 93909.0
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "A6",
+      "type": 1,
+      "raw_value": "MATBAA ADI: KONTENSAN"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "D6",
+      "type": 1,
+      "raw_value": "HAZIRLAYAN:Hazel ASLAN"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "B7",
+      "type": 1,
+      "raw_value": "Form No:ÜR F21               Yayın Tarihi:06.12.13              Rev.No:01           Rev.Tarihi:14.04.14"
+    },
+    {
+      "sheet": "BASKI SIRASI -1",
+      "cell": "H25",
+      "type": 1,
+      "raw_value": " "
+    }
+  ]
+}
