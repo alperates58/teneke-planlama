@@ -1,0 +1,85 @@
+Attribute VB_Name = "kontrolhesap"
+Sub hesaplasırala()
+Application.EnableEvents = False
+Application.Calculation = xlManual
+
+Dim sk, k As Worksheet
+Set k = Sheets("KONTROL")
+Set p = Sheets("PLAN")
+kbascolumn = 1
+ksoncolumn = k.Cells(2, 1).End(xlToRight).Column
+
+
+Do While kbascolumn <> ksoncolumn + 1
+    If k.Cells(2, kbascolumn).Value = "Hafta" Then
+    kHafta = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Tarih" Then kTarih = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Sipariş No" Then kSiparişNo = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "İş No" Then kİşNo = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Ana Ürün Kod" Then kAnaÜrünKod = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Ana Ürün Ad" Then kAnaÜrünAdk = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Planlanan Miktar" Then kPlanlananMiktar = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Tüketim Kod" Then kTüketimKod = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Tüketim Ad" Then kTüketimAd = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Cins" Then kCins = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Çap ve Boy" Then kÇapveBoy = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Gerekli Miktar" Then kGerekliMiktar = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Toplam Stok" Then kToplamStok = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Kalan Stok" Then kKalanStok = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Eksik Kontrol" Then kEksikKontrol = kbascolumn
+    End If
+    kbascolumn = kbascolumn + 1
+Loop
+
+    ActiveWorkbook.Worksheets("KONTROL").ListObjects("AA_emre_plantenekee9").Sort. _
+        SortFields.Clear
+    ActiveWorkbook.Worksheets("KONTROL").ListObjects("AA_emre_plantenekee9").Sort. _
+        SortFields.Add2 Key:=Range("AA_emre_plantenekee9[Çap ve Boy]"), SortOn:= _
+        xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+    ActiveWorkbook.Worksheets("KONTROL").ListObjects("AA_emre_plantenekee9").Sort. _
+        SortFields.Add2 Key:=Range("AA_emre_plantenekee9[Tüketim Kod]"), SortOn:= _
+        xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+    ActiveWorkbook.Worksheets("KONTROL").ListObjects("AA_emre_plantenekee9").Sort. _
+        SortFields.Add2 Key:=Range("AA_emre_plantenekee9[Tarih]"), SortOn:= _
+        xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+    ActiveWorkbook.Worksheets("KONTROL").ListObjects("AA_emre_plantenekee9").Sort. _
+        SortFields.Add2 Key:=Range("AA_emre_plantenekee9[Cins]"), SortOn:= _
+        xlSortOnValues, Order:=xlDescending, DataOption:=xlSortNormal
+    With ActiveWorkbook.Worksheets("KONTROL").ListObjects("AA_emre_plantenekee9"). _
+        Sort
+        .Header = xlYes
+        .MatchCase = False
+        .Orientation = xlTopToBottom
+        .SortMethod = xlPinYin
+        .Apply
+    End With
+stoksayac = 3
+Do While k.Cells(stoksayac, kTüketimKod).Value <> ""
+    If k.Cells(stoksayac, kCins).Value = "ÜRETİM" Then
+        Range(k.Cells(stoksayac, kHafta), k.Cells(stoksayac, kKalanStok)).Interior.Color = RGB(189, 245, 216)
+    Else
+        Range(k.Cells(stoksayac, kHafta), k.Cells(stoksayac, kKalanStok)).Interior.Color = xlNone
+    End If
+    
+
+    If k.Cells(stoksayac, kTüketimKod).Value = k.Cells(stoksayac - 1, kTüketimKod).Value Then
+        k.Cells(stoksayac, kKalanStok).Value = Round(k.Cells(stoksayac - 1, kKalanStok).Value + k.Cells(stoksayac, kGerekliMiktar).Value, 0)
+        k.Range(k.Cells(stoksayac, kHafta), k.Cells(stoksayac, kKalanStok)).Borders(xlEdgeTop).LineStyle = xlNone
+    Else
+        k.Cells(stoksayac, kKalanStok).Value = Round(k.Cells(stoksayac, kToplamStok).Value + k.Cells(stoksayac, kGerekliMiktar).Value, 0)
+        k.Range(k.Cells(stoksayac, kHafta), k.Cells(stoksayac, kKalanStok)).Borders(xlEdgeTop).Weight = xlMedium
+    End If
+    
+    If k.Cells(stoksayac, kKalanStok).Value < 0 Then
+        k.Range(k.Cells(stoksayac, kKalanStok), k.Cells(stoksayac, kKalanStok)).Interior.Color = RGB(255, 160, 160)
+        k.Cells(stoksayac, kEksikKontrol).Value = "Eksik"
+    Else
+        k.Range(k.Cells(stoksayac, kKalanStok), k.Cells(stoksayac, kKalanStok)).Interior.Color = xlNone
+        k.Cells(stoksayac, kEksikKontrol).Value = "Tam"
+    End If
+    
+stoksayac = stoksayac + 1
+Loop
+Application.EnableEvents = True
+Application.Calculation = xlAutomatic
+End Sub

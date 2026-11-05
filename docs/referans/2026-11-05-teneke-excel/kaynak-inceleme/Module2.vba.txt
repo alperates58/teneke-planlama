@@ -1,0 +1,96 @@
+Attribute VB_Name = "Module2"
+Sub start2()
+
+mypc = Replace(Environ$("computername"), "-", "") & "_TEDPER"
+Dim conn As New ADODB.Connection
+
+Dim bastime As Date
+bastime = Now()
+
+once_hedefleri_sqle_yaz2
+
+Dim bittime As Date
+bittime = Now()
+'Unload master
+MsgBox ("Baslangic: " & bastime & vbCrLf & "Bitis: " & bittime & vbCrLf & "alper.ates@liderkozmetik.com")
+On Error Resume Next
+ActiveWorkbook.Worksheets("İHTİYAÇ").ShowAllData
+On Error GoTo 0
+Sheets("İHTİYAÇ").Range("E2").ListObject.QueryTable.Refresh BackgroundQuery:=False
+Application.Wait (Now + TimeValue("0:00:02"))
+
+End Sub
+Sub once_hedefleri_sqle_yaz2()
+
+
+Dim conn As New ADODB.Connection
+    Dim iRowNo As Integer
+    Dim ay As String, URUNKOD As String, URUNAD As String, HEDEFMIK As Double
+     With Sheets("PLAN")
+     
+    Set p = Sheets("PLAN")
+    Set kl = Sheets("KONTROL")
+    Set td = Sheets("TENEKE DATA")
+    Set çt = Sheets("Çalışma Tarihleri")
+    'rows
+    çtsonrow = çt.Range("B1").End(xlDown).Row
+    pSonRow = p.Range("A1").End(xlDown).End(xlDown).Row
+    tdSonRow = td.Range("B1").End(xlDown).Row
+    pSonColumn = p.Range("A1").End(xlToRight).Column
+    tdSonColumn = td.Range("A1").End(xlToRight).Column
+    çtsoncolumn = çt.Range("A1").End(xlToRight).Column
+    pBasColumn = 1
+    pBasRow = p.Range("A1").End(xlDown).Row
+
+    Do While pBasColumn <> pSonColumn + 1
+    If p.Cells(pBasRow, pBasColumn).Value = "Hafta" Then
+    pHafta = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Tarih" Then pTarih = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "İş Kod" Then pİşKod = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Kodu" Then pÜrünKodu = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Adı" Then pÜrünAdı = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Seri" Then pSeri = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Kalan" Then pKalan = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Başlangıç Tarih" Then pBaşlangıçTarih = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Bitiş Tarih" Then pBitişTarih = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Çap ve Boy" Then pÇapveBoy = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Üretim Süresi" Then pÜretimSüresi = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Açıklama" Then pAçıklama = pBasColumn
+    End If
+    pBasColumn = pBasColumn + 1
+    Loop
+    iRowNo = 2
+    Do While p.Cells(iRowNo, pSeri).Value <> p.Cells(Selection.Row, pSeri).Value
+        iRowNo = iRowNo + 1
+    Loop
+conn.ConnectionString = "Provider=SQLOLEDB;Server=172.17.0.6;Database=MikroDesktop_LIDER26;User ID=[REDACTED];Password=[REDACTED];"
+    conn.Open
+   
+   conn.Execute "delete from dbo.meltem_teneke"
+   
+
+
+        Do Until iRowNo = Selection.Row + 1
+
+        If iRowNo = 110 Then
+        ''Stop
+        End If
+            SIPARISNO = ""
+            URUNKOD = Cells(iRowNo, pÜrünKodu)
+            URUNAD = Cells(iRowNo, pÜrünAdı)
+            HEDEFMIK = CDbl(Cells(iRowNo, pKalan))
+conn.Execute "insert into dbo.meltem_teneke (SIPARISNO, URUNKOD, URUNAD, HEDEFMIK) values ('" & SIPARISNO & "' ,'" & URUNKOD & "' , '" & URUNAD & "' , " & Replace(HEDEFMIK, ",", ".") & ")"
+            iRowNo = iRowNo + 1
+        Loop
+            
+            
+        conn.Close
+        Set conn = Nothing
+             
+    End With
+
+
+
+End Sub
+
+

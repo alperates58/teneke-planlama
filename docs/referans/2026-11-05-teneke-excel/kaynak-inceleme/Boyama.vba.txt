@@ -1,0 +1,89 @@
+Attribute VB_Name = "Boyama"
+Sub PlanBoya()
+Application.EnableEvents = False
+Application.Calculation = xlManual
+    Dim UretimSuresi, KalanAdet, ÜretimAdetiDk As Double
+    Dim MalzemeTedarikSuresi As Integer
+    Dim BaslangicTarihi, CalismaSaatleriBaslangic, CalismaSaatleriBitis1, CalismaSaatleriBitis, BitişTarihiSaat As Date
+    Dim Mola1Baslangic, Mola2Baslangic, Mola3Baslangic, Mola4Baslangic, Mola5Baslangic, Mola6Baslangic As Date
+    Dim Mola1Bitis, Mola2Bitis, Mola3Bitis, Mola4Bitis, Mola5Bitis, Mola6Bitis, üretimbitiş, üretimbaşlangıç As Date
+    Dim sayactarih, işemirlerisonrow, çtsonrow, çtsoncolumn As Integer
+    Dim CalismaSaatleriSureDk As Integer
+    Dim p, kl, td As Worksheet
+    
+
+    Set p = Sheets("PLAN")
+    Set kl = Sheets("KONTROL")
+    Set td = Sheets("TENEKE DATA")
+    Set çt = Sheets("Çalışma Tarihleri")
+    'rows
+    çtsonrow = çt.Range("B1").End(xlDown).Row
+    pSonRow = p.Range("A1").End(xlDown).End(xlDown).Row
+    pBasRow = p.Range("A1").End(xlDown).Row
+    pBasColumn = 1
+    tdSonRow = td.Range("B1").End(xlDown).Row
+    pSonColumn = p.Cells(pBasRow, pBasColumn).End(xlToRight).Column
+    tdSonColumn = td.Range("A1").End(xlToRight).Column
+    çtsoncolumn = çt.Range("A1").End(xlToRight).Column
+    
+    
+    Do While pBasColumn <> pSonColumn + 1
+    If p.Cells(pBasRow, pBasColumn).Value = "Hafta" Then
+    pHafta = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Tarih" Then pTarih = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "İş Kod" Then pİşKod = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Kodu" Then pÜrünKodu = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Adı" Then pÜrünAdı = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Kalan" Then pKalan = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Başlangıç Tarih" Then pBaşlangıçTarih = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Bitiş Tarih" Then pBitişTarih = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Çap ve Boy" Then pÇapveBoy = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Üretim Süresi" Then pÜretimSüresi = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Açıklama" Then pAçıklama = pBasColumn
+    End If
+    pBasColumn = pBasColumn + 1
+    Loop
+
+p.Range(p.Cells(pBasRow, pÇapveBoy), p.Cells(pSonRow, pAçıklama)).Interior.Color = xlNone
+
+    p.Range(p.Cells(pBasRow, pÇapveBoy), p.Cells(pSonRow, pAçıklama)).Borders(xlDiagonalDown).LineStyle = xlNone
+    p.Range(p.Cells(pBasRow, pÇapveBoy), p.Cells(pSonRow, pAçıklama)).Borders(xlDiagonalUp).LineStyle = xlNone
+    p.Range(p.Cells(pBasRow, pÇapveBoy), p.Cells(pSonRow, pAçıklama)).Borders(xlEdgeLeft).LineStyle = xlNone
+    p.Range(p.Cells(pBasRow, pÇapveBoy), p.Cells(pSonRow, pAçıklama)).Borders(xlEdgeTop).LineStyle = xlNone
+    p.Range(p.Cells(pBasRow, pÇapveBoy), p.Cells(pSonRow, pAçıklama)).Borders(xlEdgeBottom).LineStyle = xlNone
+    p.Range(p.Cells(pBasRow, pÇapveBoy), p.Cells(pSonRow, pAçıklama)).Borders(xlEdgeRight).LineStyle = xlNone
+    p.Range(p.Cells(pBasRow, pÇapveBoy), p.Cells(pSonRow, pAçıklama)).Borders(xlInsideVertical).LineStyle = xlNone
+    p.Range(p.Cells(pBasRow, pÇapveBoy), p.Cells(pSonRow, pAçıklama)).Borders(xlInsideHorizontal).LineStyle = xlNone
+
+    sayacrenk = pBasRow
+    sayacrenktip = 1
+    Do While p.Range("A" & sayacrenk).Value <> ""
+        If p.Range("A" & sayacrenk).Value <> p.Range("A" & sayacrenk - 1).Value Then
+            sayacrenktip = sayacrenktip + 1
+        End If
+        
+        If sayacrenktip Mod 2 = 1 Then
+            p.Cells(sayacrenk, 1).Interior.Color = RGB(255, 217, 102)
+        Else
+            p.Cells(sayacrenk, 1).Interior.Color = xlNone
+        End If
+
+    If Left(p.Cells(sayacrenk, pÇapveBoy).Value, 2) = Left(p.Cells(sayacrenk - 1, pÇapveBoy).Value, 2) Then
+
+    Else
+        p.Range(p.Cells(sayacrenk, pÇapveBoy), p.Cells(sayacrenk, pAçıklama)).Borders(xlEdgeTop).Weight = xlMedium
+    End If
+    
+    sayacrenk = sayacrenk + 1
+    Loop
+    
+Application.EnableEvents = True
+Application.Calculation = xlAutomatic
+End Sub
+
+
+
+
+
+
+

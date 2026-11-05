@@ -200,33 +200,57 @@ Sunucu, port, veritabanı, kullanıcı, view tanımları, kolon eşleme önizlem
 - [ ] Kural kapsamı ve çatışmaları örneklerle doğrulandı.
 - [ ] Tekrar kısıtları, minimum baskı kapsamı ve renk istisnası kararları kayıtlı.
 
-## 7. Faz 3 — SQL Server entegrasyonu ve ihtiyaç hesabı
+## 6.1. Faz 2C — Tanımlar Merkezi ve Excel Teknik Kart İçe Aktarımı (05.11.2026 Ek Kapsam)
 
 ### İşler
-
-- 3.1 IT ile bağlantı bilgileri ve yalnız gerekli view'lara okuma yetkisi. Gerçek bağlantı bilgileri henüz verilmedi; uydurulmaz. Kaynak IP kısıtı, şifreli bağlantı ve erişim politikası IT ile belirlenir.
-- 3.2 Sunucu/port/veritabanı ve view/kolon eşlemeleri yönetimi. Kimlik bilgileri sunucu tarafında korunur; tarayıcıya veya loglara açık verilmez.
-- 3.3 Stok kartı, ihtiyaç, depo/lot/revizyon stokları, reçete ilişkileri ve varsa açık tedarik/iş emirleri için veri sözleşmeleri.
-- 3.4 Sipariş satırı anahtarı, tarih, birim, miktar, stok kodu ve veri sahibi doğrulanır. İhtiyaç view'ının hangi stok ve planları zaten düşürdüğü belgelenir.
-- 3.5 ERP alanları ile uygulamada yönetilen teknik alanlar ayrılır. Yenileme yerel kuralları veya revizyon açıklamalarını ezmez.
-- 3.6 Manuel/zamanlanmış senkronizasyon, son başarılı zaman, hata bilgisi, tekrar deneme ve veri bayatlığı uyarıları.
-- 3.7 Tutarlı veri anlık görüntüsü ve mükerrer çalıştırmada kayıt çoğaltmayan aktarım. Yarım kalan aktarım tam başarı diye işaretlenmez.
-- 3.8 Brüt/net kapsamına göre netleştirme. Hazır tüp, kesik levha ve baskılı levha ayrı seviyelerde karşılanır; ham levha doğrudan hazır tüp sayılmaz.
-- 3.9 Ortak baskılı levha/montaj kaynağını tek kez ayıran rezervasyon ve siparişe bağlama. Aynı stok iki plana tahsis edilmez. Açık tedarik yalnız uygun tarih/durumla değerlendirilir.
-- 3.10 Kalite, bloke, revizyon ve tarih koşulları. Kullanılamayan stok miktarı ve gerekçesi görünür olur.
-- 3.11 Manuel ihtiyaç düzeltmesi gerekçe ve kullanıcıyla kaydedilir; ERP'den gelen orijinal miktar korunur.
+- 2C.1 Tanımlar ana menüsü ve alt modülleri: Stok Kartları (ERP Kataloğu), Teknik Kartlar, Ham Levhalar, Tüp-Ham Levha Eşleşmeleri, Ebat/Kapasite Şablonları, Renkler, Zeminler, Vernikler, Lak Durumları, İç Kaplamalar, Ürün Grupları, Matbaa Kuralları, Hat/Makine/Takvim/Hız parametreleri.
+- 2C.2 Veri sahipliği ayrımı: ERP stok ana kartı alanları (kod, ad, kategori, birim) ERP senkronunun kontrolündedir ve değiştirilemez. Teknik kart alanları (renk, zemin, lak, vernik, iç kaplama, onaylı ham levha) yerel olarak yönetilir ve ERP senkronu bu teknik alanları ezmez.
+- 2C.3 Manuel formda stok kodu zorunludur; girildiğinde yerel senkron katalogdan stok adı otomatik dolar ve salt-okunurdur.
+- 2C.4 Ham levha seçimi gerçek stok kodu (FK) ile bağlanır; alternatif levha uydurulmaz. Teknik kart ham levhası ile reçete ham levhası uyuşmazsa açık uyarı verilir ve onay engellenir.
+- 2C.5 Excel teknik kart importu (.xlsx / formülsüz .xlsm): şablon indirme, dosya yükleme, dinamik kolon eşleme, doğrulama, önizleme ve güncelleme politikası. "Ham Levha kodu" kolonundaki isimler gerçek stok koduna açık eşlenir; eşleşmeyen satırlar içeri alınmaz.
+- 2C.6 Referans bütünlüğü: Kullanımda olan tanımlar silinemez, pasife alınır. Değişiklikler audit_logs tablosuna yazılır.
 
 ### Kabul
+- [ ] Stok kodu olmayan manuel/import satırı reddedilir.
+- [ ] Stok kodu girilince ad senkron katalogdan otomatik gelir ve değiştirilemez.
+- [ ] ERP senkronu manuel/Excel ile girilmiş teknik özellikleri ezmez.
+- [ ] Ham levha açıklaması katalogdaki gerçek ham stok koduna açıkça eşlenir; belirsiz satır onaylanmaz.
+- [ ] Kullanılan tanım silinemez, pasife alınır; geçmiş plan korunur.
 
-- [ ] Gerçek veride seçilen siparişler ERP ve mevcut ihtiyaç raporuyla uzlaşıyor.
-- [ ] Net veri ikinci kez stok düşmüyor; brüt veri tanımlı kuralla netleşiyor.
-- [ ] Tekrar aktarım kayıt çoğaltmıyor; bağlantı kesilmesi son başarılı veriyi bozmaz.
-- [ ] Revizyonu uygunsuz/bloke stok ihtiyacı karşılamıyor.
-- [ ] Bir ortak levha stoğu iki kez tüketilmiyor.
-- [ ] İhtiyacın hangi kaynak ve kurallardan oluştuğu satır bazında açıklanabiliyor.
-- [ ] ERP'ye yazma işlemi bulunmuyor.
+## 7. Faz 3 — SQL Server Entegrasyonu, Çok Seviyeli İhtiyaç ve Mutabakat
+
+### 7.1. Faz 3A — AA_LIDER SQL Sözleşmesi ve Salt-Okunur Entegrasyon
+- SQL bağlantı veritabanı: `AA_LIDER`; kaynak ERP veritabanı: `MikroDesktop_LIDER26`.
+- ERP'ye hiçbir tabloya (`meltem_teneke`, `alper_tenekeuretim` vb.) yazma veya silme yapılmaz; bağlantı kesinlikle salt-okunurdur (`SELECT`).
+- 5 temel view sözleşmesi ve parametrik kolon eşlemesi: `AA_tp_vw_StokKartlari`, `AA_tp_vw_TupBrutIhtiyac`, `AA_tp_vw_ReceteBaglantilari`, `AA_tp_vw_StokDepo`, `AA_tp_vw_PlanliTupArz`.
+- Staging ve atomik snapshot: Hatalı/yarım sorgu son başarılı veriyi bozmaz.
+- Kimlik bilgileri şifreli olarak sunucuda tutulur; istemciye veya loglara aktarılmaz.
+
+### 7.2. Faz 3B — Çok Seviyeli İhtiyaç Motoru ve Havuz (50-10-5-7=28 Kuralı)
+- Kademeli stok netleme formülü:
+  - `Hazır Tüp Stoğu Karşılama:` 50.000 brüt - 10.000 tüp stok = 40.000 tüp üretim ihtiyacı.
+  - `Kesik Levha Stoğu Karşılama:` 40.000 tüp üretim - 5.000 tüp eşdeğeri kesik = 35.000 kesim ihtiyacı.
+  - `Baskılı Levha Stoğu Karşılama:` 35.000 kesim - 7.000 tüp eşdeğeri baskılı = 28.000 yeni baskı ihtiyacı.
+- Çıktıların hatlara yönlendirilmesi: Kombinasyon masasına 28.000 tüp eşdeğeri baskı ihtiyacı aktarılır; tüp imalat hattına 40.000 tüp planlanır; kesim hattına 35.000 tüp eşdeğeri planlanır.
+- Tek seferlik tahsis (rezervasyon): Bir stok kalemi havuzda yalnız tek bir siparişe tahsis edilir; mükerrer stok düşümü engellenir.
+- Doğrulanmış birim ve reçete katsayıları kullanılır. Karışık baskılı levhada ürüne ait tekrar payı kadar tüp eşdeğeri ayrılır.
+- Ham levha stoğu yeni baskı ihtiyacını azaltmaz; ham levha satın alma ihtiyacını azaltır.
+- Eksik reçeteli ürünler havuzda teknik uyarıyla kalır; onay engellenir.
+
+### 7.3. Faz 3C — Excel / SQL / Uygulama Mutabakatı
+- Canlı snapshot ile Excel ve SQL sonuçları arasında 10 temsilî ürün ve 3 ebat üzerinden sayısal mutabakat.
+- Excel formül hataları yeni sisteme taşınmaz; mutabakat farklarının nedenleri (depo, birim, yuvarlama) açıkça raporlanır.
+
+### Kabul
+- [ ] 50.000 brüt / 10.000 tüp / 5.000 kesik / 7.000 baskılı stok kabul testi tam sonuç verir: 40.000 tüp üretim, 35.000 kesim, 28.000 yeni baskı.
+- [ ] Aynı stok iki siparişe mükerrer tahsis edilemez.
+- [ ] ERP'ye yazma işlemi kesinlikle bulunmaz.
+- [ ] Eksik reçeteli veya eşleşmeyen kayıt havuzda görünür, onay engellenir.
+- [ ] SQL bağlantısı veya senkron kesildiğinde son başarılı snapshot korunur.
 
 ## 8. Faz 4 — Kombinasyon ve baskı miktarı motoru
+
+**Girdi Bağımlılığı:** Faz 3B'den gelen "Yeni Baskı Net İhtiyacı" (Örn: 50.000 brüt - 10.000 tüp - 5.000 kesik - 7.000 baskılı = 28.000 tüp eşdeğeri). Faz 4 motoruna 40.000 değil, net 28.000 yeni baskı ihtiyacı girdi olarak verilir.
 
 ### İşler
 
@@ -263,6 +287,8 @@ Sunucu, port, veritabanı, kullanıcı, view tanımları, kolon eşleme önizlem
 
 ## 9. Faz 5 — Teneke üretim planlama
 
+**Girdi Bağımlılığı:** Faz 3B'den gelen "Net Tüp Üretim İhtiyacı" (Örn: 40.000 tüp) ve "Kesim İhtiyacı" (35.000 tüp eşdeğeri). Tüp imalat hattına 28.000 değil, 40.000 tüp planlanır.
+
 ### İşler
 
 - 5.1 Makas ve tüp üretim hatları için kapasite, uygun ebat, vardiya ve çalışma takvimi.
@@ -288,16 +314,7 @@ Sunucu, port, veritabanı, kullanıcı, view tanımları, kolon eşleme önizlem
 
 ## 10. Faz 6 — Matbaa siparişi, revizyon ve gerçekleşen takip
 
-### İşler
-
-- 6.1 Kaynak Excel düzeninden PDF/Excel matbaa sipariş formu. Alanlar: montaj no, ürünler ve tekrarlar, iç/dış baskı, renkler, levha ölçüsü ve adedi, sipariş/teslim tarihleri, ürün revizyonları, not, matbaa ve hazırlayan.
-- 6.2 Ajans için montaj talebi özeti ve ek dosyalar. Gerçek CTP dosyası ajans/grafik sürecinden gelir; yazılım otomatik CTP ürettiğini iddia etmez.
-- 6.3 Ürün tasarım revizyonu, montaj revizyonu, form şablonu revizyonu ve plan revizyonu ayrı alanlardır.
-- 6.4 Baskı siparişi akışı: Taslak → Kontrol → Onay bekliyor → Onaylandı → Gönderildi → Kısmi teslim/Teslim edildi → Kapandı. Ret, iptal ve yeniden revizyon yolları tanımlanır.
-- 6.5 Onaylanan kayıt/snapshot korunur. Sonraki revizyon eski onay ve formu silmez. “Gönderildi” gerçek kullanıcı işlemi veya doğrulanmış entegrasyon olayı gerektirir; dosya indirmek gönderim değildir.
-- 6.6 Tedarikçi termin teyidi, kısmi teslim, fason ham levha stoğu ve ayrılan miktarlar. Fiili ERP hareketiyle uygulama beklentisi uzlaştırılır.
-- 6.7 Kalite kabul/bloke, lot/parti/revizyon ilişkisi; kg ve levha/adet birimleri arasında yalnız onaylı dönüşüm kullanılır.
-- 6.8 Kesim ve tüp üretiminde gerçekleşen miktar/fire/başlangıç-bitiş. ERP'de kaynak varsa okunur; uygulamadaki manuel kayıt aynı olayla mükerrerleşmez.
+**Çıktı Bağımlılığı:** Faz 2C teknik tanımları, Faz 4 montaj ve levha adetleri, Faz 5 termin ve parti takvimi. Formda iç kaplama, lak, zemin ve revizyon kimlikleri tam olarak yer alır.
 - 6.9 Kalan miktarların yeniden planlamaya dönmesi; kapatılan işlerde rezervasyonların doğru serbest bırakılması.
 - 6.10 Raporlar: termin uyumu, plan/gerçekleşen, fazla üretim, baskı miktarı, revizyon nedeniyle kullanılamayan stok.
 - 6.11 Süreç belgesindeki son 6 aylık tüketim ortalamasına dayalı ham levha tedarik önerisi ayrı görünüm olarak hazırlanır. Gerçek hesap penceresi ve stok politikası parametriktir; tüp planı için otomatik başka levha önermez ve satın alma siparişi kendiliğinden açmaz.

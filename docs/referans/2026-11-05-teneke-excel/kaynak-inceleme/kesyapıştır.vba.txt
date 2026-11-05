@@ -1,0 +1,21 @@
+Attribute VB_Name = "kesyapıştır"
+Sub ÜrünKes()
+
+
+Set pl = Sheets("PLAN")
+
+
+    KesBasRow = Selection.Row
+    KesSonRow = KesBasRow + Selection.Rows.Count - 1
+        
+    Range(Rows(KesBasRow), Rows(KesSonRow)).Cut
+End Sub
+Sub ÜrünYapıştır()
+
+
+Set pl = Sheets("PLAN")
+
+
+    YapıştırBasRow = Selection.Row
+    Range(Rows(YapıştırBasRow), Rows(YapıştırBasRow)).Insert Shift:=xlDown
+End Sub

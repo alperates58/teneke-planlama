@@ -1,0 +1,141 @@
+[
+  {
+    "stream": "BuÇalışmaKitabı",
+    "offset": 827,
+    "bytes": 308,
+    "procedures": []
+  },
+  {
+    "stream": "Sayfa1",
+    "offset": 1008,
+    "bytes": 299,
+    "procedures": []
+  },
+  {
+    "stream": "Module1",
+    "offset": 13106,
+    "bytes": 7757,
+    "procedures": [
+      "start",
+      "once_hedefleri_sqle_yaz",
+      "SqlText",
+      "SqlNum",
+      "SqlDate",
+      "ToDouble"
+    ]
+  },
+  {
+    "stream": "Sayfa2",
+    "offset": 1016,
+    "bytes": 299,
+    "procedures": []
+  },
+  {
+    "stream": "Sayfa3",
+    "offset": 1008,
+    "bytes": 299,
+    "procedures": []
+  },
+  {
+    "stream": "zaman",
+    "offset": 10781,
+    "bytes": 9594,
+    "procedures": [
+      "PlanlamaTarihleriHesapla"
+    ]
+  },
+  {
+    "stream": "Sayfa18",
+    "offset": 1008,
+    "bytes": 300,
+    "procedures": []
+  },
+  {
+    "stream": "kontrolhesap",
+    "offset": 6615,
+    "bytes": 4485,
+    "procedures": [
+      "hesaplasırala"
+    ]
+  },
+  {
+    "stream": "ürünekle",
+    "offset": 7070,
+    "bytes": 5149,
+    "procedures": [
+      "ürünekle"
+    ]
+  },
+  {
+    "stream": "Sayfa5",
+    "offset": 1008,
+    "bytes": 299,
+    "procedures": []
+  },
+  {
+    "stream": "Module2",
+    "offset": 7506,
+    "bytes": 3493,
+    "procedures": [
+      "start2",
+      "once_hedefleri_sqle_yaz2"
+    ]
+  },
+  {
+    "stream": "Boyama",
+    "offset": 6650,
+    "bytes": 4204,
+    "procedures": [
+      "PlanBoya"
+    ]
+  },
+  {
+    "stream": "DATAYAAKTAR",
+    "offset": 6308,
+    "bytes": 4078,
+    "procedures": [
+      "DatayaAktar"
+    ]
+  },
+  {
+    "stream": "Sayfa4",
+    "offset": 827,
+    "bytes": 299,
+    "procedures": []
+  },
+  {
+    "stream": "Sayfa6",
+    "offset": 827,
+    "bytes": 299,
+    "procedures": []
+  },
+  {
+    "stream": "Sayfa8",
+    "offset": 827,
+    "bytes": 299,
+    "procedures": []
+  },
+  {
+    "stream": "Sayfa7",
+    "offset": 827,
+    "bytes": 299,
+    "procedures": []
+  },
+  {
+    "stream": "ÜretimPlanı",
+    "offset": 7544,
+    "bytes": 5336,
+    "procedures": [
+      "Üretimplanıı"
+    ]
+  },
+  {
+    "stream": "kesyapıştır",
+    "offset": 1426,
+    "bytes": 410,
+    "procedures": [
+      "ÜrünKes",
+      "ÜrünYapıştır"
+    ]
+  }
+]

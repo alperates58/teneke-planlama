@@ -1,0 +1,184 @@
+Attribute VB_Name = "zaman"
+Sub PlanlamaTarihleriHesapla()
+Application.EnableEvents = False
+Application.Calculation = xlManual
+    Dim UretimSuresi, KalanAdet, ÜretimAdetiDk As Double
+    Dim MalzemeTedarikSuresi As Integer
+    Dim BaslangicTarihi, CalismaSaatleriBaslangic, CalismaSaatleriBitis1, CalismaSaatleriBitis, BitişTarihiSaat As Date
+    Dim Mola1Baslangic, Mola2Baslangic, Mola3Baslangic, Mola4Baslangic, Mola5Baslangic, Mola6Baslangic As Date
+    Dim Mola1Bitis, Mola2Bitis, Mola3Bitis, Mola4Bitis, Mola5Bitis, Mola6Bitis, üretimbitiş, üretimbaşlangıç As Date
+    Dim sayactarih, işemirlerisonrow, çtsonrow, çtsoncolumn As Integer
+    Dim CalismaSaatleriSureDk As Integer
+    Dim p, kl, td As Worksheet
+    
+
+    Set p = Sheets("PLAN")
+    Set kl = Sheets("KONTROL")
+    Set td = Sheets("TENEKE DATA")
+    Set çt = Sheets("Çalışma Tarihleri")
+    'rows
+    çtsonrow = çt.Range("B1").End(xlDown).Row
+    pSonRow = p.Range("A1").End(xlDown).End(xlDown).Row
+    tdSonRow = td.Range("B1").End(xlDown).Row
+    pSonColumn = p.Range("A1").End(xlToRight).Column
+    tdSonColumn = td.Range("A1").End(xlToRight).Column
+    çtsoncolumn = çt.Range("A1").End(xlToRight).Column
+    pBasColumn = 1
+    pBasRow = p.Range("A1").End(xlDown).Row
+    ' Çalışma saatleri ve mola aralıklarını ayarlayın
+    CalismaSaatleriBaslangic = TimeValue("07:30:00")
+    CalismaSaatleriBitis = TimeValue("17:30:00")
+    Mola1Baslangic = TimeValue("09:15:00")
+    Mola1Bitis = TimeValue("09:30:00")
+    Mola2Baslangic = TimeValue("12:00:00")
+    Mola2Bitis = TimeValue("12:30:00")
+    Mola3Baslangic = TimeValue("15:15:00")
+    Mola3Bitis = TimeValue("15:30:00")
+    Mola4Baslangic = TimeValue("19:30:00")
+    Mola4Bitis = TimeValue("19:45:00")
+    Mola5Baslangic = TimeValue("21:30:00")
+    Mola5Bitis = TimeValue("22:00:00")
+    Mola6Baslangic = TimeValue("23:30:00")
+    Mola6Bitis = TimeValue("23:45:00")
+    CalismaSaatleriBitis1 = TimeValue("01:30:00")
+
+    Do While pBasColumn <> pSonColumn + 1
+    If p.Cells(pBasRow, pBasColumn).Value = "Hafta" Then
+    pHafta = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Tarih" Then pTarih = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "İş Kod" Then pİşKod = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Kodu" Then pÜrünKodu = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Adı" Then pÜrünAdı = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Seri" Then pSeri = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Kalan" Then pKalan = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Başlangıç Tarih" Then pBaşlangıçTarih = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Bitiş Tarih" Then pBitişTarih = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Çap ve Boy" Then pÇapveBoy = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Üretim Süresi" Then pÜretimSüresi = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Açıklama" Then pAçıklama = pBasColumn
+    End If
+    pBasColumn = pBasColumn + 1
+    Loop
+
+    sayactarih = 5
+    Do While p.Cells(sayactarih, pSeri).Value <> p.Cells(Selection.Row, pSeri).Value
+        sayactarih = sayactarih + 1
+    Loop
+    sayacbaslan = sayactarih
+    başlangıçhesap = 1
+    Do While p.Cells(sayactarih, pSeri).Value = p.Cells(Selection.Row, pSeri).Value
+        If sayactarih = sayacbaslan Then
+            BaslangicTarihi = p.Cells(sayactarih, pBaşlangıçTarih).Value
+        ElseIf ("07:30" > Format(p.Cells(sayactarih, pBaşlangıçTarih).Value, "hh:mm") And Format(p.Cells(sayactarih, pBaşlangıçTarih).Value, "hh:mm") > "01:30") Then
+            ' Başlangıç tarihini hesaplayın
+            BaslangicTarihi = Format(p.Cells(sayactarih, pBaşlangıçTarih).Value, "yyyy-mm-dd") & " 07:30"
+            p.Cells(sayactarih, pBaşlangıçTarih).Value = BaslangicTarihi
+        ElseIf sayactarih = 6 Then
+            BaslangicTarihi = p.Cells(sayactarih, pBaşlangıçTarih).Value
+        ElseIf AyarSüresi > 0 Then
+            BaslangicTarihi = p.Cells(sayactarih - 1, pBitişTarih).Value
+        Else
+            ' Başlangıç tarihini hesaplayın
+            p.Cells(sayactarih, pBaşlangıçTarih).Value = p.Cells(sayactarih - 1, pBitişTarih).Value
+            BaslangicTarihi = p.Cells(sayactarih - 1, pBitişTarih).Value
+        End If
+    ' Toplam çalışma saatleri süresini hesaplayın
+    
+    KalanAdet = p.Cells(sayactarih, pKalan).Value
+    
+    ' Bitiş tarihini hesaplayın
+    Dim BitisTarihi As Date
+    BitisTarihi = BaslangicTarihi
+
+
+
+    Do While KalanAdet > 0
+            BitişTarihiSaat = Format(BitisTarihi, "hh:mm:ss")
+                If (BitişTarihiSaat <= CalismaSaatleriBaslangic And BitişTarihiSaat > CalismaSaatleriBitis1) Or başlangıçhesap = 1 Then
+                    Set çtTarihbul = çt.Range(çt.Cells(1, 3), çt.Cells(çtsonrow, 3)).Find(Format(BitisTarihi, "yyyy-mm-dd"), LookIn:=xlValues, LookAt:=xlWhole)
+                    ÇalışTipi = çt.Cells(çtTarihbul.Row, 5).Value
+                        
+                            If ÇalışTipi = "ÇALIŞACAK" Then
+                                üretimbaşlangıç = CalismaSaatleriBaslangic
+                                üretimbitiş = CalismaSaatleriBitis
+                                çalışmadurumusay = 0
+                            ElseIf ÇalışTipi = "VARDİYA" Then
+                                üretimbaşlangıç = CalismaSaatleriBaslangic
+                                üretimbitiş = CalismaSaatleriBitis1
+                            ElseIf ÇalışTipi = "VARDİYA1" Then
+                                üretimbaşlangıç = CalismaSaatleriBitis
+                                üretimbitiş = CalismaSaatleriBitis1
+                                çalışmadurumusay = 0
+                            ElseIf ÇalışTipi = "MESAİ" Then
+                                üretimbaşlangıç = CalismaSaatleriBaslangic
+                                üretimbitiş = DateAdd("h", çt.Cells(çtTarihbul.Row, 6).Value, CalismaSaatleriBitis)
+                                çalışmadurumusay = 0
+                            ElseIf ÇalışTipi = "" Then
+                                ÇalışmaTarihPlan = Format(DateAdd("D", 1, ÇalışmaTarihPlan), "yyyy-mm-dd")
+                                çalışmadurumu = ""
+                                çalışmadurumusay = çalışmadurumusay + 1
+                                If çalışmadurumusay = 300 Then
+                                Stop
+                                    MsgBox "Çalışma Tarihini Kontrol Et"
+                                    Exit Sub
+                                End If
+                            End If
+                End If
+
+                        ÜretimAdetiDk = Application.WorksheetFunction.VLookup( _
+                        p.Cells(sayactarih, pÇapveBoy).Value, td.Range("B2:Z" & tdSonRow), 7, False)
+
+            If (BitişTarihiSaat < üretimbaşlangıç And BitişTarihiSaat >= üretimbitiş And ÇalışTipi = "VARDİYA") Or _
+            ((BitişTarihiSaat < üretimbaşlangıç Or BitişTarihiSaat >= üretimbitiş) And ÇalışTipi = "ÇALIŞACAK") Or _
+            (BitişTarihiSaat < üretimbaşlangıç And BitişTarihiSaat >= üretimbitiş And ÇalışTipi = "VARDİYA1") Or _
+            ((BitişTarihiSaat < üretimbaşlangıç Or BitişTarihiSaat >= üretimbitiş) And ÇalışTipi = "MESAİ") Or _
+            (ÇalışTipi = "") Then
+                BitisTarihi = BitisTarihi + TimeValue("00:30:00")
+            ElseIf ((BitişTarihiSaat >= Mola1Baslangic And BitişTarihiSaat < Mola1Bitis) Or _
+                (BitişTarihiSaat >= Mola3Baslangic And BitişTarihiSaat < Mola3Bitis) Or _
+                (BitişTarihiSaat >= Mola4Baslangic And BitişTarihiSaat < Mola4Bitis) Or _
+                (BitişTarihiSaat >= Mola6Baslangic And BitişTarihiSaat < Mola6Bitis)) Then
+                BitisTarihi = BitisTarihi + TimeValue("00:15:00")
+            ElseIf (BitişTarihiSaat >= Mola2Baslangic And BitişTarihiSaat < Mola2Bitis) Or _
+                (BitişTarihiSaat >= Mola5Baslangic And BitişTarihiSaat < Mola5Bitis) Then
+                BitisTarihi = BitisTarihi + TimeValue("00:30:00")
+            ElseIf AyarSüresi > 0 Then
+                AyarSüresi = AyarSüresi - 1
+                BitisTarihi = BitisTarihi + TimeValue("00:01:00")
+                If AyarSüresi = 0 Then
+                    p.Cells(sayactarih, pBaşlangıçTarih).Value = BitisTarihi
+                End If
+            Else
+                KalanAdet = KalanAdet - ÜretimAdetiDk
+ 
+                BitisTarihi = BitisTarihi + TimeValue("00:01:00")
+            End If
+            başlangıçhesap = 2
+    Loop
+            If (Left(p.Cells(sayactarih, pÇapveBoy).Value, 2) <> Left(p.Cells(sayactarih + 1, pÇapveBoy).Value, 2)) And sayactarih <> 2 Then
+   
+                If Left(p.Cells(sayactarih + 1, pÇapveBoy).Value, 2) = 45 Then
+                    AyarSüresi = 480
+                Else
+                    AyarSüresi = 180
+                End If
+                
+            ElseIf (Right(p.Cells(sayactarih, pÇapveBoy).Value, Len(p.Cells(sayactarih, pÇapveBoy).Value) - 3) <> Right(p.Cells(sayactarih + 1, pÇapveBoy).Value, Len(p.Cells(sayactarih, pÇapveBoy).Value) - 3)) And sayactarih <> 2 Then
+                AyarSüresi = 60
+            End If
+    
+    ' Sonuçları görüntüleyin
+    p.Cells(sayactarih, pBitişTarih).Value = BitisTarihi
+    sayactarih = sayactarih + 1
+Loop
+
+Call PlanBoya
+
+Application.EnableEvents = True
+Application.Calculation = xlAutomatic
+End Sub
+
+
+
+
+

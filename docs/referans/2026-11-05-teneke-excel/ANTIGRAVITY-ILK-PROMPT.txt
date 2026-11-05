@@ -1,0 +1,15 @@
+TENEKE PLANLAMA — EXCEL/SQL ANALİZİNİ VE YENİ TANIMLAR GEREKSİNİMLERİNİ PROJE HAFIZASINA AL
+
+Eklediğim TENEKE-FAZ-3-ANALIZ-PAKETI dosyalarını oku. Önce mevcut AGENTS.md, STATUS.json, docs/KARAR-KAYDI.md, faz belgeleri ve gerçek uygulama yapısını incele. Önceki fazı veya çalışan işi sıfırlama.
+
+Bu görevde paketi projeye docs/referans/2026-11-05-teneke-excel/ altında ekle; AGENTS.md ve faz/karar kayıtlarını mevcut şemayı koruyarak güncelle. Paket bir geliştirme teslimi değil analiz ve gereksinimdir; fazları completed işaretleme. Kaynak Excel'deki kullanıcı/parola bilgilerini projeye ekleme. Paket içindeki maskeli VBA dosyaları yalnız referans, çalıştırma.
+
+Yol haritasına Faz 2C Tanımlar Merkezi + Excel Teknik Kart İçe Aktarımı; Faz 3A AA_LIDER SQL Sözleşmesi/Entegrasyon; Faz 3B Çok Seviyeli İhtiyaç ve Havuz; Faz 3C Mutabakat ekle. Mevcut faz numaraları doluysa ezmeden eşdeğer alt faz ilişkisi kur. Faz 4 kombinasyon, Faz 5 üretim, Faz 6 çıktı bağımlılıklarını güncelle.
+
+Kesin karar: 50.000 brüt ihtiyaca karşı 10.000 tüp, 5.000 kesik ve 7.000 baskılı tüp eşdeğeri varsa 40.000 tüp üretilecek, 35.000 kesim gerekecek, 28.000 yeni baskı ihtiyacı kombinasyona gidecek. Stoklar doğrulanmış birim/katsayılarla ve tek kez tahsis edilir. Net kaynaktan tekrar tüp stoğu düşme. Eski meltem_teneke/alper_tenekeuretim toplu DELETE/INSERT makrolarını yeni sisteme taşıma; ERP salt okuma.
+
+Tanımlar menüsünde stok kartları, teknik kartlar, levhalar, eşleşmeler ve sözlükler yönetilecek. Ekle/düzenle/kaldır/sil işlemlerinde referans bütünlüğü korunacak. Stok kodu zorunlu; girilince ad senkron katalogdan otomatik gelecek. Renk/lak/zemin vb. hem manuel hem Excel'den önizleme ve kolon eşlemeyle alınacak. ERP senkronu bu teknik alanları ezmeyecek. Ham levha açıklaması gerçek stok koduna açıkça eşlenecek; alternatif levha uydurulmayacak. Teknik kart ve reçete eşleşmesi uyuşmazsa onay engellenecek.
+
+SQL bağlantı DB'si AA_LIDER; kaynaklar MikroDesktop_LIDER26. View adları ve kolonlar parametrik. Gerçek reçete katsayı/anahtar kolonlarını şema görmeden uydurma. Paketteki keşif SQL'i yalnız IT incelemesi için; bu görevde çalıştırma.
+
+Bu adımın sonunda yalnız değişen dokümanları, korunmuş mevcut faz durumunu, yeni faz sırasını ve eksik teknik bilgileri raporla. Uygulama kodunu bu dokümantasyon adımında değiştirme. GitHub push/Coolify deployment yapma. Sonraki uygulama adımı Faz 2C olacak; halen devam eden önceki faz varsa önce onun sonucunu koru.

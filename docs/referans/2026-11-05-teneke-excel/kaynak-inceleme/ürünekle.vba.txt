@@ -1,0 +1,91 @@
+Attribute VB_Name = "ürünekle"
+Sub ürünekle()
+Attribute ürünekle.VB_ProcData.VB_Invoke_Func = " \n14"
+
+Dim p, k As Worksheet
+Set k = Sheets("KONTROL")
+Set p = Sheets("PLAN")
+kbascolumn = 1
+ksoncolumn = k.Cells(2, 1).End(xlToRight).Column
+pBasColumn = 1
+pSonColumn = p.Cells(5, 1).End(xlToRight).Column
+pBasRow = p.Range("A1").End(xlDown).Row
+
+Do While kbascolumn <> ksoncolumn + 1
+    If k.Cells(2, kbascolumn).Value = "Hafta" Then
+    kHafta = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Tarih" Then kTarih = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Sipariş No" Then kSiparişNo = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "İş No" Then kİşNo = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Ana Ürün Kod" Then kAnaÜrünKod = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Ana Ürün Ad" Then kAnaÜrünAdk = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Planlanan Miktar" Then kPlanlananMiktar = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Tüketim Kod" Then kTüketimKod = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Tüketim Ad" Then kTüketimAd = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Cins" Then kCins = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Çap ve Boy" Then kÇapveBoy = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Gerekli Miktar" Then kGerekliMiktar = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Toplam Stok" Then kToplamStok = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Kalan Stok" Then kKalanStok = kbascolumn
+    ElseIf k.Cells(2, kbascolumn).Value = "Kısa İsim" Then kKısaİsim = kbascolumn
+    End If
+    kbascolumn = kbascolumn + 1
+Loop
+
+Do While pBasColumn <> pSonColumn + 1
+    If p.Cells(pBasRow, pBasColumn).Value = "Hafta" Then
+    pHafta = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Çap ve Boy" Then pÇapveBoy = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "İş Kod" Then pİşKod = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Seri" Then pSeri = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Kodu" Then pÜrünKodu = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Adı" Then pÜrünAdı = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Kalan" Then pKalan = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Üretim Tarihi" Then pÜretimTarihi = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Başlangıç Tarih" Then pBaşlangıçTarih = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Açıklama" Then pAçıklama = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Kısa Kod" Then pKısaKod = pBasColumn
+    ElseIf p.Cells(pBasRow, pBasColumn).Value = "Plana Eklenen Tarih" Then pPlanaEklenenTarih = pBasColumn
+    
+    End If
+    pBasColumn = pBasColumn + 1
+Loop
+
+eklenecekürünrow = Selection.Row
+sayacplan = pBasRow
+ Do While p.Cells(sayacplan, pÜrünKodu).Value <> ""
+ sayacplan = sayacplan + 1
+ Loop
+ k.Cells(eklenecekürünrow, kTüketimKod).Interior.Color = RGB(189, 245, 216)
+ 
+ p.Cells(sayacplan, pPlanaEklenenTarih).Value = Date
+ p.Cells(sayacplan, pKısaKod).Value = k.Cells(eklenecekürünrow, kKısaİsim).Value
+ p.Cells(sayacplan, pÜrünKodu).Value = k.Cells(eklenecekürünrow, kTüketimKod).Value
+ p.Cells(sayacplan, pÜrünAdı).Value = k.Cells(eklenecekürünrow, kTüketimAd).Value
+ p.Cells(sayacplan, pKalan).Value = k.Cells(eklenecekürünrow, kKalanStok).Value * -1
+ p.Cells(sayacplan, pÇapveBoy).Value = k.Cells(eklenecekürünrow, kÇapveBoy).Value
+p.Cells(sayacplan, pSeri).Value = "S1"
+    Do While k.Cells(eklenecekürünrow, kKalanStok).Value < 0 And k.Cells(eklenecekürünrow, kSiparişNo).Value <> "" _
+    And k.Cells(eklenecekürünrow, kTüketimKod).Value = k.Cells(eklenecekürünrow - 1, kTüketimKod).Value
+        If p.Cells(sayacplan, pİşKod).Value = "" Then
+            p.Cells(sayacplan, pİşKod).Value = Right(k.Cells(eklenecekürünrow, kSiparişNo).Value, 3)
+            p.Cells(sayacplan, pÜretimTarihi).Value = k.Cells(eklenecekürünrow, kTarih).Value
+        Else
+            p.Cells(sayacplan, pİşKod).Value = p.Cells(sayacplan, pİşKod).Value & "/" & Right(k.Cells(eklenecekürünrow, kSiparişNo).Value, 3)
+            p.Cells(sayacplan, pÜretimTarihi).Value = k.Cells(eklenecekürünrow, kTarih).Value
+        End If
+        eklenecekürünrow = eklenecekürünrow - 1
+    Loop
+    If k.Cells(eklenecekürünrow, kTüketimKod).Value <> k.Cells(eklenecekürünrow - 1, kTüketimKod).Value And k.Cells(eklenecekürünrow, kKalanStok).Value < 0 Then
+        If p.Cells(sayacplan, pİşKod).Value = "" Then
+            p.Cells(sayacplan, pİşKod).Value = Right(k.Cells(eklenecekürünrow, kSiparişNo).Value, 3)
+            p.Cells(sayacplan, pÜretimTarihi).Value = k.Cells(eklenecekürünrow, kTarih).Value
+        Else
+            p.Cells(sayacplan, pİşKod).Value = p.Cells(sayacplan, pİşKod).Value & "/" & Right(k.Cells(eklenecekürünrow, kSiparişNo).Value, 3)
+            p.Cells(sayacplan, pÜretimTarihi).Value = k.Cells(eklenecekürünrow, kTarih).Value
+        End If
+    End If
+'renk
+Call PlanBoya
+End Sub
+

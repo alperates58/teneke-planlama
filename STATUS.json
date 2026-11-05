@@ -1,14 +1,15 @@
 {
   "project": "Teneke Planlama",
-  "package_version": "1.0",
+  "package_version": "1.1",
   "updated_at": "2026-11-05",
-  "document_status": "phase_2_printing_and_combination_rules_verified",
+  "document_status": "roadmap_expanded_faz_2c_3a_3b_3c",
   "authorized_initial_scope": [
     0,
     1,
     2
   ],
   "current_phase": 2,
+  "next_implementation_phase": "2C",
   "phases": [
     {
       "number": 0,
@@ -29,41 +30,74 @@
       "acceptance_verified": true
     },
     {
-      "number": 3,
-      "file": "phases/FAZ-03-SQL-ENTEGRASYONU.md",
+      "number": "2C",
+      "name": "Tanımlar Merkezi + Excel Teknik Kart İçe Aktarımı",
+      "file": "phases/FAZ-02C-TANIMLAR-VE-EXCEL-IMPORT.md",
       "status": "planned",
-      "acceptance_verified": false
+      "acceptance_verified": false,
+      "dependencies": [2]
+    },
+    {
+      "number": "3A",
+      "name": "AA_LIDER SQL Sözleşmesi ve Salt-Okunur Entegrasyon",
+      "file": "phases/FAZ-03A-AA-LIDER-SQL-SOZLESMESI.md",
+      "status": "planned",
+      "acceptance_verified": false,
+      "dependencies": ["2C"]
+    },
+    {
+      "number": "3B",
+      "name": "Çok Seviyeli İhtiyaç Motoru ve Havuz (50-10-5-7=28 Kuralı)",
+      "file": "phases/FAZ-03B-COK-SEVIYELI-IHTIYAC-VE-HAVUZ.md",
+      "status": "planned",
+      "acceptance_verified": false,
+      "dependencies": ["3A"]
+    },
+    {
+      "number": "3C",
+      "name": "Excel / SQL / Uygulama Mutabakatı",
+      "file": "phases/FAZ-03C-MUTABAKAT.md",
+      "status": "planned",
+      "acceptance_verified": false,
+      "dependencies": ["3B"]
     },
     {
       "number": 4,
+      "name": "Kombinasyon ve Baskı Montaj Motoru",
       "file": "phases/FAZ-04-KOMBINASYON-MOTORU.md",
       "status": "planned",
-      "acceptance_verified": false
+      "acceptance_verified": false,
+      "dependencies": ["3B"]
     },
     {
       "number": 5,
+      "name": "Üretim ve Kapasite Planlama",
       "file": "phases/FAZ-05-URETIM-PLANLAMA.md",
       "status": "planned",
-      "acceptance_verified": false
+      "acceptance_verified": false,
+      "dependencies": ["3B", 4]
     },
     {
       "number": 6,
+      "name": "Sipariş Formu ve İzlenebilirlik",
       "file": "phases/FAZ-06-SIPARIS-VE-TAKIP.md",
       "status": "planned",
-      "acceptance_verified": false
+      "acceptance_verified": false,
+      "dependencies": [4, 5]
     },
     {
       "number": 7,
+      "name": "Kabul, Güvenlik ve Canlıya Geçiş",
       "file": "phases/FAZ-07-KABUL-VE-COOLIFY.md",
       "status": "planned",
-      "acceptance_verified": false
+      "acceptance_verified": false,
+      "dependencies": [6]
     }
   ],
   "critical_open_decisions": [
-    "Çeşit alanı ve geçerli tekrar dağılımları",
-    "Minimum baskı kapsamı",
-    "Kaynak ihtiyaç view brüt/net kapsamı",
-    "Kalınlık birimi",
-    "Gerçek hat/kapasite bilgileri"
+    "AA_LIDER / MikroDesktop_LIDER26 gerçek reçete katsayıları ve birim kolonları (IT incelemesi bekleniyor)",
+    "Depo 10 vs HaricDepolarToplam kapsamı ve kullanılabilir stok politikası",
+    "Gelecekteki planlı arzın projeksiyona dahil edilme kuralları",
+    "Stok kartlarındaki aktiflik/pasiflik bayrağı ve ERP senkronizasyon sıklığı"
   ]
 }

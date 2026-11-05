@@ -1,0 +1,408 @@
+{
+  "sheets": [
+    {
+      "sheet": "KESIK PLAN",
+      "state": "hidden",
+      "max_row": 20,
+      "nonempty_rows": 16,
+      "formula_count": 30
+    },
+    {
+      "sheet": "BASKI PLAN",
+      "state": "hidden",
+      "max_row": 20,
+      "nonempty_rows": 16,
+      "formula_count": 30
+    },
+    {
+      "sheet": "PLAN",
+      "state": "visible",
+      "max_row": 231,
+      "nonempty_rows": 227,
+      "formula_count": 452
+    },
+    {
+      "sheet": "KONTROL",
+      "state": "visible",
+      "max_row": 691,
+      "nonempty_rows": 691,
+      "formula_count": 0
+    },
+    {
+      "sheet": "İHTİYAÇ",
+      "state": "visible",
+      "max_row": 213,
+      "nonempty_rows": 213,
+      "formula_count": 0
+    },
+    {
+      "sheet": "Çalışma Tarihleri",
+      "state": "visible",
+      "max_row": 1949,
+      "nonempty_rows": 1371,
+      "formula_count": 3288
+    },
+    {
+      "sheet": "Üretim Planı",
+      "state": "visible",
+      "max_row": 931,
+      "nonempty_rows": 103,
+      "formula_count": 0
+    },
+    {
+      "sheet": "DATA",
+      "state": "visible",
+      "max_row": 4264,
+      "nonempty_rows": 4264,
+      "formula_count": 8518
+    },
+    {
+      "sheet": "TENEKE DATA",
+      "state": "visible",
+      "max_row": 30,
+      "nonempty_rows": 30,
+      "formula_count": 29
+    }
+  ],
+  "cached_need_checks": {
+    "records": 212,
+    "unique_tubes": 212,
+    "cut_formula_mismatch": 0,
+    "print_formula_mismatch": 0,
+    "multirow_tubes": [],
+    "shared_cut_codes": [],
+    "shared_print_codes": []
+  },
+  "rates": [
+    [
+      "Makine",
+      "Çap ve Boy",
+      "Çap",
+      "Boy",
+      "Saat",
+      "Kişi",
+      "Adet",
+      "Normal Vardiya Dk",
+      "Ayar Süresi"
+    ],
+    [
+      "YENI AEROSOL",
+      "45x100",
+      45,
+      100,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "45x105",
+      45,
+      105,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "45x125",
+      45,
+      125,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "45x140",
+      45,
+      140,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "45x150",
+      45,
+      150,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "45x158",
+      45,
+      158,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "45x175",
+      45,
+      175,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "45x190",
+      45,
+      190,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x90",
+      52,
+      90,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x105",
+      52,
+      105,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x112",
+      52,
+      112,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x132",
+      52,
+      132,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x161",
+      52,
+      161,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x165",
+      52,
+      165,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x180",
+      52,
+      180,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x195",
+      52,
+      195,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x214",
+      52,
+      214,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x234",
+      52,
+      234,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "52x245",
+      52,
+      245,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "65x98",
+      65,
+      98,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "65x99",
+      65,
+      99,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "65x104",
+      65,
+      104,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "65x165",
+      65,
+      165,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "65x195",
+      65,
+      195,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "65x234",
+      65,
+      234,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "65x240",
+      65,
+      240,
+      9,
+      5,
+      100000,
+      185.1851851851852,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "65x260",
+      65,
+      260,
+      9,
+      5,
+      80000,
+      148.14814814814815,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "65x270",
+      65,
+      270,
+      9,
+      5,
+      54000,
+      100,
+      null
+    ],
+    [
+      "YENI AEROSOL",
+      "65x300",
+      65,
+      300,
+      9,
+      5,
+      54000,
+      100,
+      null
+    ]
+  ]
+}

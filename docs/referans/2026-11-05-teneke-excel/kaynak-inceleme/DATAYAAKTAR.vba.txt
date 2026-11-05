@@ -1,0 +1,72 @@
+Attribute VB_Name = "DATAYAAKTAR"
+Sub DatayaAktar()
+Attribute DatayaAktar.VB_ProcData.VB_Invoke_Func = " \n14"
+
+Application.EnableEvents = False
+Application.Calculation = xlManual
+    Dim UretimSuresi, KalanAdet, ÜretimAdetiDk As Double
+    Dim MalzemeTedarikSuresi As Integer
+    Dim BaslangicTarihi, CalismaSaatleriBaslangic, CalismaSaatleriBitis1, CalismaSaatleriBitis, BitişTarihiSaat As Date
+    Dim Mola1Baslangic, Mola2Baslangic, Mola3Baslangic, Mola4Baslangic, Mola5Baslangic, Mola6Baslangic As Date
+    Dim Mola1Bitis, Mola2Bitis, Mola3Bitis, Mola4Bitis, Mola5Bitis, Mola6Bitis, üretimbitiş, üretimbaşlangıç As Date
+    Dim sayactarih, işemirlerisonrow, çtsonrow, çtsoncolumn As Integer
+    Dim CalismaSaatleriSureDk As Integer
+    Dim p, d As Worksheet
+    'Sayfalar
+        Set p = Sheets("PLAN")
+        Set d = Sheets("DATA")
+    'Başlangıçrows
+        pBasRow = p.Range("A1").End(xlDown).Row
+        dbasrow = 1
+    'Plan Başlık
+        pBasColumn = 1
+        pSonColumn = p.Cells(pBasRow, pBasColumn).End(xlToRight).Column
+        Do While pBasColumn <> pSonColumn + 1
+        If p.Cells(pBasRow, pBasColumn).Value = "Hafta" Then
+        pHafta = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Tarih" Then pTarih = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "İş Kod" Then pİşKod = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Kodu" Then pÜrünKodu = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Adı" Then pÜrünAdı = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Seri" Then pSeri = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Kalan" Then pKalan = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Başlangıç Tarih" Then pBaşlangıçTarih = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Bitiş Tarih" Then pBitişTarih = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Çap ve Boy" Then pÇapveBoy = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Üretim Süresi" Then pÜretimSüresi = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Açıklama" Then pAçıklama = pBasColumn
+        End If
+        pBasColumn = pBasColumn + 1
+        Loop
+    'Data Başlık
+        dbascolumn = 1
+        dsoncolumn = d.Cells(dbasrow, dbascolumn).End(xlToRight).Column
+        Do While dbascolumn <> dsoncolumn + 1
+        If d.Cells(dbasrow, dbascolumn).Value = "Hafta" Then
+        dHafta = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "Tarih" Then dTarih = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "İş Kod" Then dİşKod = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "Ürün Kodu" Then dÜrünKodu = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "Ürün Adı" Then dÜrünAdı = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "Seri" Then dSeri = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "Kalan" Then dKalan = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "Başlangıç Tarih" Then dBaşlangıçTarih = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "Bitiş Tarih" Then dBitişTarih = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "Çap ve Boy" Then dÇapveBoy = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "Üretim Süresi" Then dÜretimSüresi = dbascolumn
+        ElseIf d.Cells(dbasrow, dbascolumn).Value = "Açıklama" Then dAçıklama = dbascolumn
+        End If
+        dbascolumn = dbascolumn + 1
+        Loop
+        ilkrow = Selection.Row
+            rowadet = Selection.Rows.Count
+        sonrow = ilkrow + rowadet - 1
+        dbasrow1 = d.Cells(dbasrow, dÜrünKodu).End(xlDown).Row + 1
+        
+        p.Range(p.Cells(ilkrow, 1), p.Cells(sonrow, pSonColumn)).Copy _
+        d.Cells(dbasrow1, dÇapveBoy)
+        p.Range(p.Cells(ilkrow, 1), p.Cells(sonrow, pSonColumn)).Delete
+Application.EnableEvents = True
+Application.Calculation = xlAutomatic
+End Sub
+

@@ -76,3 +76,24 @@ Manuel kombinasyonda tekrar × levha adedi hesaplanır; kapasite aşımı engell
 Türkçe, yoğun tablo kullanımına uygun, sabit başlık/filtre/sıralama/detay paneli olan profesyonel arayüz. Türkçe tarih ve sayılar; Europe/Istanbul iş takvimi. Mobile okunabilir görünüm. Durumlar yalnız renkle anlatılmaz. Sahte başarı, ölü düğme ve gerçekmiş gibi uydurma KPI olmaz.
 
 Her faz sonunda derleme ve ilgili kabul kontrollerini çalıştır, tarayıcıda gör, eksikleri kaydet. STATUS.json ve docs/KARAR-KAYDI.md güncellenir. Tamamlanma kanıtsız işaretlenmez. Sonraki faz kendiliğinden başlatılmaz.
+
+## 9. Excel / SQL İncelemesi ve Çok Seviyeli İhtiyaç İlkeleri (05.11.2026)
+
+1. **SQL Bağlantı ve Kaynak Veritabanları:** SQL bağlantı DB'si `AA_LIDER`; kaynak ERP veritabanı `MikroDesktop_LIDER26`. View adları ve kolon eşlemeleri parametrik olarak yönetilir. SQL erişimi uygulama backend'i üzerinden ve kesinlikle salt okunurdur (`SELECT` yetkisi).
+2. **ERP Yazma Yasaklaması:** Kaynak Excel'deki `meltem_teneke` ve `alper_tenekeuretim` tablolarına toplu `DELETE` ve `INSERT` yapan makrolar yeni mimariye taşınmaz. ERP'ye hiçbir tabloya yazma veya silme yapılmaz. Üretim planları uygulama veritabanında saklanır.
+3. **Kademeli İhtiyaç ve Netleme Mantığı:** Brüt ihtiyaç, net tüp üretimi, net kesim ihtiyacı ve yeni baskı ihtiyacı ayrı seviyelerdir.
+   - Örnek: 50.000 brüt ihtiyaç - 10.000 tüp stok = 40.000 tüp üretimi;
+   - 40.000 tüp üretimi - 5.000 tüp eşdeğeri kesik stok = 35.000 kesim ihtiyacı;
+   - 35.000 kesim ihtiyacı - 7.000 tüp eşdeğeri baskılı stok = 28.000 tüp eşdeğeri yeni baskı ihtiyacı.
+   - 28.000, kombinasyon motoruna giden net baskı ihtiyacıdır; tüp üretim hattına 40.000 tüp planlanır.
+4. **Stok Birim Dönüşümü ve Tek Seferlik Tahsis:** Tüp, kesik ve baskılı levha stokları yalnız doğrulanmış birim ve reçete katsayılarıyla netlenir. Baskılı stok otomatik tüp adedi veya otomatik fiziksel levha sayılmaz. Bir stok havuz genelinde yalnızca bir kez tahsis edilir; net kaynaktan tekrar tüp stoğu düşülmez.
+5. **Ham Levha ve Gelecek Arz Ayrımı:** Ham levha stoğu yeni baskı işini azaltmaz; yeni baskı için satın alınacak ham levhayı azaltır. Gelecekteki planlı arz mevcut fiziksel stok değildir ve geçmiş termin açıklarını kapatamaz.
+6. **Eksik Reçete Koruması:** Eksik veya eşleşmeyen reçeteye sahip ürünler havuzdan silinmez; teknik hata ve uyarı ile gösterilir ve kombinasyon onayı engellenir.
+7. **Tanımlar Merkezi ve Veri Sahipliği:**
+   - ERP Stok Kataloğu: Stok kodu, stok adı, kategori ve temel birim ERP senkronunun kontrolündedir. Uygulama ERP stok kartını silemez/değiştiremez.
+   - Teknik Kart: Renkler, zemin, vernik, lak, iç kaplama ve onaylı ham levha ilişkisi uygulama içinde yönetilir (manuel ve Excel import). ERP senkronu bu teknik alanları ezmez.
+   - Stok kodu zorunludur; girildiğinde stok adı senkron katalogdan otomatik gelir.
+8. **Ham Levha İlişkisi:** Ham levha bağlantısı gerçek stok kodu (FK) üzerinden kurulur. Excel'deki "Ham Levha kodu" başlığı altında isim/açıklama varsa açık katalog eşlemesi yapılır; benzer ada göre sessiz eşleme veya alternatif ham levha türetme yapılmaz. Teknik kart ile reçete ham levhası uyuşmazsa onay engellenir.
+9. **Teknik Alan Bağımsızlığı:** Zemin, vernik, lak ve iç kaplama bağımsız sözlüklerdir. Bilinmeyen lak otomatik laklı varsayılmaz. Serbest açıklama veya "Parametre 1" metinleri onaysız kurala dönüştürülemez.
+10. **Genişletilmiş Faz Yol Haritası:** Mevcut faz yapısını bozmadan Faz 2C (Tanımlar ve Excel Import), Faz 3A (AA_LIDER SQL Sözleşmesi), Faz 3B (Çok Seviyeli İhtiyaç Motoru ve Havuz) ve Faz 3C (Mutabakat) yol haritasına eklenmiştir. Faz 4, 5 ve 6 bağımlılıkları bu sıralamaya göre bağlanır.
+11. **Tasarım ve Doğrulama İlkesi:** ALPER DESIGN OS açık renk teması (Light Theme) korunur. Uygulama kodu bu analiz adımında değiştirilmez; GitHub push ve deploy yapılmaz.

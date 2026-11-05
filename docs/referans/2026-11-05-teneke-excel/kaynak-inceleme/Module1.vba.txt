@@ -1,0 +1,224 @@
+Attribute VB_Name = "Module1"
+Option Explicit
+
+Sub start()
+    Dim mypc As String
+    Call PlanlamaTarihleriHesapla
+    mypc = Replace(Environ$("computername"), "-", "") & "_TEDPER"
+    
+    Dim conn As New ADODB.Connection
+    Dim bastime As Date
+    bastime = Now()
+
+    once_hedefleri_sqle_yaz
+
+    Dim bittime As Date
+    bittime = Now()
+
+    On Error Resume Next
+    ActiveWorkbook.Worksheets("KONTROL").ShowAllData
+    On Error GoTo 0
+    
+    Sheets("KONTROL").Range("E10").ListObject.QueryTable.Refresh BackgroundQuery:=False
+    Application.Wait (Now + TimeValue("0:00:02"))
+    Call hesaplasırala
+End Sub
+
+Sub once_hedefleri_sqle_yaz()
+
+    Dim conn As ADODB.Connection
+    
+    Dim p As Worksheet
+    Dim kl As Worksheet
+    Dim td As Worksheet
+    Dim ct As Worksheet
+    
+    Dim iRowNo As Long
+    Dim pSonRow As Long
+    Dim pSonColumn As Long
+    Dim pBasColumn As Long
+    Dim pBasRow As Long
+    
+    Dim ctSonRow As Long
+    Dim tdSonRow As Long
+    Dim tdSonColumn As Long
+    Dim ctSonColumn As Long
+    
+    Dim pCapVeBoy As Long
+    Dim pIsKod As Long
+    Dim pSeri As Long
+    Dim pPlanaEklenenTarih As Long
+    Dim pKisaKod As Long
+    Dim pUrunKodu As Long
+    Dim pUrunAdi As Long
+    Dim pKalan As Long
+    Dim pBaslangicTarih As Long
+    Dim pBitisTarih As Long
+    Dim pUretimTarihi As Long
+    Dim pKesikStok As Long
+    Dim pBaskiliStok As Long
+    Dim pBaskiTalep As Long
+    Dim pAciklama As Long
+    
+    Dim vCapVeBoy As String
+    Dim vIsKod As String
+    Dim vSeri As String
+    Dim vPlanaEklenenTarih As Variant
+    Dim vKisaKod As String
+    Dim vUrunKodu As String
+    Dim vUrunAdi As String
+    Dim vKalan As Double
+    Dim vBaslangicTarih As Variant
+    Dim vBitisTarih As Variant
+    Dim vUretimTarihi As Variant
+    Dim vKesikStok As Double
+    Dim vBaskiliStok As Double
+    Dim vBaskiTalep As Double
+    Dim vAciklama As String
+    
+    Dim STOKKODU As String
+    Dim STOKISMI As String
+    Dim ADET As Double
+    Dim TARIH As Variant
+    
+    Dim sqlQuery As String
+    
+    Set p = Sheets("PLAN")
+    Set kl = Sheets("KONTROL")
+    Set td = Sheets("TENEKE DATA")
+    Set ct = Sheets("Çalışma Tarihleri")
+    
+    ctSonRow = ct.Range("B1").End(xlDown).Row
+    pSonRow = p.Range("A1").End(xlDown).End(xlDown).Row
+    tdSonRow = td.Range("B1").End(xlDown).Row
+    pSonColumn = p.Range("A1").End(xlToRight).Column
+    tdSonColumn = td.Range("A1").End(xlToRight).Column
+    ctSonColumn = ct.Range("A1").End(xlToRight).Column
+    
+    pBasColumn = 1
+    pBasRow = p.Range("A1").End(xlDown).Row
+    
+    Do While pBasColumn <= pSonColumn
+        Select Case Trim(CStr(p.Cells(pBasRow, pBasColumn).Value))
+            Case "Çap ve Boy": pCapVeBoy = pBasColumn
+            Case "İş Kod": pIsKod = pBasColumn
+            Case "Seri": pSeri = pBasColumn
+            Case "Plana Eklenen Tarih": pPlanaEklenenTarih = pBasColumn
+            Case "Kısa Kod": pKisaKod = pBasColumn
+            Case "Ürün Kodu": pUrunKodu = pBasColumn
+            Case "Ürün Adı": pUrunAdi = pBasColumn
+            Case "Kalan": pKalan = pBasColumn
+            Case "Başlangıç Tarih": pBaslangicTarih = pBasColumn
+            Case "Bitiş Tarih": pBitisTarih = pBasColumn
+            Case "Üretim Tarihi": pUretimTarihi = pBasColumn
+            Case "Kesik Stok": pKesikStok = pBasColumn
+            Case "Baskılı Stok": pBaskiliStok = pBasColumn
+            Case "Baskı Talep": pBaskiTalep = pBasColumn
+            Case "Açıklama": pAciklama = pBasColumn
+        End Select
+        pBasColumn = pBasColumn + 1
+    Loop
+    
+    If pSeri = 0 Or pUrunKodu = 0 Then
+        MsgBox "PLAN sayfasında gerekli başlıklar bulunamadı.", vbCritical
+        Exit Sub
+    End If
+    
+    iRowNo = 5
+    Do While p.Cells(iRowNo, pSeri).Value <> p.Cells(Selection.Row, pSeri).Value
+        iRowNo = iRowNo + 1
+        
+        If iRowNo > pSonRow Then
+            MsgBox "Seçili seri bulunamadı.", vbExclamation
+            Exit Sub
+        End If
+    Loop
+    
+    Set conn = New ADODB.Connection
+    conn.ConnectionString = "Provider=SQLOLEDB;Server=172.17.0.6;Database=MikroDesktop_LIDER26;User ID=[REDACTED];Password=[REDACTED];"
+    conn.Open
+    
+    conn.Execute "DELETE FROM dbo.alper_tenekeuretim"
+    
+    Do Until Trim(CStr(p.Cells(iRowNo, pUrunKodu).Value)) = ""
+    
+        vCapVeBoy = SqlText(p.Cells(iRowNo, pCapVeBoy).Value)
+        vIsKod = SqlText(p.Cells(iRowNo, pIsKod).Value)
+        vSeri = SqlText(p.Cells(iRowNo, pSeri).Value)
+        vPlanaEklenenTarih = p.Cells(iRowNo, pPlanaEklenenTarih).Value
+        vKisaKod = SqlText(p.Cells(iRowNo, pKisaKod).Value)
+        vUrunKodu = SqlText(p.Cells(iRowNo, pUrunKodu).Value)
+        vUrunAdi = SqlText(p.Cells(iRowNo, pUrunAdi).Value)
+        vKalan = ToDouble(p.Cells(iRowNo, pKalan).Value)
+        vBaslangicTarih = p.Cells(iRowNo, pBaslangicTarih).Value
+        vBitisTarih = p.Cells(iRowNo, pBitisTarih).Value
+        vUretimTarihi = p.Cells(iRowNo, pUretimTarihi).Value
+        vKesikStok = ToDouble(p.Cells(iRowNo, pKesikStok).Value)
+        vBaskiliStok = ToDouble(p.Cells(iRowNo, pBaskiliStok).Value)
+        vBaskiTalep = ToDouble(p.Cells(iRowNo, pBaskiTalep).Value)
+        vAciklama = SqlText(p.Cells(iRowNo, pAciklama).Value)
+        
+        STOKKODU = vUrunKodu
+        STOKISMI = vUrunAdi
+        ADET = vKalan
+        TARIH = vUretimTarihi
+        
+        sqlQuery = "INSERT INTO dbo.alper_tenekeuretim ([STOKKODU], [STOKISMI], [ADET], [TARIH], [Çap ve Boy], [İş Kod], [Seri], [Plana Eklenen Tarih], [Kısa Kod], [Ürün Kodu], [Ürün Adı], [Kalan], [Başlangıç Tarih], [Bitiş Tarih], [Üretim Tarihi], [Kesik Stok], [Baskılı Stok], [Baskı Talep], [Açıklama]) "
+        sqlQuery = sqlQuery & "VALUES ("
+        sqlQuery = sqlQuery & "'" & STOKKODU & "', "
+        sqlQuery = sqlQuery & "'" & STOKISMI & "', "
+        sqlQuery = sqlQuery & SqlNum(ADET) & ", "
+        sqlQuery = sqlQuery & SqlDate(TARIH) & ", "
+        sqlQuery = sqlQuery & "'" & vCapVeBoy & "', "
+        sqlQuery = sqlQuery & "'" & vIsKod & "', "
+        sqlQuery = sqlQuery & "'" & vSeri & "', "
+        sqlQuery = sqlQuery & SqlDate(vPlanaEklenenTarih) & ", "
+        sqlQuery = sqlQuery & "'" & vKisaKod & "', "
+        sqlQuery = sqlQuery & "'" & vUrunKodu & "', "
+        sqlQuery = sqlQuery & "'" & vUrunAdi & "', "
+        sqlQuery = sqlQuery & SqlNum(vKalan) & ", "
+        sqlQuery = sqlQuery & SqlDate(vBaslangicTarih) & ", "
+        sqlQuery = sqlQuery & SqlDate(vBitisTarih) & ", "
+        sqlQuery = sqlQuery & SqlDate(vUretimTarihi) & ", "
+        sqlQuery = sqlQuery & SqlNum(vKesikStok) & ", "
+        sqlQuery = sqlQuery & SqlNum(vBaskiliStok) & ", "
+        sqlQuery = sqlQuery & SqlNum(vBaskiTalep) & ", "
+        sqlQuery = sqlQuery & "'" & vAciklama & "')"
+        
+        conn.Execute sqlQuery
+        iRowNo = iRowNo + 1
+    Loop
+    
+    conn.Close
+    Set conn = Nothing
+
+End Sub
+
+Private Function SqlText(ByVal v As Variant) As String
+    SqlText = Replace(Trim(CStr(v & "")), "'", "''")
+End Function
+
+Private Function SqlNum(ByVal v As Variant) As String
+    If IsNumeric(v) Then
+        SqlNum = Replace(CStr(CDbl(v)), ",", ".")
+    Else
+        SqlNum = "0"
+    End If
+End Function
+
+Private Function SqlDate(ByVal v As Variant) As String
+    If IsDate(v) Then
+        SqlDate = "'" & Format(CDate(v), "yyyy-mm-dd hh:nn:ss") & "'"
+    Else
+        SqlDate = "NULL"
+    End If
+End Function
+
+Private Function ToDouble(ByVal v As Variant) As Double
+    If IsNumeric(v) Then
+        ToDouble = CDbl(v)
+    Else
+        ToDouble = 0
+    End If
+End Function
+

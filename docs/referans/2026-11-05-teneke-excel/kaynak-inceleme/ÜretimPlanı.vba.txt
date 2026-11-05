@@ -1,0 +1,129 @@
+Attribute VB_Name = "ÜretimPlanı"
+Sub Üretimplanıı()
+
+    Application.EnableEvents = False
+    Application.Calculation = xlManual
+
+    Dim UretimSuresi As Double, KalanAdet As Double, ÜretimAdetiDk As Double
+    Dim MalzemeTedarikSuresi As Integer
+    Dim BaslangicTarihi As Date, CalismaSaatleriBaslangic As Date, CalismaSaatleriBitis1 As Date, CalismaSaatleriBitis As Date, BitişTarihiSaat As Date
+    Dim Mola1Baslangic As Date, Mola2Baslangic As Date, Mola3Baslangic As Date, Mola4Baslangic As Date, Mola5Baslangic As Date, Mola6Baslangic As Date
+    Dim Mola1Bitis As Date, Mola2Bitis As Date, Mola3Bitis As Date, Mola4Bitis As Date, Mola5Bitis As Date, Mola6Bitis As Date, üretimbitiş As Date, üretimbaşlangıç As Date
+    Dim sayactarih As Integer, işemirlerisonrow As Integer, çtsonrow As Integer, çtsoncolumn As Integer
+    Dim CalismaSaatleriSureDk As Integer
+
+    Dim p As Worksheet
+    Dim up As Worksheet
+
+    ' Sayfalar
+    Set p = Sheets("PLAN")
+    Set up = Sheets("Üretim Planı")
+
+    ' Başlangıç rows
+    pBasRow = p.Range("A1").End(xlDown).Row
+    upbasrow = 6
+
+    ' === PLAN Başlıkları Bul ===
+    pBasColumn = 1
+    pSonColumn = p.Cells(pBasRow, pBasColumn).End(xlToRight).Column
+
+    Do While pBasColumn <> pSonColumn + 1
+        If p.Cells(pBasRow, pBasColumn).Value = "Hafta" Then
+            pHafta = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Tarih" Then
+            pTarih = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "İş Kod" Then
+            pİşKod = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Kısa Kod" Then
+            pKısaKod = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Kodu" Then
+            pÜrünKodu = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Ürün Adı" Then
+            pÜrünAdı = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Seri" Then
+            pSeri = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Kalan" Then
+            pKalan = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Başlangıç Tarih" Then
+            pBaşlangıçTarih = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Bitiş Tarih" Then
+            pBitişTarih = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Çap ve Boy" Then
+            pÇapveBoy = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Üretim Süresi" Then
+            pÜretimSüresi = pBasColumn
+        ElseIf p.Cells(pBasRow, pBasColumn).Value = "Açıklama" Then
+            pAçıklama = pBasColumn
+        End If
+        pBasColumn = pBasColumn + 1
+    Loop
+
+    ' === Üretim Planı (up) Başlıkları Bul ===
+    upbascolumn = 2
+    upsoncolumn = up.Cells(upbasrow, upbascolumn).End(xlToRight).Column
+
+    Do While upbascolumn <> upsoncolumn + 1
+        If up.Cells(upbasrow, upbascolumn).Value = "Hafta" Then
+            upHafta = upbascolumn
+        ElseIf up.Cells(upbasrow, upbascolumn).Value = "İÇİ" Then
+            upİçi = upbascolumn
+        ElseIf up.Cells(upbasrow, upbascolumn).Value = "KISA KOD" Then
+            upKisaKod = upbascolumn
+        ElseIf up.Cells(upbasrow, upbascolumn).Value = "STOK KODU" Then
+            upStokKodu = upbascolumn
+        ElseIf up.Cells(upbasrow, upbascolumn).Value = "EBAT" Then
+            upEbat = upbascolumn
+        ElseIf up.Cells(upbasrow, upbascolumn).Value = "MARKA VE ÇEŞİT BİLGİSİ" Then
+            upMarkaveÇeşit = upbascolumn
+        ElseIf up.Cells(upbasrow, upbascolumn).Value = "ADET" Then
+            upAdet = upbascolumn
+        End If
+        upbascolumn = upbascolumn + 1
+    Loop
+    upbascolumn = 2
+
+    ' Seçili Satırlar
+    pSelectilkrow = Selection.Row
+    pSelectadet = Selection.Rows.Count
+    pSelectsonrow = pSelectilkrow + pSelectadet - 1
+
+    ' Bilgi Alanı
+    up.Range("C5").Value = Date
+    up.Range("G3").Value = Date
+
+    ' Üretim Planını Temizle
+    up.Range(up.Cells(upbasrow + 1, upbascolumn), up.Cells(1000, upsoncolumn)).ClearContents
+
+    ' Üretim Planına Yaz
+    sayacÜretimYazma = 7
+
+    For sayacÜretimPlanı = pSelectilkrow To pSelectsonrow
+
+        ' Yeni satır mı açılacak?
+        If sayacÜretimPlanı = pSelectilkrow Then
+            ' ilk satır
+        ElseIf p.Cells(sayacÜretimPlanı, pÇapveBoy).Value <> p.Cells(sayacÜretimPlanı - 1, pÇapveBoy).Value Then
+            sayacÜretimYazma = sayacÜretimYazma + 1
+        End If
+
+        ' === İstenen alanlar ===
+        up.Cells(sayacÜretimYazma, upEbat).Value = p.Cells(sayacÜretimPlanı, pÇapveBoy).Value
+        up.Cells(sayacÜretimYazma, upMarkaveÇeşit).Value = p.Cells(sayacÜretimPlanı, pÜrünAdı).Value
+        up.Cells(sayacÜretimYazma, upAdet).Value = p.Cells(sayacÜretimPlanı, pKalan).Value
+
+        ' ? Yeni eklenenler
+        up.Cells(sayacÜretimYazma, upKisaKod).Value = p.Cells(sayacÜretimPlanı, pKısaKod).Value
+        up.Cells(sayacÜretimYazma, upStokKodu).Value = p.Cells(sayacÜretimPlanı, pÜrünKodu).Value
+
+        sayacÜretimYazma = sayacÜretimYazma + 1
+    Next sayacÜretimPlanı
+
+    up.Select
+    Range("A1").Select
+
+    up.PageSetup.PrintArea = "$B$1:$G$" & sayacÜretimYazma - 1 & ""
+
+    Application.EnableEvents = True
+    Application.Calculation = xlAutomatic
+
+End Sub

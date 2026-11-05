@@ -1,0 +1,126 @@
+[
+  {
+    "file": "ANTIGRAVITY-ILK-PROMPT.txt",
+    "sha256": "bfe11733ebe226da1445294589793905af01a288a2be4c616d42849f6d0f80d3"
+  },
+  {
+    "file": "README.md",
+    "sha256": "d677aea343438ef7acc1317b9b685e54686cb67aebb7fc2e978eabacabb994fc"
+  },
+  {
+    "file": "docs/01-EXCEL-SQL-INCELEME.md",
+    "sha256": "c3324c86d960e04d9cf3fc7c221d78fcf5c32a82489b216fa646d71b4079e18b"
+  },
+  {
+    "file": "docs/02-IHTIYAC-VE-VIEW-SOZLESMESI.md",
+    "sha256": "eb89abc2c9fd2d7dd6837132bc4f3d506ef992f43240271eb563b18cea154b3c"
+  },
+  {
+    "file": "docs/03-TANIMLAR-VE-EXCEL-IMPORT.md",
+    "sha256": "397a64a96649fdb336715c6745742434a5487cde14082e201205083acdc3be0f"
+  },
+  {
+    "file": "docs/04-FAZLAR-VE-KABUL.md",
+    "sha256": "fd5debb76c2e80ea719a462b426271a480c9ad55a9b3aa77a051b60f7b6a1bbe"
+  },
+  {
+    "file": "docs/05-AGENTS-EK-KURALLAR.md",
+    "sha256": "9b85324f48bf99fbd86fadf4ad0ac6a143ed335ee53b0beb761f4f2874b9e7b2"
+  },
+  {
+    "file": "kaynak-inceleme/Boyama.vba.txt",
+    "sha256": "a2d0b1a276d3614f827f874ce72f9ceddac02195f799f65800f60120a6e8f55d"
+  },
+  {
+    "file": "kaynak-inceleme/BuÇalışmaKitabı.vba.txt",
+    "sha256": "8bf799a54f1c716b57b77822cef8c9f2133022a1bdf03043cb564316f241f61b"
+  },
+  {
+    "file": "kaynak-inceleme/DATAYAAKTAR.vba.txt",
+    "sha256": "7206651af542d9692672ea24c3dfbadacb11932a3f2f7217ffe56f493b6c1fbf"
+  },
+  {
+    "file": "kaynak-inceleme/Module1.vba.txt",
+    "sha256": "1adf7c0ce08eb7914ae141c15c864b0ce1c0dca900b844a6125c4700c8b96ef4"
+  },
+  {
+    "file": "kaynak-inceleme/Module2.vba.txt",
+    "sha256": "5b1708013a7c8e57317f97bfbbdd3ed883bf6b7457daac92b12063908cd4393f"
+  },
+  {
+    "file": "kaynak-inceleme/Sayfa1.vba.txt",
+    "sha256": "88cde12236e8067918cdb8a5355239a18246239edc5ee21288a908616fbe15b7"
+  },
+  {
+    "file": "kaynak-inceleme/Sayfa18.vba.txt",
+    "sha256": "e2df86b4b38dcfc529a1e06ed9bee24bf989a63c849cbfbf781dc07bde52fa09"
+  },
+  {
+    "file": "kaynak-inceleme/Sayfa2.vba.txt",
+    "sha256": "88d6875edfe2bc3a59a804ba51d2a47c59d2be2a0672467075c9621fe8725f41"
+  },
+  {
+    "file": "kaynak-inceleme/Sayfa3.vba.txt",
+    "sha256": "c1967b24436e262af9b66115d321306004b1748062e03c4a15a0473b27e51a02"
+  },
+  {
+    "file": "kaynak-inceleme/Sayfa4.vba.txt",
+    "sha256": "40c6c6695a425c0b3222c7ea8efb5e7a445e879b45bd9d208f39425a9476a126"
+  },
+  {
+    "file": "kaynak-inceleme/Sayfa5.vba.txt",
+    "sha256": "474d57e26e6d2f08d8da63d5f0c3c875953050ce090bd777e19fa305ac2b16e4"
+  },
+  {
+    "file": "kaynak-inceleme/Sayfa6.vba.txt",
+    "sha256": "76e979065a0a60e1a002810465a97f4b6291687279e32c9381e02c1da206a749"
+  },
+  {
+    "file": "kaynak-inceleme/Sayfa7.vba.txt",
+    "sha256": "fd0c610dd6cb5a74f362d681536c2f7be3ada3db634d67532eaae1a0e6e526c4"
+  },
+  {
+    "file": "kaynak-inceleme/Sayfa8.vba.txt",
+    "sha256": "b3d9495a9a733277edaad940edf696067011cf87c6da7bee1be17ca27d23bfe6"
+  },
+  {
+    "file": "kaynak-inceleme/connections-redacted.json",
+    "sha256": "a2290dbf97e16f9ce184d7f4ecc1bfaf4f09c7a8d60a237e44f9496d6f79ef53"
+  },
+  {
+    "file": "kaynak-inceleme/kesyapıştır.vba.txt",
+    "sha256": "0278455a44db1a4fc482379b3b5552d5e55c284d5676090322b07a326b7e6a5b"
+  },
+  {
+    "file": "kaynak-inceleme/kontrolhesap.vba.txt",
+    "sha256": "db682550b79b11434013d929b28589b0202c479e86c74579a670235bd926864d"
+  },
+  {
+    "file": "kaynak-inceleme/powerquery.m",
+    "sha256": "e0cf70708daecf62f3505d2e3c5c47af77412c845e2b8a81e03ef96e71d893ca"
+  },
+  {
+    "file": "kaynak-inceleme/vba-manifest.json",
+    "sha256": "9ff821cdda28a512ea8e94e2f2424043ca9e6b3b81c33fc765e0551c5502533d"
+  },
+  {
+    "file": "kaynak-inceleme/workbook-findings.json",
+    "sha256": "fdd0ec628763eb24a9b6a85ed6240bc4df2ea23098bbd2882add6fca4c61b0b6"
+  },
+  {
+    "file": "kaynak-inceleme/zaman.vba.txt",
+    "sha256": "4621bc6dc0b73700d38f1c9eab8ad981ab8aafb365da5a79a14adefba236984e"
+  },
+  {
+    "file": "kaynak-inceleme/ÜretimPlanı.vba.txt",
+    "sha256": "2fd42cc864a1c296fb0333fbd20ecc15c98dcc796c2eaafc8066c8365c7ff340"
+  },
+  {
+    "file": "kaynak-inceleme/ürünekle.vba.txt",
+    "sha256": "87a7c63cee89cc35c3f0407be3394b76d03d2ea4beaea1e896439193b4020b7d"
+  },
+  {
+    "file": "sql/01-METADATA-KESIF.sql",
+    "sha256": "55e12a56852e8f8a625bf37a69bc376cdd49da4ef4ba6b0abe2a24e5bb560b55"
+  }
+]

@@ -1,0 +1,115 @@
+[
+  {
+    "attributes": {
+      "id": "1",
+      "{http://schemas.microsoft.com/office/spreadsheetml/2017/revision16}uid": "{00000000-0015-0000-FFFF-FFFF03000000}",
+      "keepAlive": "1",
+      "name": "Satislar_Yici_PL",
+      "type": "5",
+      "refreshedVersion": "8",
+      "savePassword": "1",
+      "background": "1",
+      "saveData": "1"
+    },
+    "children": [
+      {
+        "connection": "Provider=SQLOLEDB.1;Password=[REDACTED];Persist Security Info=True;User ID=[REDACTED];Initial Catalog=MikroDesktop_LIDER26;Data Source=172.17.0.6;Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096;Workstation ID=TUBANALBANTOGLU;Use Encryption for Data=False;Tag with column collation when possible=False",
+        "command": "SELECT \r\nrec_anakod AS rec_altkod, \r\nMikroDesktop_LIDER26.dbo.fn_StokIsmi(rec_anakod) AS rec_altad,\r\ns.sto_altgrup_kod,\r\ns.sto_kalkon_kodu,\r\nrec_tuketim_kod, \r\nMikroDesktop_LIDER26.dbo.fn_StokIsmi(rec_tuketim_kod) AS rec_tuketim_ad\r\n\r\n\r\n\r\n\r\n\r\nFROM MikroDesktop_LIDER26.dbo.URUN_RECETELERI WITH (nolock)\r\nleft outer join STOKLAR as s with(nolock)\r\non rec_tuketim_kod = s.sto_kod\r\n\r\n where s.sto_kategori_kodu = 'TENEKETUP'"
+      }
+    ]
+  },
+  {
+    "attributes": {
+      "id": "2",
+      "{http://schemas.microsoft.com/office/spreadsheetml/2017/revision16}uid": "{D43AE104-4D63-461B-AD6D-F3812CCE2937}",
+      "keepAlive": "1",
+      "name": "Sorgu - AA_alper_planktenekee",
+      "description": "Çalışma kitabındaki 'AA_alper_planktenekee' sorgusuna yönelik bağlantı.",
+      "type": "5",
+      "refreshedVersion": "8",
+      "background": "1",
+      "saveData": "1"
+    },
+    "children": [
+      {
+        "connection": "Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;Location=AA_alper_planktenekee;Extended Properties=\"\"",
+        "command": "SELECT * FROM [AA_alper_planktenekee]"
+      }
+    ]
+  },
+  {
+    "attributes": {
+      "id": "3",
+      "{http://schemas.microsoft.com/office/spreadsheetml/2017/revision16}uid": "{E71EA439-5202-46DA-B439-0E404B0C013E}",
+      "keepAlive": "1",
+      "name": "Sorgu - AA_alper_tenekeihtiyaç5",
+      "description": "Çalışma kitabındaki 'AA_alper_tenekeihtiyaç5' sorgusuna yönelik bağlantı.",
+      "type": "5",
+      "refreshedVersion": "8",
+      "background": "1",
+      "saveData": "1"
+    },
+    "children": [
+      {
+        "connection": "Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;Location=AA_alper_tenekeihtiyaç5;Extended Properties=\"\"",
+        "command": "SELECT * FROM [AA_alper_tenekeihtiyaç5]"
+      }
+    ]
+  },
+  {
+    "attributes": {
+      "id": "4",
+      "{http://schemas.microsoft.com/office/spreadsheetml/2017/revision16}uid": "{BC45514A-38C2-4364-942A-B21348783029}",
+      "keepAlive": "1",
+      "name": "Sorgu - AA_alper_tenekeihtiyaç5 (2)",
+      "description": "Çalışma kitabındaki 'AA_alper_tenekeihtiyaç5 (2)' sorgusuna yönelik bağlantı.",
+      "type": "5",
+      "refreshedVersion": "8",
+      "background": "1",
+      "saveData": "1"
+    },
+    "children": [
+      {
+        "connection": "Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;Location=\"AA_alper_tenekeihtiyaç5 (2)\";Extended Properties=\"\"",
+        "command": "SELECT * FROM [AA_alper_tenekeihtiyaç5 (2)]"
+      }
+    ]
+  },
+  {
+    "attributes": {
+      "id": "5",
+      "{http://schemas.microsoft.com/office/spreadsheetml/2017/revision16}uid": "{2A53725E-F616-4386-B54C-E8ECBC8A1FB1}",
+      "keepAlive": "1",
+      "name": "Sorgu - AA_emre_plantenekee",
+      "description": "Çalışma kitabındaki 'AA_emre_plantenekee' sorgusuna yönelik bağlantı.",
+      "type": "5",
+      "refreshedVersion": "0",
+      "background": "1"
+    },
+    "children": [
+      {
+        "connection": "Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;Location=AA_emre_plantenekee;Extended Properties=\"\"",
+        "command": "SELECT * FROM [AA_emre_plantenekee]"
+      }
+    ]
+  },
+  {
+    "attributes": {
+      "id": "6",
+      "{http://schemas.microsoft.com/office/spreadsheetml/2017/revision16}uid": "{2EA3242E-D23F-435D-892C-0F3A9ECA7D8C}",
+      "keepAlive": "1",
+      "name": "Sorgu - AA_emre_plantenekee (2)",
+      "description": "Çalışma kitabındaki 'AA_emre_plantenekee (2)' sorgusuna yönelik bağlantı.",
+      "type": "5",
+      "refreshedVersion": "8",
+      "background": "1",
+      "saveData": "1"
+    },
+    "children": [
+      {
+        "connection": "Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;Location=\"AA_emre_plantenekee (2)\";Extended Properties=\"\"",
+        "command": "SELECT * FROM [AA_emre_plantenekee (2)]"
+      }
+    ]
+  }
+]
