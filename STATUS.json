@@ -1,30 +1,35 @@
 {
   "project": "Teneke Planlama",
-  "package_version": "1.1",
-  "updated_at": "2026-11-05",
-  "document_status": "roadmap_expanded_faz_2c_3a_3b_3c",
+  "package_version": "2.0",
+  "updated_at": "2026-11-06",
+  "document_status": "faz_3a1_completed",
   "authorized_initial_scope": [
     0,
     1,
-    2
+    2,
+    "2C",
+    "3A.1"
   ],
-  "current_phase": "2C",
-  "next_implementation_phase": "3A",
+  "current_phase": "3A.1",
+  "next_implementation_phase": "2D",
   "phases": [
     {
       "number": 0,
+      "name": "Proje Temeli",
       "file": "phases/FAZ-00-PROJE-TEMELI.md",
       "status": "completed",
       "acceptance_verified": true
     },
     {
       "number": 1,
+      "name": "İlk Ekranlar",
       "file": "phases/FAZ-01-ILK-EKRANLAR.md",
       "status": "completed",
       "acceptance_verified": true
     },
     {
       "number": 2,
+      "name": "Parametre ve Kalıcı Veri",
       "file": "phases/FAZ-02-PARAMETRE-VE-KALICI-VERI.md",
       "status": "completed",
       "acceptance_verified": true
@@ -35,15 +40,43 @@
       "file": "phases/FAZ-02C-TANIMLAR-VE-EXCEL-IMPORT.md",
       "status": "completed",
       "acceptance_verified": true,
-      "dependencies": [2]
+      "dependencies": [
+        2
+      ],
+      "verified_at": "2026-11-06",
+      "evidence": "39 entegrasyon testi başarılı: Node.js backend, PostgreSQL 16 kalıcılığı, sürüm çakışması koruması, atomik dosya kabulü kuralı, 403 sunucu tarafı yetkilendirme."
     },
     {
-      "number": "3A",
-      "name": "AA_LIDER SQL Sözleşmesi ve Salt-Okunur Entegrasyon",
+      "number": "3A.1",
+      "name": "SQL Şema Keşfi ve Esas Üretim Planı (alper_tenekeuretim) Kayıpsız Snapshot'ı",
+      "file": "phases/FAZ-03A-AA-LIDER-SQL-SOZLESMESI.md",
+      "status": "completed",
+      "acceptance_verified": true,
+      "dependencies": [
+        "2C"
+      ],
+      "verified_at": "2026-11-06",
+      "evidence": "48/48 entegrasyon testi başarılı: Esas kaynak MikroDesktop_LIDER26.dbo.alper_tenekeuretim'den 215 satır, 205 tekil stok kodu ve 3.134.665 adet tüp kayıpsız snapshot alındı; Başlangıç/Bitiş Tarihlerine dayalı kronolojik makine çizelgelemesi; PostgreSQL migration 004 & 005 uygulandı; UI önizleme ve taslak sıralama bağlandı; eski snapshotlar korundu; sıfır ERP kaynak değişikliği doğrulandı."
+    },
+    {
+      "number": "2D",
+      "name": "Tasarım Becerileri ve İhtiyaç Havuzu Pilotu (Impeccable & UI UX Pro Max)",
+      "file": "TENEKE-YOL-HARITASI-v2/02-TASARIM-SKILL-PLANI.md",
+      "status": "planned",
+      "acceptance_verified": false,
+      "dependencies": [
+        "2C"
+      ]
+    },
+    {
+      "number": "3A.2",
+      "name": "Stok Kartı, Brüt Talep, Reçete ve Depo Senkronizasyonu",
       "file": "phases/FAZ-03A-AA-LIDER-SQL-SOZLESMESI.md",
       "status": "planned",
       "acceptance_verified": false,
-      "dependencies": ["2C"]
+      "dependencies": [
+        "3A.1"
+      ]
     },
     {
       "number": "3B",
@@ -51,15 +84,43 @@
       "file": "phases/FAZ-03B-COK-SEVIYELI-IHTIYAC-VE-HAVUZ.md",
       "status": "planned",
       "acceptance_verified": false,
-      "dependencies": ["3A"]
+      "dependencies": [
+        "3A.2"
+      ]
     },
     {
-      "number": "3C",
-      "name": "Excel / SQL / Uygulama Mutabakatı",
+      "number": "5A",
+      "name": "Tek Tüp Makinesinde Üretim Planı ve Takvim",
+      "file": "phases/FAZ-05-URETIM-PLANLAMA.md",
+      "status": "planned",
+      "acceptance_verified": false,
+      "dependencies": [
+        "3A.1",
+        "3B"
+      ]
+    },
+    {
+      "number": "5W",
+      "name": "meltem_teneke Kontrollü Geri Yazımı (Açık Yayınlama İstisnası)",
+      "file": "phases/FAZ-05-URETIM-PLANLAMA.md",
+      "status": "planned",
+      "acceptance_verified": false,
+      "dependencies": [
+        "3A.1",
+        "5A"
+      ]
+    },
+    {
+      "number": "3C.1",
+      "name": "Tüp Talebi, Stok, Takvim ve Geri Yazım Mutabakatı",
       "file": "phases/FAZ-03C-MUTABAKAT.md",
       "status": "planned",
       "acceptance_verified": false,
-      "dependencies": ["3B"]
+      "dependencies": [
+        "3B",
+        "5A",
+        "5W"
+      ]
     },
     {
       "number": 4,
@@ -67,15 +128,20 @@
       "file": "phases/FAZ-04-KOMBINASYON-MOTORU.md",
       "status": "planned",
       "acceptance_verified": false,
-      "dependencies": ["3B"]
+      "dependencies": [
+        "3B"
+      ]
     },
     {
-      "number": 5,
-      "name": "Üretim ve Kapasite Planlama",
+      "number": "5B",
+      "name": "Malzeme ve Operasyon Bağlantısı + Tam Mutabakat (3C.2)",
       "file": "phases/FAZ-05-URETIM-PLANLAMA.md",
       "status": "planned",
       "acceptance_verified": false,
-      "dependencies": ["3B", 4]
+      "dependencies": [
+        4,
+        "5A"
+      ]
     },
     {
       "number": 6,
@@ -83,21 +149,27 @@
       "file": "phases/FAZ-06-SIPARIS-VE-TAKIP.md",
       "status": "planned",
       "acceptance_verified": false,
-      "dependencies": [4, 5]
+      "dependencies": [
+        4,
+        "5B"
+      ]
     },
     {
       "number": 7,
-      "name": "Kabul, Güvenlik ve Canlıya Geçiş",
+      "name": "Kabul, Güvenlik ve Şirket Sunucusunda Coolify Yayını",
       "file": "phases/FAZ-07-KABUL-VE-COOLIFY.md",
       "status": "planned",
       "acceptance_verified": false,
-      "dependencies": [6]
+      "dependencies": [
+        6
+      ]
     }
   ],
   "critical_open_decisions": [
-    "AA_LIDER / MikroDesktop_LIDER26 gerçek reçete katsayıları ve birim kolonları (IT incelemesi bekleniyor)",
+    "meltem_teneke tablosunda sıra kolonu olmaması: fiziksel aktarım sırası ve alper_tenekeuretim tarih ilişkisi",
+    "Geri yazımda (5W) Excel eşzamanlı düzenleme çakışma protokolü",
+    "MikroDesktop_LIDER26 gerçek reçete katsayıları ve birim kolonları (rec_tuketim_tur, rec_anabirim)",
     "Depo 10 vs HaricDepolarToplam kapsamı ve kullanılabilir stok politikası",
-    "Gelecekteki planlı arzın projeksiyona dahil edilme kuralları",
-    "Stok kartlarındaki aktiflik/pasiflik bayrağı ve ERP senkronizasyon sıklığı"
+    "Gelecekteki planlı arzın projeksiyona dahil edilme kuralları"
   ]
 }

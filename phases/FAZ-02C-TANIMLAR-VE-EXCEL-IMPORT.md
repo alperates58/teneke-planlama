@@ -1,6 +1,9 @@
 # FAZ 2C — TANIMLAR MERKEZİ VE EXCEL TEKNİK KART İÇE AKTARIMI
 
-Durum: TAMAMLANDI. Kabul kriterleri test paketi ile doğrulandı (16/16 test PASS).
+Durum: TAMAMLANDI VE DOĞRULANDI (39/39 Entegrasyon Testi PASS).
+Doğrulama Tarihi: 2026-11-06.
+Kalıcılık Katmanı: Node.js Modüler Backend (server/) + PostgreSQL 16.
+Doğrulama Raporu: docs/FAZ-02C-TAMAMLANMA-VE-KANIT-RAPORU.md.
 
 Önce kökteki `AGENTS.md`, `STATUS.json` ve `docs/referans/2026-11-05-teneke-excel/docs/03-TANIMLAR-VE-EXCEL-IMPORT.md` dosyasını oku.
 

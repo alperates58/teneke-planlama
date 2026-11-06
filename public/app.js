@@ -6,6 +6,149 @@
  * tanımlanmış montaj düzeni görselleştirilir."
  */
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+async function apiRequest(endpoint, options = {}) {
+  const token = state?.sessionToken || localStorage.getItem('tp_session_token_v2c') || 'token_admin_session_v2c';
+  const headers = {
+    'Accept': 'application/json',
+    'Authorization': 'Bearer ' + token,
+    'X-Session-Token': token,
+    ...(options.headers || {})
+  };
+
+  if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData) && !(options.body instanceof ArrayBuffer)) {
+    headers['Content-Type'] = 'application/json';
+    options.body = JSON.stringify(options.body);
+  }
+
+  const response = await fetch(endpoint, {
+    ...options,
+    headers
+  });
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const data = await response.json();
+    if (!response.ok || data.success === false) {
+      const err = new Error(data.error?.message || ('Sunucu hatası: ' + response.status));
+      err.status = response.status;
+      err.code = data.error?.code;
+      err.details = data.error?.details;
+      throw err;
+    }
+    return data;
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error('HTTP ' + response.status + ': ' + text);
+  }
+
+  return response;
+}
+
+async function initBackendSync() {
+  try {
+    state.isSyncing = true;
+    const token = state.sessionToken || localStorage.getItem('tp_session_token_v2c') || 'token_admin_session_v2c';
+    state.sessionToken = token;
+
+    // 1. Auth oturumu doğrula
+    try {
+      const authRes = await apiRequest('/api/auth/me');
+      if (authRes && authRes.data) {
+        state.currentUser = authRes.data;
+        state.currentRole = authRes.data.role;
+      }
+    } catch (authErr) {
+      try {
+        const switchRes = await apiRequest('/api/auth/switch-role', {
+          method: 'POST',
+          body: { role: state.currentRole || 'admin' }
+        });
+        if (switchRes && switchRes.data) {
+          state.sessionToken = switchRes.data.token;
+          state.currentUser = switchRes.data;
+          localStorage.setItem('tp_session_token_v2c', switchRes.data.token);
+        }
+      } catch (e) {}
+    }
+
+    // 2. PostgreSQL'den Teknik Kartları Çek
+    const prodRes = await apiRequest('/api/definitions/products');
+    if (prodRes && Array.isArray(prodRes.data)) {
+      state.technicalProducts = prodRes.data;
+    }
+
+    // 3. PostgreSQL'den ERP Stok Kataloğunu Çek
+    const catRes = await apiRequest('/api/definitions/stock-catalog');
+    if (catRes && Array.isArray(catRes.data)) {
+      state.stockCatalog = catRes.data;
+    }
+
+    // 4. PostgreSQL'den Sözlükleri Çek
+    const dictRes = await apiRequest('/api/definitions/dictionaries');
+    if (dictRes && dictRes.data) {
+      state.dictionaries = dictRes.data;
+    }
+
+    // 5. PostgreSQL'den Ham Levhaları Çek
+    const rawRes = await apiRequest('/api/definitions/raw-sheets');
+    if (rawRes && Array.isArray(rawRes.data)) {
+      state.rawSheets = rawRes.data;
+    }
+
+    // 6. PostgreSQL'den Ebat/Kapasiteleri Çek
+    const capRes = await apiRequest('/api/definitions/capacities');
+    if (capRes && Array.isArray(capRes.data)) {
+      state.capacities = capRes.data;
+    }
+
+    // 7. PostgreSQL'den Denetim İzini Çek
+    const auditRes = await apiRequest('/api/audit-logs');
+    if (auditRes && Array.isArray(auditRes.data)) {
+      state.auditLogs = auditRes.data;
+    }
+
+    // 8. PostgreSQL'den Aktif Üretim Planı Taslağını Çek (Faz 3A.1)
+    try {
+      const draftRes = await apiRequest('/api/plan-sync/draft');
+      if (draftRes && draftRes.data && draftRes.data.exists) {
+        state.planDraft = draftRes.data;
+      }
+    } catch (e) {
+      console.warn('[Sync] Plan taslağı alınamadı:', e.message);
+    }
+
+    // 9. PostgreSQL'den Snapshot Geçmişini Çek (Faz 3A.1)
+    try {
+      const snapsRes = await apiRequest('/api/plan-sync/snapshots');
+      if (snapsRes && Array.isArray(snapsRes.data)) {
+        state.planSnapshots = snapsRes.data;
+      }
+    } catch (e) {
+      console.warn('[Sync] Snapshot listesi alınamadı:', e.message);
+    }
+
+    state.backendConnected = true;
+    state.isSyncing = false;
+  } catch (err) {
+    console.warn('[Sync] Backend ile iletişim kurulamadı, yerel hafızaya dönülüyor:', err.message);
+    state.backendConnected = false;
+    state.isSyncing = false;
+  }
+  renderApp();
+}
+
 // 1. HAM LEVHALAR (14 Kaynak Kayıt)
 const INITIAL_RAW_SHEETS = [
   {"short_name":"90000166","stock_code":"500011000004-1103","stock_name":"HAM LEVHA-018x863x866- (T 57) -45x140","thickness_source_value":18,"width_mm":863,"height_mm":866,"grade_source":"T57","tube_size":"45x140","minimum_print_sheets_source":null,"record_kind":"source_transcription"},
@@ -1471,6 +1614,10 @@ const INITIAL_COMBINATION_RULES = [
 // App State
 let state = {
   activePage: 'overview',
+  backendConnected: false,
+  isSyncing: false,
+  sessionToken: localStorage.getItem('tp_session_token_v2c') || 'token_admin_session_v2c',
+  currentUser: null,
   demands: JSON.parse(localStorage.getItem('tp_demands_v2')) || INITIAL_DEMANDS,
   capacities: INITIAL_CAPACITIES,
   rawSheets: JSON.parse(localStorage.getItem('tp_raw_sheets_v2')) || INITIAL_RAW_SHEETS,
@@ -1525,7 +1672,16 @@ let state = {
   isPrintingRuleModalOpen: false,
   editingPrintingRule: null,
   isCombinationRuleModalOpen: false,
-  editingCombinationRule: null
+  editingCombinationRule: null,
+
+  // Faz 3A.1 SQL Plan Snapshot & Taslak Yönetimi
+  sqlPlanPreview: null,
+  isFetchingSqlPreview: false,
+  showSqlPlanModal: false,
+  showSnapshotHistoryModal: false,
+  planSnapshots: [],
+  planDraft: null,
+  planSearch: ''
 };
 
 const PRODUCT_PALETTES = [
@@ -1555,10 +1711,27 @@ function logAudit(entity, entityId, action, details) {
   localStorage.setItem('tp_audit_logs_v2', JSON.stringify(state.auditLogs));
 }
 
-function switchRole(role) {
+async function switchRole(role) {
   state.currentRole = role;
   localStorage.setItem('tp_current_role_v2', role);
-  logAudit('user_role', role, 'update', `Aktif kullanıcı rolü değiştirildi: ${role}`);
+  try {
+    const res = await apiRequest('/api/auth/switch-role', {
+      method: 'POST',
+      body: { role }
+    });
+    if (res && res.data) {
+      state.sessionToken = res.data.token;
+      state.currentRole = res.data.role;
+      state.currentUser = res.data;
+      localStorage.setItem('tp_session_token_v2c', res.data.token);
+    }
+    const auditRes = await apiRequest('/api/audit-logs').catch(() => null);
+    if (auditRes && Array.isArray(auditRes.data)) {
+      state.auditLogs = auditRes.data;
+    }
+  } catch (err) {
+    console.warn('Rol sunucuda güncellenemedi:', err.message);
+  }
   renderApp();
 }
 
@@ -1653,8 +1826,11 @@ function renderHeader() {
 
       <div class="flex items-center gap-3">
         ${roleBadge}
+        ${state.backendConnected
+          ? '<span class="px-2.5 py-1 text-xs font-mono bg-emerald-50 text-emerald-800 border border-emerald-300 rounded flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> DB Bağlı (PostgreSQL)</span>'
+          : '<span class="px-2.5 py-1 text-xs font-mono bg-amber-50 text-amber-800 border border-amber-300 rounded flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Çevrimdışı (Demo)</span>'}
         <span class="px-2.5 py-1 text-xs font-mono bg-slate-100 text-slate-700 border border-slate-200 rounded">
-          Faz 2 Aktif
+          Faz 2C Tamamlandı
         </span>
       </div>
     </header>
@@ -3651,8 +3827,11 @@ function addCustomPantoneToEditingProduct() {
   input.value = '';
 }
 
-function saveProductForm() {
-  if (state.currentRole === 'viewer') return;
+async function saveProductForm() {
+  if (state.currentRole === 'viewer') {
+    alert('Yetkisiz işlem: Görüntüleyici rolü kart oluşturamaz veya düzenleyemez.');
+    return;
+  }
   const p = state.editingProduct;
   if (!p) return;
 
@@ -3675,64 +3854,123 @@ function saveProductForm() {
     if (!confirmMismatch) return;
   }
 
-  p.stock_code = p.stock_code.trim();
-  p.stock_name = p.stock_name || 'Taslak Ürün - ERP Eşleşmesi Bekliyor';
+  const isNew = !p.id || !state.technicalProducts.some(x => x.stock_code === p.stock_code.trim());
+  const payload = {
+    stock_code: p.stock_code.trim(),
+    tube_size: p.tube_size,
+    raw_sheet_code: p.raw_sheet_code,
+    print_surface: p.print_surface || 'EMAYE',
+    varnish: p.varnish || 'BELİRTİLMEMİŞ',
+    lacquer: p.lacquer || 'BILINMIYOR',
+    inside_coating: p.inside_coating || 'BELİRTİLMEMİŞ',
+    colors: p.colors || ['C', 'M', 'Y', 'K'],
+    special_parameter: p.special_parameter || '',
+    is_active: p.is_active !== false,
+    version: p.version || 1
+  };
 
-  const isNew = !p.id;
-  if (isNew) {
-    p.id = 'TECH-' + Date.now();
-    state.technicalProducts.unshift(p);
-    logAudit('technical_product', p.stock_code, 'create', `Yeni teknik kart oluşturuldu: ${p.stock_code} - ${p.stock_name} (${p.tube_size})`);
-  } else {
-    const idx = state.technicalProducts.findIndex(x => x.id === p.id || x.stock_code === p.stock_code);
-    if (idx !== -1) {
-      state.technicalProducts[idx] = p;
-      logAudit('technical_product', p.stock_code, 'update', `Teknik kart güncellendi: ${p.stock_code} (${p.tube_size}, ${p.print_surface}, ${p.lacquer})`);
+  try {
+    let result;
+    if (isNew) {
+      result = await apiRequest('/api/definitions/products', {
+        method: 'POST',
+        body: payload
+      });
+      alert(`✅ Teknik kart başarıyla PostgreSQL\'e kaydedildi: ${payload.stock_code}`);
     } else {
-      state.technicalProducts.unshift(p);
+      result = await apiRequest('/api/definitions/products/' + encodeURIComponent(payload.stock_code), {
+        method: 'PUT',
+        body: payload
+      });
+      alert(`✅ Teknik kart başarıyla güncellendi: ${payload.stock_code} (v${result.data?.version || ''})`);
+    }
+
+    const prodRes = await apiRequest('/api/definitions/products');
+    if (prodRes && Array.isArray(prodRes.data)) {
+      state.technicalProducts = prodRes.data;
+    }
+    const auditRes = await apiRequest('/api/audit-logs');
+    if (auditRes && Array.isArray(auditRes.data)) {
+      state.auditLogs = auditRes.data;
+    }
+    closeProductModal();
+  } catch (err) {
+    console.error('Kayıt hatası:', err);
+    if (err.code === 'ESZAMANLI_DUZENLEME_CAKISMASI') {
+      alert(`⚠️ Eşzamanlı Düzenleme Çakışması:\n\n${err.message}\nLütfen sayfayı yenileyip güncel veriyi inceleyiniz.`);
+    } else if (err.code === 'YETKISIZ_ISLEM') {
+      alert(`🚫 Yetkisiz İşlem:\n\n${err.message}`);
+    } else {
+      alert(`❌ Kayıt Başarısız:\n\n${err.message}`);
     }
   }
-
-  saveTechnicalProducts();
-  closeProductModal();
 }
 
-function toggleTechnicalProductActive(productId) {
-  if (state.currentRole === 'viewer') return;
+
+async function toggleTechnicalProductActive(productId) {
+  if (state.currentRole === 'viewer') {
+    alert('Yetkisiz işlem: Görüntüleyici rolü kart durumunu değiştiremez.');
+    return;
+  }
   const item = state.technicalProducts.find(p => p.id === productId || p.stock_code === productId);
   if (!item) return;
 
-  item.is_active = !item.is_active;
-  logAudit('technical_product', item.stock_code, 'update', `Kart durumu değiştirildi: ${item.is_active ? 'Aktifleştirildi' : 'Pasife Alındı'}`);
-  saveTechnicalProducts();
-  renderApp();
+  try {
+    const res = await apiRequest('/api/definitions/products/' + encodeURIComponent(item.stock_code) + '/toggle-active', {
+      method: 'PATCH'
+    });
+    if (res && res.data) {
+      item.is_active = res.data.is_active;
+    }
+    const auditRes = await apiRequest('/api/audit-logs').catch(() => null);
+    if (auditRes && Array.isArray(auditRes.data)) {
+      state.auditLogs = auditRes.data;
+    }
+    renderApp();
+  } catch (err) {
+    alert('Kart durumu değiştirilemedi: ' + err.message);
+  }
 }
 
-function deleteTechnicalProduct(productId) {
-  if (state.currentRole === 'viewer') return;
+async function deleteTechnicalProduct(productId) {
+  if (state.currentRole === 'viewer') {
+    alert('Yetkisiz işlem: Görüntüleyici rolü teknik kart silemez.');
+    return;
+  }
   const item = state.technicalProducts.find(p => p.id === productId || p.stock_code === productId);
   if (!item) return;
 
-  // REFERANS BÜTÜNLÜĞÜ KONTROLÜ
-  const demandRefs = state.demands.filter(d => d.stock_code === item.stock_code).length;
-  const planRefs = state.productionPlans.filter(p => p.consumption_code === item.stock_code).length;
-  const workbenchRefs = state.workbenchItems.filter(w => w.stockCode === item.stock_code).length;
-  const totalRefs = demandRefs + planRefs + workbenchRefs;
-
-  if (totalRefs > 0) {
-    alert(
-      `🚫 Referans Bütünlüğü Koruması:\n\nBu teknik kart aktif planda, ihtiyaç havuzunda veya montaj masasında kullanılmaktadır (${totalRefs} referans: ${demandRefs} talep, ${planRefs} üretim planı, ${workbenchRefs} montaj).\n\nFiziksel olarak silinemez; geçmiş ve mevcut planların bozulmaması için yalnızca "Pasife Al" yapabilirsiniz.`
-    );
+  if (!confirm(`"${item.stock_code} - ${item.stock_name}" teknik kartını silmek istediğinizden emin misiniz?`)) {
     return;
   }
 
-  if (confirm(`"${item.stock_code} - ${item.stock_name}" teknik kartını kalıcı olarak silmek istediğinizden emin misiniz?`)) {
-    state.technicalProducts = state.technicalProducts.filter(p => p.id !== item.id && p.stock_code !== item.stock_code);
-    logAudit('technical_product', item.stock_code, 'delete', `Kullanılmayan teknik kart silindi: ${item.stock_code}`);
-    saveTechnicalProducts();
+  try {
+    await apiRequest('/api/definitions/products/' + encodeURIComponent(item.stock_code), {
+      method: 'DELETE'
+    });
+    alert(`✅ "${item.stock_code}" teknik kartı kalıcı olarak silindi.`);
+
+    const prodRes = await apiRequest('/api/definitions/products');
+    if (prodRes && Array.isArray(prodRes.data)) {
+      state.technicalProducts = prodRes.data;
+    }
+    const auditRes = await apiRequest('/api/audit-logs');
+    if (auditRes && Array.isArray(auditRes.data)) {
+      state.auditLogs = auditRes.data;
+    }
     renderApp();
+  } catch (err) {
+    console.error('Silme hatası:', err);
+    if (err.code === 'REFERANS_BUTUNLUGU_ENGELI') {
+      alert(`🚫 Referans Bütünlüğü Koruması:\n\n${err.message}\n\nGeçmiş ve mevcut planların bozulmaması için lütfen silmek yerine "Pasife Al" özelliğini kullanınız.`);
+    } else if (err.code === 'YETKISIZ_ISLEM') {
+      alert(`🚫 Yetkisiz İşlem:\n\n${err.message}`);
+    } else {
+      alert(`❌ Silme işlemi başarısız:\n\n${err.message}`);
+    }
   }
 }
+
 
 // ------------------------------------------------------------------------------
 // EXCEL İÇE AKTARMA (IMPORT) MOTORU
@@ -3759,18 +3997,98 @@ function closeImportModal() {
 }
 
 function downloadSampleTemplate() {
-  const headers = 'Stok Kodu;Stok İsmi;Ham Levha kodu;Boy ve Çap;Baskı Yüzeyi;Vernik;Lak;İç Kaplama;Renk1;Renk2;Renk3;Renk4;Renk5;Renk6;Parametre 1';
-  const sample1 = '511109010410-1102;TUP-GW MOBILYA 300 ml (52x214)-LEMON;HAM LEVHA-017x832x875- (T 61) -52x214;52x214;METALİK;KISMİ;LAKLI;BELİRTİLMEMİŞ;C;M;Y;K;1225C;;image(20261105-112000).png';
-  const sample2 = '511109010910-1001;TUP-SOFT ODA SPR 300 ml (52x195)-VANILLA;HAM LEVHA-017x832x800- (T 61) -52x195;52x195;EMAYE;BELİRTİLMEMİŞ;BELİRTİLMEMİŞ;GOLD;C;M;Y;K;;;SOFT REV NO:08';
-  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers, sample1, sample2].join('\n');
-  const encodedUri = encodeURI(csvContent);
+  const token = state.sessionToken || 'token_admin_session_v2c';
+  const url = '/api/definitions/import/template?token=' + encodeURIComponent(token);
   const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
-  link.setAttribute('download', 'Teneke_Teknik_Kart_Sablonu.csv');
+  link.href = url;
+  link.setAttribute('download', 'Teneke_Teknik_Kart_Sablonu.xlsx');
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 }
+
+async function handleExcelFileInput(input) {
+  if (!input.files || input.files.length === 0) return;
+  const file = input.files[0];
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const token = state.sessionToken || 'token_admin_session_v2c';
+    const response = await fetch('/api/definitions/import/preview', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Authorization': 'Bearer ' + token,
+        'X-Session-Token': token
+      },
+      body: buffer
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      alert('Excel dosyası doğrulama hatası:\n\n' + (data.error?.message || response.statusText));
+      return;
+    }
+
+    state.importValidation = data.data;
+    state.importStep = 3;
+    renderApp();
+  } catch (err) {
+    alert('Dosya okunamadı veya sunucuya gönderilemedi: ' + err.message);
+  }
+}
+
+async function startLocalStorageMigration() {
+  const localItems = JSON.parse(localStorage.getItem('tp_technical_products_v2')) || [];
+  if (localItems.length === 0) {
+    alert('Tarayıcı hafızasında (localStorage) kayıtlı yerel teknik kart bulunamadı.');
+    return;
+  }
+
+  try {
+    const previewRes = await apiRequest('/api/migration/localstorage/preview', {
+      method: 'POST',
+      body: { technicalProducts: localItems }
+    });
+
+    const p = previewRes.data;
+    const msg = 'Tarayıcı Veri Önizlemesi:\n\n' +
+      '• Tarayıcıdaki Toplam Kart: ' + p.clientCount + '\n' +
+      '• Veritabanındaki Mevcut Kart: ' + p.dbCount + '\n' +
+      '• Veritabanına Eklenecek Yeni Kart: ' + p.newInClient.length + '\n' +
+      '• Zaten DB\'de Bulunan: ' + p.existingInDb.length + '\n\n' +
+      (p.newInClient.length > 0
+        ? (p.newInClient.length + ' yeni kartı PostgreSQL veritabanına aktarmak istiyor musunuz?')
+        : 'Tüm tarayıcı kayıtları zaten veritabanında mevcuttur.');
+
+    if (p.newInClient.length === 0) {
+      alert(msg);
+      return;
+    }
+
+    if (!confirm(msg)) return;
+
+    const applyRes = await apiRequest('/api/migration/localstorage/apply', {
+      method: 'POST',
+      body: { itemsToMigrate: p.newInClient }
+    });
+
+    alert('✅ Başarılı: ' + (applyRes.data?.migratedCount || p.newInClient.length) + ' adet teknik kart veritabanına aktarıldı.');
+
+    const prodRes = await apiRequest('/api/definitions/products');
+    if (prodRes && Array.isArray(prodRes.data)) {
+      state.technicalProducts = prodRes.data;
+    }
+    const auditRes = await apiRequest('/api/audit-logs');
+    if (auditRes && Array.isArray(auditRes.data)) {
+      state.auditLogs = auditRes.data;
+    }
+    renderApp();
+  } catch (err) {
+    alert('Veri taşıma başarısız: ' + err.message);
+  }
+}
+
 
 function loadSampleImportData() {
   const lines = [
@@ -3787,44 +4105,43 @@ function loadSampleImportData() {
   renderApp();
 }
 
-function processImportStep1() {
+async function processImportStep1() {
   const textarea = document.getElementById('import_textarea');
   if (textarea) {
     state.importRawData = textarea.value.trim();
   }
 
   if (!state.importRawData) {
-    alert('Lütfen Excel verisi yapıştırın veya dosya yükleyin!');
+    alert('Lütfen bir Excel (.xlsx / .xlsm) dosyası yükleyin veya TSV/CSV metni yapıştırın!');
     return;
   }
 
-  // Parse rows (support tab, semicolon, comma)
-  const lines = state.importRawData.split(/\r?\n/).filter(l => l.trim().length > 0);
-  if (lines.length < 2) {
-    alert('Veri en az 1 başlık ve 1 veri satırı içermelidir!');
-    return;
-  }
-
-  // Delimiter detection
-  const firstLine = lines[0];
-  const delim = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
-
-  const headers = firstLine.split(delim).map(h => h.trim().replace(/^["']|["']$/g, ''));
-  const rows = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const rawCols = lines[i].split(delim).map(c => c.trim().replace(/^["']|["']$/g, ''));
-    const rowObj = {};
-    headers.forEach((h, colIdx) => {
-      rowObj[h] = rawCols[colIdx] || '';
+  try {
+    const token = state.sessionToken || 'token_admin_session_v2c';
+    const response = await fetch('/api/definitions/import/preview', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'X-Session-Token': token
+      },
+      body: JSON.stringify({ rawText: state.importRawData })
     });
-    rows.push(rowObj);
-  }
 
-  state.importParsedRows = rows;
-  state.importStep = 2;
-  renderApp();
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      alert('Doğrulama hatası:\n\n' + (data.error?.message || response.statusText));
+      return;
+    }
+
+    state.importValidation = data.data;
+    state.importStep = 3;
+    renderApp();
+  } catch (err) {
+    alert('Sunucu isteği başarısız: ' + err.message);
+  }
 }
+
 
 function processImportStep2() {
   // Validate rows against business rules & catalogue
@@ -3952,40 +4269,55 @@ function processImportStep2() {
   renderApp();
 }
 
-function commitImport() {
-  if (state.currentRole === 'viewer') return;
-  if (!state.importValidation) return;
+async function commitImport() {
+  if (state.currentRole === 'viewer') {
+    alert('Yetkisiz işlem: Görüntüleyici rolü içe aktarma yapamaz.');
+    return;
+  }
+  if (!state.importValidation || !state.importValidation.rows) return;
 
-  const policy = state.importPolicy;
-  let appliedCount = 0;
+  const policy = state.importPolicy || 'all';
 
-  state.importValidation.rows.forEach(vr => {
-    if (vr.status === 'ERROR') return;
-    if (policy === 'new_only' && vr.status !== 'NEW') return;
-    if (policy === 'update_only' && vr.status !== 'UPDATE') return;
+  try {
+    const token = state.sessionToken || 'token_admin_session_v2c';
+    const response = await fetch('/api/definitions/import/commit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'X-Session-Token': token
+      },
+      body: JSON.stringify({
+        rows: state.importValidation.rows,
+        policy: policy,
+        allowPartial: !!state.allowPartialImport
+      })
+    });
 
-    const item = vr.item;
-    const existingIdx = state.technicalProducts.findIndex(p => p.stock_code === item.stock_code);
-    if (existingIdx !== -1) {
-      state.technicalProducts[existingIdx] = { ...state.technicalProducts[existingIdx], ...item };
-    } else {
-      state.technicalProducts.unshift(item);
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      alert('İçe aktarma hatası:\n\n' + (data.error?.message || response.statusText));
+      return;
     }
-    appliedCount++;
-  });
 
-  logAudit(
-    'excel_import',
-    'IMP-' + Date.now(),
-    'import',
-    `Excel üzerinden ${appliedCount} adet teknik kart başarıyla aktarıldı (${state.importValidation.newCount} yeni, ${state.importValidation.updateCount} güncelleme, politika: ${policy})`
-  );
+    state.importAppliedCount = data.data.appliedCount;
+    state.importStep = 4;
 
-  saveTechnicalProducts();
-  state.importStep = 4;
-  state.importAppliedCount = appliedCount;
-  renderApp();
+    const prodRes = await apiRequest('/api/definitions/products');
+    if (prodRes && Array.isArray(prodRes.data)) {
+      state.technicalProducts = prodRes.data;
+    }
+    const auditRes = await apiRequest('/api/audit-logs');
+    if (auditRes && Array.isArray(auditRes.data)) {
+      state.auditLogs = auditRes.data;
+    }
+
+    renderApp();
+  } catch (err) {
+    alert('Aktarım kaydedilemedi: ' + err.message);
+  }
 }
+
 
 function renderTechnical() {
   const isReadOnly = state.currentRole === 'viewer';
@@ -4043,6 +4375,15 @@ function renderTechnical() {
               </div>
             </div>
             <div class="flex items-center gap-2">
+              <button
+                type="button"
+                ${isReadOnly ? 'disabled' : ''}
+                onclick="startLocalStorageMigration();"
+                class="px-3 py-1.5 rounded bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-mono flex items-center gap-1.5 shadow-2xs"
+                title="Tarayıcı localStorage içindeki kartları PostgreSQL veritabanına aktar"
+              >
+                <span>🔄</span> Tarayıcı Verilerini DB'ye Taşı
+              </button>
               <button
                 ${isReadOnly ? 'disabled' : ''}
                 onclick="downloadSampleTemplate();"
@@ -4906,6 +5247,10 @@ function renderImportModal() {
                 Excel tablonuzdaki başlık satırı ve verileri kopyalayıp aşağıdaki alana yapıştırabilir ya da hazır kaynak örneğini yükleyebilirsiniz.
               </div>
               <div class="flex flex-wrap items-center gap-2 pt-1">
+                <label class="cursor-pointer px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-700 text-white font-mono font-bold flex items-center gap-1.5 shadow-xs">
+                  <span>📁</span> Gerçek Excel (.xlsx / .xlsm) Dosyası Seç
+                  <input type="file" id="import_file_input" accept=".xlsx,.xlsm,.csv" class="hidden" onchange="handleExcelFileInput(this)" />
+                </label>
                 <button
                   type="button"
                   onclick="loadSampleImportData();"
@@ -5074,7 +5419,20 @@ function renderImportModal() {
             </div>
           </div>
 
-          <div class="flex items-center justify-between border-t border-slate-200 pt-3">
+          ${val.errorCount > 0 ? `
+            <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-xs text-amber-900 font-sans mt-3">
+              <div class="flex items-center gap-2">
+                <span class="text-base">⚠️</span>
+                <span>Dosyada <b>${val.errorCount}</b> adet hatalı satır var. Varsayılan kural gereğince dosya bütünüyle reddedilir. Yalnızca geçerli satırları aktarmak için onay kutusunu işaretleyiniz:</span>
+              </div>
+              <label class="flex items-center gap-2 font-mono font-bold cursor-pointer bg-white px-3 py-1.5 rounded border border-amber-300 text-amber-900">
+                <input type="checkbox" onchange="state.allowPartialImport = this.checked;" ${state.allowPartialImport ? 'checked' : ''} class="rounded text-amber-600">
+                Kısmi Aktarıma İzin Ver
+              </label>
+            </div>
+          ` : ''}
+
+          <div class="flex items-center justify-between border-t border-slate-200 pt-3 mt-2">
             <button onclick="state.importStep=2; renderApp();" class="px-4 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono">← Geri</button>
             <button
               onclick="commitImport();"
@@ -5114,53 +5472,564 @@ function renderImportModal() {
   `;
 }
 
+// ============================================================================
+// FAZ 3A.1: MEVCUT SQL PLANI SNAPSHOT VE TASLAK YÖNETİMİ
+// ============================================================================
+
+async function openSqlPlanPreviewModal() {
+  state.showSqlPlanModal = true;
+  state.isFetchingSqlPreview = true;
+  state.sqlPlanPreview = null;
+  renderApp();
+
+  try {
+    const res = await apiRequest('/api/plan-sync/preview');
+    if (res && res.success) {
+      state.sqlPlanPreview = res.data;
+    } else {
+      alert('SQL Planı Önizleme Hatası:\n' + (res?.error?.message || 'Bilinmeyen hata'));
+      state.showSqlPlanModal = false;
+    }
+  } catch (err) {
+    alert('SQL Planı Önizleme Hatası:\n' + err.message);
+    state.showSqlPlanModal = false;
+  } finally {
+    state.isFetchingSqlPreview = false;
+    renderApp();
+  }
+}
+
+function closeSqlPlanModal() {
+  state.showSqlPlanModal = false;
+  state.sqlPlanPreview = null;
+  renderApp();
+}
+
+async function commitSqlPlanSnapshot() {
+  if (state.currentRole === 'viewer') {
+    alert('Yetkisiz işlem: Görüntüleyici rolü plan içeri alamaz.');
+    return;
+  }
+
+  const notesInput = document.getElementById('sqlSnapNotes');
+  const updateDraftInput = document.getElementById('chkUpdateDraft');
+  const notes = notesInput ? notesInput.value.trim() : '';
+  const updateDraft = updateDraftInput ? updateDraftInput.checked : true;
+  let forceOverwrite = false;
+
+  if (updateDraft && state.planDraft?.draft?.is_dirty) {
+    const confirmOverwrite = confirm(
+      'Mevcut çalışma taslağında kaydedilmemiş sıralama değişiklikleri bulunmaktadır.\n\n' +
+      'Yeni snapshot verisiyle mevcut taslağın üzerine yazmak istiyor musunuz?\n\n' +
+      '• [Tamam]: Taslak yeni SQL planı ile güncellenir.\n' +
+      '• [İptal]: Taslak korunur, snapshot bağımsız arşivlenir.'
+    );
+    forceOverwrite = confirmOverwrite;
+  }
+
+  try {
+    const res = await apiRequest('/api/plan-sync/snapshot', {
+      method: 'POST',
+      body: {
+        notes: notes || 'SQL Server alper_tenekeuretim plan alımı',
+        createOrUpdateDraft: updateDraft,
+        forceOverwrite: forceOverwrite
+      }
+    });
+
+    if (res && res.success) {
+      const snap = res.data.snapshot;
+      const draftInfo = res.data.draft;
+      let msg = `✓ Mevcut plan başarıyla PostgreSQL'e aktarıldı!\n\n` +
+        `• Snapshot ID: ${snap.id}\n` +
+        `• Satır Sayısı: ${snap.row_count}\n` +
+        `• Toplam Miktar: ${snap.total_quantity.toLocaleString('tr-TR')} adet\n` +
+        `• Checksum: ${snap.checksum.slice(0, 16)}...`;
+
+      if (draftInfo && draftInfo.preserved) {
+        msg += `\n\n⚠️ Dikkat: ${draftInfo.message}`;
+      }
+
+      alert(msg);
+      state.showSqlPlanModal = false;
+      state.sqlPlanPreview = null;
+
+      // Taslağı ve snapshot geçmişini yeniden yükle
+      const draftRes = await apiRequest('/api/plan-sync/draft');
+      if (draftRes && draftRes.data && draftRes.data.exists) {
+        state.planDraft = draftRes.data;
+      }
+      const snapsRes = await apiRequest('/api/plan-sync/snapshots');
+      if (snapsRes && Array.isArray(snapsRes.data)) {
+        state.planSnapshots = snapsRes.data;
+      }
+      const auditRes = await apiRequest('/api/audit-logs');
+      if (auditRes && Array.isArray(auditRes.data)) {
+        state.auditLogs = auditRes.data;
+      }
+      renderApp();
+    } else {
+      alert('Snapshot Kaydetme Hatası:\n' + (res?.error?.message || 'Bilinmeyen hata'));
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
+async function moveDraftItem(index, direction) {
+  if (state.currentRole === 'viewer') return;
+  if (!state.planDraft || !state.planDraft.items) return;
+
+  const items = [...state.planDraft.items];
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= items.length) return;
+
+  // Sıralamayı yerel olarak takas et
+  const temp = items[index];
+  items[index] = items[newIndex];
+  items[newIndex] = temp;
+
+  // Yeni sequence_order değerlerini ata
+  items.forEach((it, idx) => {
+    it.sequence_order = idx + 1;
+  });
+
+  state.planDraft.items = items;
+  if (state.planDraft.draft) {
+    state.planDraft.draft.is_dirty = true;
+  }
+  renderApp();
+
+  try {
+    const itemIds = items.map(it => it.id);
+    const res = await apiRequest('/api/plan-sync/draft/order', {
+      method: 'PUT',
+      body: {
+        draftId: state.planDraft.draft.id,
+        itemIds
+      }
+    });
+    if (res && res.data && res.data.draft) {
+      state.planDraft.draft = res.data.draft;
+      renderApp();
+    }
+  } catch (err) {
+    console.error('Sıralama sunucuya kaydedilemedi:', err);
+  }
+}
+
+async function openSnapshotHistoryModal() {
+  state.showSnapshotHistoryModal = true;
+  renderApp();
+
+  try {
+    const res = await apiRequest('/api/plan-sync/snapshots');
+    if (res && Array.isArray(res.data)) {
+      state.planSnapshots = res.data;
+      renderApp();
+    }
+  } catch (err) {
+    console.error('Snapshot geçmişi alınamadı:', err);
+  }
+}
+
+function closeSnapshotHistoryModal() {
+  state.showSnapshotHistoryModal = false;
+  renderApp();
+}
+
 function renderProduction() {
+  const hasDraft = state.planDraft && Array.isArray(state.planDraft.items) && state.planDraft.items.length > 0;
+  const draft = state.planDraft?.draft;
+  const items = hasDraft ? state.planDraft.items : [];
+
+  // Filtreleme
+  const query = (state.planSearch || '').toLowerCase().trim();
+  const filteredItems = items.filter(it => {
+    if (!query) return true;
+    return (it.stock_code && it.stock_code.toLowerCase().includes(query)) ||
+           (it.stock_name && it.stock_name.toLowerCase().includes(query));
+  });
+
+  const totalQty = items.reduce((acc, it) => acc + (parseFloat(it.quantity) || 0), 0);
+  const snapCount = state.planSnapshots?.length || 0;
+
   return `
-    <div class="space-y-4">
-      <div class="bg-white border border-slate-200 rounded-lg p-3.5 flex items-center justify-between text-xs shadow-sm">
-        <div class="flex items-center gap-2">
-          <span class="text-base">🏭</span>
-          <div>
-            <span class="font-bold text-sky-800">REFERANS ÜRETİM PLANI: </span>
-            <span class="text-slate-700">Kaynak görseldeki 20 adet 2026 Kasım plan satırıdır. Hat ve termin optimizasyonu Faz 5 konusudur.</span>
+    <div class="space-y-4 font-sans">
+      <!-- 1. Üst Bilgi ve Eylem Kartı -->
+      <div class="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">🏭</span>
+              <h2 class="text-base font-bold text-slate-900">Tek Tüp Makinesi Üretim Planı (Faz 3A.1 & 5A)</h2>
+              ${hasDraft ? `
+                <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold ${draft?.is_dirty ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'}">
+                  Taslak v${draft?.version || 1} ${draft?.is_dirty ? '● Düzenlendi' : '✓ Kayıtlı'}
+                </span>
+              ` : `
+                <span class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-100 text-slate-600 border border-slate-300">
+                  Taslak Yok
+                </span>
+              `}
+            </div>
+            <div class="text-xs text-slate-500 font-mono flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span>Kaynak: <b class="text-slate-700">${state.planDraft?.draft?.snapshot_source || 'MikroDesktop_LIDER26.dbo.alper_tenekeuretim'}</b></span>
+              <span>Toplam Satır: <b class="text-slate-900">${items.length}</b></span>
+              <span>Toplam Üretim: <b class="text-indigo-700">${totalQty.toLocaleString('tr-TR')} Adet</b></span>
+              ${draft?.snapshot_id ? `<span>Bağlı Snapshot: <b class="text-slate-600">${draft.snapshot_id}</b></span>` : ''}
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              onclick="openSqlPlanPreviewModal();"
+              class="px-3.5 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-mono font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5"
+            >
+              <span>📥</span>
+              <span>Mevcut SQL Planını Al</span>
+            </button>
+            <button
+              onclick="openSnapshotHistoryModal();"
+              class="px-3 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs border border-slate-300 transition-colors flex items-center gap-1.5"
+            >
+              <span>🕒</span>
+              <span>Snapshot Geçmişi (${snapCount})</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sıra ve Esas Kaynak Notu -->
+        <div class="mt-3 p-2.5 bg-sky-50/80 border border-sky-200 rounded text-xs text-sky-950 flex items-start gap-2">
+          <span class="text-sky-600 font-bold text-sm">ℹ</span>
+          <div class="space-y-0.5">
+            <span class="font-bold">Kayıpsız Plan ve Kronolojik Sıra Sözleşmesi:</span>
+            <span>Mevcut tüp üretim planı <code class="font-mono bg-sky-100 text-sky-900 px-1 rounded font-bold">MikroDesktop_LIDER26.dbo.alper_tenekeuretim</code> tablosundan kayıpsız olarak içeri alınır. Kaynak tablodaki [Başlangıç Tarih] ve [Bitiş Tarih] makine üzerindeki üretim çizelgesini kronolojik olarak belirler. Sıralamayı listedeki <b>▲ / ▼</b> butonlarıyla serbestçe değiştirebilirsiniz. Değişiklikler PostgreSQL taslağında güvenle saklanır; SQL Server tablolarına bu fazda geri yazım yapılmaz.</span>
           </div>
         </div>
       </div>
 
-      <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-        <table class="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr class="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
-              <th class="py-2.5 px-3">Hafta</th>
-              <th class="py-2.5 px-3">Bitiş Tarihi</th>
-              <th class="py-2.5 px-3">Tüketim Kodu</th>
-              <th class="py-2.5 px-3">Tüketim Adı</th>
-              <th class="py-2.5 px-2">Ebat</th>
-              <th class="py-2.5 px-2 text-right">Üretilecek Miktar</th>
-              <th class="py-2.5 px-2">Hat</th>
-              <th class="py-2.5 px-2">Malzeme Durumu</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 font-sans">
-            ${state.productionPlans.map(p => `
-              <tr class="hover:bg-slate-50">
-                <td class="py-2.5 px-3 font-mono font-semibold text-slate-600">${p.week_source}</td>
-                <td class="py-2.5 px-3 font-mono text-slate-800">${p.finish_date}</td>
-                <td class="py-2.5 px-3 font-mono font-semibold text-sky-700">${p.consumption_code}</td>
-                <td class="py-2.5 px-3 font-medium text-slate-900">${p.consumption_name}</td>
-                <td class="py-2.5 px-2 font-mono text-slate-700">${p.tube_size}</td>
-                <td class="py-2.5 px-2 text-right font-mono font-bold text-slate-900">${formatNum(p.planned_units)}</td>
-                <td class="py-2.5 px-2 font-mono text-slate-600 text-[11px]">${p.machine || 'HAT-01'}</td>
-                <td class="py-2.5 px-2">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-mono ${p.material_status==='ready'?'bg-emerald-50 text-emerald-800 border border-emerald-300':'bg-amber-50 text-amber-800 border border-amber-300'}">
-                    ${p.material_status==='ready'?'Hazır':'Kalite Bekliyor'}
-                  </span>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+      <!-- 2. Arama ve Filtre Çubuğu -->
+      <div class="bg-white border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-4 shadow-xs">
+        <div class="flex-1 max-w-md relative">
+          <input
+            type="text"
+            placeholder="Stok kodu veya ürün adı ile ara..."
+            value="${state.planSearch || ''}"
+            oninput="state.planSearch = this.value; renderApp();"
+            class="w-full pl-8 pr-3 py-1.5 text-xs font-mono rounded border border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+          <span class="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
+        </div>
+        <div class="text-xs font-mono text-slate-500">
+          Gösterilen: <b class="text-slate-800">${filteredItems.length}</b> / ${items.length} Satır
+        </div>
       </div>
+
+      <!-- 3. Üretim Planı Tablosu -->
+      ${hasDraft ? `
+        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
+          <div class="overflow-x-auto max-h-[620px]">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="sticky top-0 bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase z-10">
+                <tr>
+                  <th class="py-2.5 px-3 w-14 text-center">Sıra</th>
+                  <th class="py-2.5 px-2 w-16 text-center">Taşı</th>
+                  <th class="py-2.5 px-3">Stok Kodu</th>
+                  <th class="py-2.5 px-3">Ürün Açıklaması</th>
+                  <th class="py-2.5 px-2">Ebat</th>
+                  <th class="py-2.5 px-2">Seri</th>
+                  <th class="py-2.5 px-3 text-right">Planlanan Adet</th>
+                  <th class="py-2.5 px-3">Başlangıç Tarihi</th>
+                  <th class="py-2.5 px-3">Bitiş Tarihi</th>
+                  <th class="py-2.5 px-3 text-center">Durum</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
+                ${filteredItems.map((it, idx) => {
+                  const originalIndex = items.findIndex(x => x.id === it.id);
+                  const isFirst = originalIndex === 0;
+                  const isLast = originalIndex === items.length - 1;
+
+                  return `
+                    <tr class="hover:bg-slate-50/80 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}">
+                      <td class="py-2 px-3 text-center font-bold text-slate-700 bg-slate-50/50">
+                        #${it.sequence_order}
+                      </td>
+                      <td class="py-2 px-2 text-center">
+                        <div class="inline-flex items-center gap-1">
+                          <button
+                            onclick="moveDraftItem(${originalIndex}, -1);"
+                            ${isFirst || state.currentRole === 'viewer' ? 'disabled' : ''}
+                            title="Yukarı Taşı"
+                            class="p-1 rounded text-slate-600 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                          >▲</button>
+                          <button
+                            onclick="moveDraftItem(${originalIndex}, 1);"
+                            ${isLast || state.currentRole === 'viewer' ? 'disabled' : ''}
+                            title="Aşağı Taşı"
+                            class="p-1 rounded text-slate-600 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                          >▼</button>
+                        </div>
+                      </td>
+                      <td class="py-2 px-3 font-bold text-slate-900">${it.stock_code}</td>
+                      <td class="py-2 px-3 font-sans text-slate-800">${it.stock_name || '-'}</td>
+                      <td class="py-2 px-2 text-slate-600 font-mono text-[11px]">${it.tube_size || '-'}</td>
+                      <td class="py-2 px-2 text-slate-600 font-mono text-[11px]">${it.series || '-'}</td>
+                      <td class="py-2 px-3 text-right font-bold text-indigo-700">
+                        ${parseFloat(it.quantity).toLocaleString('tr-TR')}
+                      </td>
+                      <td class="py-2 px-3 text-slate-700">
+                        ${it.start_date ? `
+                          <span class="inline-flex items-center gap-1 font-sans text-[11px]">
+                            <span>🕒</span>
+                            <span>${new Date(it.start_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                          </span>
+                        ` : (it.scheduled_date ? new Date(it.scheduled_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '-')}
+                      </td>
+                      <td class="py-2 px-3 text-emerald-800">
+                        ${it.end_date ? `
+                          <span class="inline-flex items-center gap-1 font-sans text-[11px]">
+                            <span>🏁</span>
+                            <span>${new Date(it.end_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                          </span>
+                        ` : '-'}
+                      </td>
+                      <td class="py-2 px-3 text-center">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                          ${it.status || 'Planlandı'}
+                        </span>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ` : `
+        <!-- Taslak Henüz Yokken Referans Görünümü -->
+        <div class="bg-white border border-slate-200 rounded-lg p-8 text-center space-y-4 shadow-xs">
+          <div class="w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-3xl mx-auto">
+            📥
+          </div>
+          <div class="space-y-1">
+            <h3 class="text-base font-bold text-slate-900">Mevcut SQL Planı Henüz Alınmadı</h3>
+            <p class="text-xs text-slate-500 font-sans max-w-md mx-auto">
+              MikroDesktop_LIDER26.dbo.alper_tenekeuretim tablosundaki gerçek üretim planı kayıtlarını PostgreSQL'e aktararak düzenlemeye başlamak için önizleme yapınız.
+            </p>
+          </div>
+          <button
+            onclick="openSqlPlanPreviewModal();"
+            class="px-5 py-2.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-mono font-bold text-xs shadow-xs transition-colors"
+          >
+            Mevcut SQL Planını Önizle ve İçeri Al
+          </button>
+        </div>
+      `}
+
+      <!-- 4. MODAL: SQL Plan Önizleme ve İçeri Alma -->
+      ${state.showSqlPlanModal ? `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div class="flex items-center gap-2">
+                <span class="text-lg">📥</span>
+                <h3 class="font-bold text-slate-900 text-sm">Mevcut SQL Planını Al (MikroDesktop_LIDER26.dbo.alper_tenekeuretim)</h3>
+              </div>
+              <button onclick="closeSqlPlanModal();" class="text-slate-400 hover:text-slate-600 text-lg font-mono">✕</button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-5 overflow-y-auto flex-1 space-y-4 text-xs font-sans">
+              ${state.isFetchingSqlPreview ? `
+                <div class="p-12 text-center space-y-3">
+                  <div class="inline-block animate-spin text-3xl">⚙️</div>
+                  <div class="font-bold text-slate-700">SQL Server salt-okunur taranıyor...</div>
+                  <div class="text-[11px] font-mono text-slate-500">MikroDesktop_LIDER26.dbo.alper_tenekeuretim kayıtları okunuyor.</div>
+                </div>
+              ` : state.sqlPlanPreview ? `
+                <!-- Özet İstatistikler -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
+                  <div class="p-3 bg-slate-50 border border-slate-200 rounded">
+                    <div class="text-[10px] text-slate-500 uppercase">Kaynak Tablo</div>
+                    <div class="text-xs font-bold text-slate-800 truncate" title="${state.sqlPlanPreview.source_table}">${state.sqlPlanPreview.source_table}</div>
+                  </div>
+                  <div class="p-3 bg-slate-50 border border-slate-200 rounded">
+                    <div class="text-[10px] text-slate-500 uppercase">Toplam Kayıt</div>
+                    <div class="text-sm font-bold text-indigo-700">${state.sqlPlanPreview.row_count} Satır</div>
+                  </div>
+                  <div class="p-3 bg-slate-50 border border-slate-200 rounded">
+                    <div class="text-[10px] text-slate-500 uppercase">Benzersiz Stok</div>
+                    <div class="text-sm font-bold text-sky-700">${state.sqlPlanPreview.distinct_stocks || '-'} Kod</div>
+                  </div>
+                  <div class="p-3 bg-slate-50 border border-slate-200 rounded">
+                    <div class="text-[10px] text-slate-500 uppercase">Toplam Miktar</div>
+                    <div class="text-sm font-bold text-emerald-700">${state.sqlPlanPreview.total_quantity.toLocaleString('tr-TR')} Adet</div>
+                  </div>
+                </div>
+
+                <!-- Önceki Snapshot Karşılaştırması (Varsa) -->
+                ${state.sqlPlanPreview.previous_comparison ? `
+                  <div class="p-3 bg-indigo-50/70 border border-indigo-200 rounded text-indigo-950 font-mono text-[11px] space-y-1">
+                    <div class="font-bold text-indigo-900 flex items-center gap-1.5">
+                      <span>📊</span>
+                      <span>Önceki Snapshot ile Karşılaştırma:</span>
+                      ${state.sqlPlanPreview.previous_comparison.is_source_changed ? `
+                        <span class="px-1.5 py-0.2 bg-amber-200 text-amber-900 rounded font-bold text-[10px]">Kaynak Değişti</span>
+                      ` : ''}
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] pt-1">
+                      <div>Önceki Kaynak: <b>${state.sqlPlanPreview.previous_comparison.previous_source_table}</b> (${state.sqlPlanPreview.previous_comparison.previous_row_count} satır, ${state.sqlPlanPreview.previous_comparison.previous_total_quantity.toLocaleString('tr-TR')} adet)</div>
+                      <div>Yeni Kaynak: <b>${state.sqlPlanPreview.previous_comparison.current_source_table}</b> (${state.sqlPlanPreview.previous_comparison.current_row_count} satır, ${state.sqlPlanPreview.previous_comparison.current_total_quantity.toLocaleString('tr-TR')} adet)</div>
+                    </div>
+                    <div class="text-slate-600 pt-0.5">
+                      Fark: <b>+${state.sqlPlanPreview.previous_comparison.row_count_diff} Satır</b>, <b>+${state.sqlPlanPreview.previous_comparison.total_quantity_diff.toLocaleString('tr-TR')} Adet</b>
+                    </div>
+                  </div>
+                ` : ''}
+
+                <!-- Checksum ve Güvenlik Bilgisi -->
+                <div class="p-3 bg-slate-100 rounded border border-slate-200 font-mono text-[11px] space-y-1">
+                  <div><b>SHA256 Checksum:</b> <span class="text-indigo-800 font-bold">${state.sqlPlanPreview.checksum}</span></div>
+                  <div><b>Kaynak Bağlantı:</b> ${state.sqlPlanPreview.source_host} / ${state.sqlPlanPreview.source_db}</div>
+                </div>
+
+                <!-- Analiz Uyarısı -->
+                <div class="p-3 bg-sky-50 border border-sky-200 rounded text-sky-950 text-xs">
+                  <p class="font-bold mb-1">📋 Sıra ve Veri Analizi:</p>
+                  <p class="text-[11px] leading-relaxed">${state.sqlPlanPreview.sequence_analysis.description}</p>
+                </div>
+
+                <!-- Örnek Satırlar Önizlemesi -->
+                <div class="space-y-1">
+                  <div class="font-bold text-slate-800 text-xs">Okunan Satırların İlk 5 Kaydı (Kronolojik Sıra):</div>
+                  <div class="border border-slate-200 rounded overflow-hidden">
+                    <table class="w-full text-left text-[11px] font-mono">
+                      <thead class="bg-slate-100 text-slate-600">
+                        <tr>
+                          <th class="py-1.5 px-2">#</th>
+                          <th class="py-1.5 px-2">Stok Kodu</th>
+                          <th class="py-1.5 px-2">Açıklama</th>
+                          <th class="py-1.5 px-2">Ebat</th>
+                          <th class="py-1.5 px-2 text-right">Miktar</th>
+                          <th class="py-1.5 px-2">Başlangıç</th>
+                          <th class="py-1.5 px-2">Bitiş</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100">
+                        ${state.sqlPlanPreview.items.slice(0, 5).map(it => `
+                          <tr>
+                            <td class="py-1 px-2 text-slate-500">${it.source_row_order}</td>
+                            <td class="py-1 px-2 font-bold text-slate-800">${it.stock_code}</td>
+                            <td class="py-1 px-2 font-sans truncate max-w-[180px]">${it.stock_name}</td>
+                            <td class="py-1 px-2 text-slate-600">${it.tube_size || '-'}</td>
+                            <td class="py-1 px-2 text-right font-bold text-indigo-700">${parseFloat(it.quantity).toLocaleString('tr-TR')}</td>
+                            <td class="py-1 px-2 text-slate-600">${it.start_date ? it.start_date.slice(0, 16).replace('T', ' ') : '-'}</td>
+                            <td class="py-1 px-2 text-slate-600">${it.end_date ? it.end_date.slice(0, 16).replace('T', ' ') : '-'}</td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Kayıt Seçenekleri -->
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded space-y-2">
+                  <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
+                    <input type="checkbox" id="chkUpdateDraft" checked class="rounded text-indigo-600">
+                    <span>Aktif plan taslağını bu snapshot ile güncelle / oluştur</span>
+                  </label>
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-600 mb-1">Snapshot Açıklama Notu:</label>
+                    <input
+                      type="text"
+                      id="sqlSnapNotes"
+                      value="Kasım 2026 alper_tenekeuretim plan alımı (Faz 3A.1 Düzeltme)"
+                      class="w-full px-3 py-1.5 text-xs rounded border border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
+                    >
+                  </div>
+                </div>
+              ` : `
+                <div class="p-8 text-center text-slate-500">Önizleme verisi alınamadı.</div>
+              `}
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+              <button
+                onclick="closeSqlPlanModal();"
+                class="px-4 py-2 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-mono"
+              >
+                Vazgeç
+              </button>
+              ${state.sqlPlanPreview ? `
+                <button
+                  onclick="commitSqlPlanSnapshot();"
+                  class="px-5 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-mono font-bold shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <span>✓</span>
+                  <span>Snapshot Olarak PostgreSQL'e Kaydet (${state.sqlPlanPreview.row_count} Kayıt)</span>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- 5. MODAL: Snapshot Geçmişi -->
+      ${state.showSnapshotHistoryModal ? `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden font-sans">
+            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div class="flex items-center gap-2">
+                <span class="text-lg">🕒</span>
+                <h3 class="font-bold text-slate-900 text-sm">Üretim Planı Snapshot Geçmişi</h3>
+              </div>
+              <button onclick="closeSnapshotHistoryModal();" class="text-slate-400 hover:text-slate-600 text-lg font-mono">✕</button>
+            </div>
+
+            <div class="p-5 overflow-y-auto flex-1 space-y-3">
+              ${(state.planSnapshots || []).length > 0 ? `
+                <div class="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+                  ${state.planSnapshots.map(s => `
+                    <div class="p-3.5 hover:bg-slate-50 transition-colors flex items-center justify-between gap-4 text-xs">
+                      <div class="space-y-1">
+                        <div class="flex items-center gap-2 font-mono">
+                          <b class="text-slate-900">${s.id}</b>
+                          <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">${s.status}</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500 font-sans">
+                          ${s.notes || 'Açıklama belirtilmedi'}
+                        </div>
+                        <div class="text-[10px] font-mono text-slate-400">
+                          Checksum: ${s.checksum.slice(0, 16)}... | Kullanıcı: ${s.created_by || 'system'}
+                        </div>
+                      </div>
+                      <div class="text-right font-mono space-y-1">
+                        <div class="font-bold text-indigo-700">${parseFloat(s.total_quantity).toLocaleString('tr-TR')} Adet</div>
+                        <div class="text-[11px] text-slate-500">${s.row_count} Satır</div>
+                        <div class="text-[10px] text-slate-400">${new Date(s.fetched_at).toLocaleString('tr-TR')}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : `
+                <div class="p-8 text-center text-slate-500 text-xs font-mono">
+                  Henüz kaydedilmiş bir snapshot bulunmuyor.
+                </div>
+              `}
+            </div>
+
+            <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button onclick="closeSnapshotHistoryModal();" class="px-4 py-2 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-mono">
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      ` : ''}
     </div>
   `;
 }
@@ -5767,4 +6636,5 @@ function renderApp() {
 // Global initialization
 window.addEventListener('DOMContentLoaded', () => {
   renderApp();
+  initBackendSync();
 });

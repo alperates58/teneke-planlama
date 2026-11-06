@@ -31,7 +31,7 @@ services:
     container_name: teneke-planlama-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${HOST_PORT:-3001}:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -39,9 +39,19 @@ services:
       - APP_ENV=local_demo
       - TZ=Europe/Istanbul
       - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/teneke_planlama
+      - ERP_SQL_HOST=${ERP_SQL_HOST:-host.docker.internal}
+      - ERP_SQL_PORT=${ERP_SQL_PORT:-11433}
+      - ERP_SQL_DB=${ERP_SQL_DB:-AA_LIDER}
+      - ERP_SQL_USER=${ERP_SQL_USER:-planlama}
+      - ERP_SQL_PASSWORD=${ERP_SQL_PASSWORD:-}
+      - ERP_PLAN_SOURCE_TABLE=${ERP_PLAN_SOURCE_TABLE:-MikroDesktop_LIDER26.dbo.alper_tenekeuretim}
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ./server:/app/server
+      - ./public:/app/public
+      - ./migrations:/app/migrations
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1"]
       interval: 15s
@@ -54,4 +64,3 @@ services:
 
 volumes:
   pgdata:
-    driver: local

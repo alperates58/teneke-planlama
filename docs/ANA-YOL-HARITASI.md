@@ -469,3 +469,32 @@ Güncelleme tarihi:
 | 05.11.2026 | 1.0 | Mevcut durum: plan hazır; faz uygulamalarının başladığı veya tamamlandığına dair doğrulama yok. |
 
 Gelecek güncellemelerde kararın tarihi, gerekçesi, etkilediği faz ve eski davranış kaydedilir. Yeni sohbet veya yeni geliştirme oturumunda bu dosya ve son faz teslim kaydı birlikte kullanılır.
+
+
+---
+
+## 12. Bütünleşik Yol Haritası v2 Sıralaması ve Faz 3A.1 (06.11.2026 Güncellemesi)
+
+Kullanıcının 06.11.2026 tarihli yeni kararları doğrultusunda, faz tarihçesi korunarak uygulama sırası yeniden düzenlenmiştir:
+
+| Sıra | Faz | Çıktı | Bağımlılık | Durum |
+|---:|---|---|---|---|
+| 0 | 0–1 | Proje temeli ve ilk ekranlar; tarihçe korunur | Mevcut | Tamamlandı |
+| 1 | 2 / 2B / 2C | Parametre, kural ve kalıcı veri; son 2C tesliminin hedefli kabul kontrolü | Mevcut | Tamamlandı |
+| 2 | 3A.1 | SQL şeması ve mevcut meltem_teneke planının kayıpsız snapshot'ı | 2C | **Aktif Uygulama** |
+| 3 | 2D | Impeccable öncülüğünde İhtiyaç Havuzu pilot tasarımı ve UI sözleşmesi | 2C; 3A.1 ile paralel | Planlandı |
+| 4 | 3A.2 | Stok kartı, brüt talep, reçete, depo stok ve dış plan senkronizasyonu | 3A.1 | Planlandı |
+| 5 | 3B | Tarihli ihtiyaç ve kademeli stok tahsis motoru | 3A.2 | Planlandı |
+| 6 | 5A | Tek tüp makinesi, çalışma takvimi ve düzenlenebilir üretim planı | 3A.1, 3B | Planlandı |
+| 7 | 5W | Onaylanan planın meltem_teneke'ye kontrollü geri yazımı (Dar istisna) | 3A.1, 5A | Planlandı |
+| 8 | 3C.1 | Tüp talebi/stok/takvim/plan ve geri yazım mutabakatı | 3B, 5A, 5W | Planlandı |
+| 9 | 4 | Teknik verisi tamamlanan ürünlerde yeni baskı kombinasyonu | 3B, baskı tanımları | Planlandı |
+| 10 | 5B + 3C.2 | Baskı/kesim/malzeme tarihleri ile planın birleştirilmesi ve tam mutabakat | 4, 5A | Planlandı |
+| 11 | 6 | Matbaa/ajans siparişi, gerçekleşme ve izlenebilirlik | 4, 5B | Planlandı |
+| 12 | 7 | Şirket 0101 sunucusunda Coolify yayın ve kabul | İlgili işlevler | Planlandı |
+
+### 12.1. Faz 3A.1 Kapsamı ve Kabul Koşulları
+- **Hedef:** `AA_LIDER.dbo.meltem_teneke` tablosundaki aktif üretim planını (124 kayıt, 2.114.077 adet) hiçbir veri kaybı, sıra tahrifatı veya otomatik programlama olmadan PostgreSQL'e değişmez kaynak snapshot'ı ve düzenlenebilir taslak olarak aktarmak.
+- **SQL Salt-Okuma:** `172.17.0.6` SQL Server'a kesinlikle INSERT, UPDATE, DELETE veya ALTER uygulanmaz.
+- **Güvenli Ağ:** SQL Server'a doğrudan ulaşılamadığında şirket sunucusu `lider-server` (0101) üzerinden güvenli SSH tüneli/ağ geçidi kullanılır.
+- **Çift Senkron Koruması:** Tekrar senkronizasyon yapıldığında mükerrer iş türetilmez; yeni snapshot versiyonu oluşturulur ve kullanıcının üzerinde çalıştığı taslak korunur.

@@ -1,0 +1,68 @@
+TENEKE PLANLAMA — YOL HARİTASI v2 VE FAZ 3A.1 MEVCUT PLANIN KAYIPSIZ İÇERİ ALINMASI
+
+Ekli TENEKE-YOL-HARITASI-v2 paketini oku. Son Faz2C tamamlanma raporunu,
+AGENTS.md, STATUS.json ve gerçek aktif kodu incele. Sonraki değişiklikler
+varsa koru. 2C'yi veya eski 2B'yi baştan yazma. localhost:3001 kullanılıyor.
+
+ÖNCE BELGELERİ UZLAŞTIR
+- Mevcut faz tarihçesini silmeden v2 sırasını ANA-YOL-HARITASI ve STATUS'a işle.
+- Genel ERP salt-okuma kuralına dar meltem_teneke plan yazma istisnasını ekle.
+- Mevcut plan okunmadan yeni planla değiştirmek yasak. Yazma bu görevde yok;
+  ileride5W'de Kaydet/Yayınla, kaynak sürümü karşılaştırma, rollback ve idempotency ile.
+- Renk/zemin verileri tamamlanmadan stok senkronu ve tek makine planı ilerleyebilir.
+- Tasarım Faz2D: Impeccable birincil, mevcut UI UX Pro Max yardımcı. Tek sözleşme;
+  kötü mevcut tasarımı koru şartı yok. Bu görevde tema değiştirme/skill kurma.
+- Faz5A/5W üretim planı baskı kombinasyonundan önceye alınacak.5B sonra kalacak.
+
+KISA 2C KABUL KONTROLÜ
+Rapor test7'de hatalı satır varken geçerli satır kaydedilmiş. Gerçek davranışı
+incele. Varsayılan dosya atomik kabul; kısmi aktarım yalnız açık seçim ve hata
+raporuyla. Gerekiyorsa dar düzeltme ve gerçek API testi yap. Transaction var
+ifadesini bu davranışın kanıtı sayma. Kalıcı sözlük/kural verilerinin kaynaklarını
+da işaretle; bulunmayanı completed yazma. Kapsamlı refactor yapma.
+
+FAZ3A.1'İ UYGULA
+1. lider-server'da hostname0101 hedefini doğrula. Kişisel alperserver'a dokunma.
+   Mevcut güvenli bağlantı yoluyla AA_LIDER metadata ve sınırlı SELECT incele.
+   MikroDesktop_LIDER26 ilgili kaynaklarına yalnız okuma yap. Secret yazdırma.
+
+2. Kullanıcı aktif planın meltem_teneke içinde olduğunu belirtti.
+   dbo.meltem_teneke, alper_tenekeuretim ve Excel akışını karşılaştır:
+   kolon/tip, ID/unique, miktar/tarih anlamı, sıra, seri/plan/makine kapsamı,
+   trigger/varsayılan ve Excel'in ORDER BY/yazma davranışı.
+   Önceki Excel analizi farklı roller gösterdiğinden tabloyu kanıtsız değiştirme.
+   Reçete miktar/birim kolonlarını, plan talep kaynaklarını ve depo politikası
+   için mevcut nesne tanımlarını da salt okunur al; view SQL'i henüz uygulama.
+
+3. Mevcut planı PostgreSQL'de değişmez kaynak snapshot ve taslak sürüm olarak
+   saklayan sürümlü migration, servis ve okuma endpoint'ini kur.
+   Kaynak satır eşleşmesi, checksum/versiyon, fetched_at ve kapsamı kaydet.
+   Kaynak sıra/miktar/tarih/notları değiştirme; otomatik netleme/programlama yok.
+   Sıra kanıtı yoksa kullanıcıya kesin sıra diye sunma; kanıtlı kısmı içeri al,
+   belirsizliği görünür kaydet ve sıranın çözüm önerisini hazırla.
+
+4. Mevcut Üretim Planı ekranına “Mevcut SQL Planını Al” önizleme ve içeri alma
+   akışını bağla. Uygulamadaki kullanıcı taslağını otomatik ezme.
+   Önce önizleme, sonra açık içeri alma ile PG'ye yaz.
+   KaynakSQL'e INSERT/UPDATE/DELETE/ALTER/CREATE çalıştırma.
+   SQL erişimini host'tan ve seçilen uygulama ağı/yolu açısından ayırt et;
+   yerelde erişim yoksa güvenli SSH yolu ile snapshot al, SQL'i public açma.
+   Başarısız bağlantıyı mock başarıyla kapatma.
+
+5. İkinci senkron yeni snapshot olabilsin; aynı satırları yeni iş gibi
+   çoğaltmasın. Kullanıcının düzenlediği taslak ve önceki snapshot korunsun.
+   Kanıtla: kaynak ve snapshot satır/miktar/sıra karşılaştırması; kaynak verinin
+   değişmediği; yeniden alma/başarısız alma/eski taslağı koruma; DB kalıcılığı.
+   Canlı veriye test kaydı ekleme. Uygulama testlerini izole DB ile çalıştır.
+
+TESLİM
+- docs/FAZ-03A1-MEVCUT-PLAN-KANIT-RAPORU.md
+- Şema/veri akışı, gerçek tablo/sıra kararı, maskeli örnekler ve snapshot kanıtı
+- İlerideki kontrollü geri yazımın somut sözleşmesi ve kalan belirsizlikler
+- İncelenen reçete/birim/talep kaynağı şemalarıyla3A.2 için önerilen view taslakları
+- Çalışan ekran ve gerçek API test sonucu; hiçbir SQL kaynak değişikliği olmadığı
+- STATUS ve AGENTS güncellemesi. Tasarım2D ve tüm sonraki fazları görünür tut.
+
+Bu görev plan sunmakla bitmesin: erişimle bağımsız kod/migration/API/önizlemeyi
+uygula ve test et. Zorunlu kaynak belirsizliğinde tahminle gerçek plan yazma.
+GitHub push/Coolify deployment yapma; tamamlanmış işi ve sonraki tek adımı raporla.

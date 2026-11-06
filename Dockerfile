@@ -9,8 +9,13 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
+COPY package.json package-lock.json* ./
+RUN npm install --omit=dev
+
 COPY --chown=nextjs:nodejs public ./public
 COPY --chown=nextjs:nodejs data ./data
+COPY --chown=nextjs:nodejs migrations ./migrations
+COPY --chown=nextjs:nodejs server ./server
 COPY --chown=nextjs:nodejs server.js ./
 
 USER nextjs

@@ -97,3 +97,15 @@ Her faz sonunda derleme ve ilgili kabul kontrollerini çalıştır, tarayıcıda
 9. **Teknik Alan Bağımsızlığı:** Zemin, vernik, lak ve iç kaplama bağımsız sözlüklerdir. Bilinmeyen lak otomatik laklı varsayılmaz. Serbest açıklama veya "Parametre 1" metinleri onaysız kurala dönüştürülemez.
 10. **Genişletilmiş Faz Yol Haritası:** Mevcut faz yapısını bozmadan Faz 2C (Tanımlar ve Excel Import), Faz 3A (AA_LIDER SQL Sözleşmesi), Faz 3B (Çok Seviyeli İhtiyaç Motoru ve Havuz) ve Faz 3C (Mutabakat) yol haritasına eklenmiştir. Faz 4, 5 ve 6 bağımlılıkları bu sıralamaya göre bağlanır.
 11. **Tasarım ve Doğrulama İlkesi:** ALPER DESIGN OS açık renk teması (Light Theme) korunur. Uygulama kodu bu analiz adımında değiştirilmez; GitHub push ve deploy yapılmaz.
+
+
+## 10. Yol Haritası v2 ve Faz 3A.1 İlkeleri (06.11.2026 - Kaynak Düzeltmesi)
+
+1. **Esas Üretim Planı Kaynağı [MikroDesktop_LIDER26].[dbo].[alper_tenekeuretim]:** Kullanıcının 06.11.2026 tarihli kesin düzeltmesiyle; aktif tüp üretim planının esas kaynağı `[MikroDesktop_LIDER26].[dbo].[alper_tenekeuretim]` tablosudur (215 satır, 205 benzersiz stok kodu, 3.134.665 adet tüp). `AA_LIDER.dbo.meltem_teneke` güncel plan kaynağı değildir. Kaynak okuma ayarı parametrik olarak yönetilir.
+2. **Kronolojik Sıra ve Çizelgeleme Anlamı:** Kaynak tabloda yapay bir identity/sıra kolonu bulunmamaktadır; ancak eksiksiz [Başlangıç Tarih] ve [Bitiş Tarih] alanları (06.11.2026 – 21.12.2026) makinenin gerçek üretim çizelgesini temsil eder. Önerilen sıra bu kronolojiye dayanır; SQL fiziksel okuma sırası kesin sıra sayılmaz ve kullanıcı bu sırayı arayüzde serbestçe yönetebilir.
+3. **Miktar ve Tarih Bütünlüğü:** Her satırın miktarı ve tarihleri aynı kaynak satırından okunur. Başka tablolardan stok koduyla tarih ekleme yapılmaz; aynı stok kodunun birden fazla plan satırı olabileceği (farklı parti/tarihler) korunur.
+4. **Mevcut Planın Kayıpsız Korunması:** Doğru kaynaktan yeni snapshot alınır; eski snapshot'lar ve kullanıcının düzenlediği taslaklar (`is_dirty`) otomatik ezilmez, versiyon farkları şeffafça gösterilir.
+5. **Geri Yazım Varsayımının Askıya Alınması:** İlerideki Faz 5W geri yazım hedefi için önceki `meltem_teneke` varsayımı askıya alınmıştır; Excel'in gerçek yazma akışı incelenerek kesin hedef Faz 5W öncesinde doğrulanacaktır. Bu fazda SQL Server tablolarına kesinlikle hiçbir yazma (`INSERT/UPDATE/DELETE/DDL`) yapılmaz.
+6. **Renk/Zemin Eksikliği Tüp Planını Durdurmaz:** Renk/zemin eksikliği yeni baskı montajı (Faz 4) için engeldir; ancak tüp stok kartı senkronunu ve tek makine tüp üretim planını (Faz 5A) durdurmaz.
+7. **Tasarım Pilotu (Faz 2D):** Impeccable birincil kalite/eleştiri aracı, UI UX Pro Max ise operasyonel bileşen ve tipografi kılavuzudur. Tek bir tasarım sözleşmesi esastır. Kurumsal açık tema (Light Theme) korunarak modernize edilir.
+8. **İki Veritabanı Arasında Güvenli Uzlaştırma:** PostgreSQL ve SQL Server iki ayrı fiziksel sistemdir. İki sistem arasındaki mutabakat idempotency token, pending/succeeded durumları ve read-back ile yönetilir.
