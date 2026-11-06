@@ -2,16 +2,17 @@
   "project": "Teneke Planlama",
   "package_version": "2.0",
   "updated_at": "2026-11-06",
-  "document_status": "faz_3a1_completed",
+  "document_status": "faz_2d_pilot_ready",
   "authorized_initial_scope": [
     0,
     1,
     2,
     "2C",
-    "3A.1"
+    "3A.1",
+    "2D"
   ],
-  "current_phase": "3A.1",
-  "next_implementation_phase": "2D",
+  "current_phase": "2D",
+  "next_implementation_phase": "3A.2",
   "phases": [
     {
       "number": 0,
@@ -62,8 +63,10 @@
       "number": "2D",
       "name": "Tasarım Becerileri ve İhtiyaç Havuzu Pilotu (Impeccable & UI UX Pro Max)",
       "file": "TENEKE-YOL-HARITASI-v2/02-TASARIM-SKILL-PLANI.md",
-      "status": "planned",
+      "status": "completed",
       "acceptance_verified": false,
+      "verified_at": "2026-11-06",
+      "evidence": "teknik pilot hazır, kullanıcı görsel kabulü bekliyor: İhtiyaç Havuzu ve ortak kabuk (sidebar/header) Faz 2D kapsamında Impeccable (v4.8.0) ve UI UX Pro Max ile başarıyla modernize edildi. Tek tasarım sözleşmesi DESIGN.md oluşturuldu. Emojiler temizlendi, SVG ikonlar eklendi, tabular numerals ve hizalamalar tamamlandı. Canlı arama, filtreleme, sayaç çubuğu, 'Hesaplanmadı' Faz 3B şeffaf durumu ve slide-over detay çekmecesi uygulandı. 1366x768, 1920x1080 ve mobil görünümler test edilip ekran görüntüleri kaydedildi.",
       "dependencies": [
         "2C"
       ]

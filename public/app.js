@@ -1663,6 +1663,10 @@ let state = {
   demandFilterSize: 'ALL',
   demandFilterSurface: 'ALL',
   demandFilterStatus: 'ALL',
+  demandFilterRecordKind: 'ALL',
+  demandSearch: '',
+  selectedDemandDetailId: null,
+  isMobileSidebarOpen: false,
   technicalTab: 'products',
   planView: 'list',
 
@@ -1749,49 +1753,103 @@ function renderColorChip(color) {
   return `<span class="color-chip" style="background-color:${bg}; color:${fg};">${c}</span>`;
 }
 
-// Navigation items
+// SVG İkon Kütüphanesi (Temiz, Tutarlı Vektörler - Emojiler Kaldırıldı)
+function getSvgIcon(name, cls = 'w-4 h-4') {
+  switch (name) {
+    case 'overview':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 13h4v8H3v-8zm7-8h4v16h-4V5zm7 4h4v12h-4V9z"/></svg>`;
+    case 'demands':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-4a2 2 0 01-2-2V9a2 2 0 00-2-2H8a2 2 0 00-2 2v2a2 2 0 01-2 2H4"/></svg>`;
+    case 'workbench':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm0 5h16M10 4v16"/></svg>`;
+    case 'printing_rules':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H7v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>`;
+    case 'technical':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-width="1.75"/></svg>`;
+    case 'production':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>`;
+    case 'integration':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>`;
+    case 'search':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>`;
+    case 'arrow-right':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>`;
+    case 'check':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+    case 'x':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`;
+    case 'info':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+    case 'eye':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>`;
+    case 'chevron-right':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
+    case 'menu':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>`;
+    default:
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="1.75"/></svg>`;
+  }
+}
+
+// Navigation items (Faz 2D Sözleşmesi: Emojisiz, standart ikon adları)
 const NAV_ITEMS = [
-  { id: 'overview', label: 'Planlama Özeti', icon: '📊' },
-  { id: 'demands', label: 'İhtiyaç Havuzu', icon: '📥' },
-  { id: 'workbench', label: 'Kombinasyon Masası', icon: '🧩' },
-  { id: 'printing_rules', label: 'Matbaa & Kombinasyon Kuralları', icon: '🖨️' },
-  { id: 'technical', label: 'Teknik Tanımlar & Parametreler', icon: '⚙️' },
-  { id: 'production', label: 'Teneke Üretim Planı', icon: '🏭' },
-  { id: 'integration', label: 'SQL Entegrasyonu', icon: '🔌' },
+  { id: 'overview', label: 'Planlama Özeti', iconName: 'overview' },
+  { id: 'demands', label: 'İhtiyaç Havuzu', iconName: 'demands' },
+  { id: 'workbench', label: 'Kombinasyon Masası', iconName: 'workbench' },
+  { id: 'printing_rules', label: 'Matbaa & Kombinasyon Kuralları', iconName: 'printing_rules' },
+  { id: 'technical', label: 'Teknik Tanımlar & Parametreler', iconName: 'technical' },
+  { id: 'production', label: 'Teneke Üretim Planı', iconName: 'production' },
+  { id: 'integration', label: 'SQL Entegrasyonu', iconName: 'integration' },
 ];
 
 function renderSidebar() {
   return `
-    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 shadow-xs">
-      <div class="h-16 flex items-center px-4 border-b border-slate-200 gap-3">
-        <div class="w-9 h-9 rounded-lg bg-sky-600 flex items-center justify-center text-white font-black text-sm shadow-sm">
-          TP
+    ${state.isMobileSidebarOpen ? `
+      <div onclick="state.isMobileSidebarOpen = false; renderApp();" class="fixed inset-0 bg-slate-900/40 z-40 md:hidden backdrop-blur-xs"></div>
+    ` : ''}
+    <aside class="${state.isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 flex shadow-2xl' : 'hidden md:flex'} w-60 bg-white border-r border-slate-200 flex-col flex-shrink-0 shadow-xs select-none">
+      <div class="h-14 flex items-center justify-between px-4 border-b border-slate-200">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded bg-sky-700 flex items-center justify-center text-white font-bold text-xs tracking-wider shadow-xs">
+            TP
+          </div>
+          <div class="min-w-0">
+            <div class="font-bold text-xs tracking-tight text-slate-900 truncate">TENEKE PLANLAMA</div>
+            <div class="text-[10px] text-slate-500 font-mono">Lider Fabrika Workbench</div>
+          </div>
         </div>
-        <div>
-          <div class="font-bold text-xs tracking-tight text-slate-900">TENEKE PLANLAMA</div>
-          <div class="text-[10px] font-mono text-sky-700">Lider Fabrika Faz 2</div>
-        </div>
+        ${state.isMobileSidebarOpen ? `
+          <button onclick="state.isMobileSidebarOpen = false; renderApp();" class="md:hidden p-1 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100">
+            ${getSvgIcon('x', 'w-4 h-4')}
+          </button>
+        ` : ''}
       </div>
 
-      <nav class="p-3 space-y-1 flex-1">
-        ${NAV_ITEMS.map(item => `
-          <button
-            onclick="state.activePage='${item.id}'; renderApp();"
-            class="w-full flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-all ${
-              state.activePage === item.id
-                ? 'bg-sky-50 text-sky-800 font-bold border border-sky-200 shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }"
-          >
-            <span class="text-sm">${item.icon}</span>
-            <span>${item.label}</span>
-          </button>
-        `).join('')}
+      <nav class="p-2 space-y-0.5 flex-1 overflow-y-auto">
+        ${NAV_ITEMS.map(item => {
+          const isActive = state.activePage === item.id;
+          return `
+            <button
+              onclick="state.activePage='${item.id}'; state.isMobileSidebarOpen=false; renderApp();"
+              class="w-full flex items-center gap-2.5 px-3 py-2 rounded text-xs transition-colors ${
+                isActive
+                  ? 'bg-sky-50 text-sky-900 font-semibold border-l-2 border-sky-600 pl-[10px]'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+              }"
+            >
+              <span class="${isActive ? 'text-sky-700' : 'text-slate-400'}">${getSvgIcon(item.iconName, 'w-4 h-4')}</span>
+              <span class="truncate">${item.label}</span>
+            </button>
+          `;
+        }).join('')}
       </nav>
 
-      <div class="p-3 border-t border-slate-200 space-y-2">
-        <div class="text-[10px] font-mono text-slate-500">KULLANICI ROLÜ:</div>
-        <select onchange="switchRole(this.value);" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded px-2 py-1 outline-none font-mono">
+      <div class="p-3 border-t border-slate-200 space-y-2 bg-slate-50/50">
+        <div class="flex items-center justify-between text-[10px] font-mono text-slate-500">
+          <span>KULLANICI ROLÜ</span>
+          <span class="uppercase font-semibold text-slate-700">${state.currentRole}</span>
+        </div>
+        <select onchange="switchRole(this.value);" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded px-2 py-1 outline-none font-sans focus:border-sky-500">
           <option value="admin" ${state.currentRole==='admin'?'selected':''}>Yönetici (Admin)</option>
           <option value="planner" ${state.currentRole==='planner'?'selected':''}>Planlama Uzmanı</option>
           <option value="viewer" ${state.currentRole==='viewer'?'selected':''}>Görüntüleyici (Salt Okunur)</option>
@@ -1799,7 +1857,7 @@ function renderSidebar() {
 
         <button
           onclick="if(confirm('Tüm demo verilerini fabrika varsayılanına sıfırlamak istiyor musunuz?')){ localStorage.clear(); location.reload(); }"
-          class="w-full py-1 text-[11px] font-mono text-slate-500 hover:text-rose-600 border border-slate-200 rounded hover:bg-rose-50"
+          class="w-full py-1 text-[11px] font-mono text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded transition-colors"
         >
           Verileri Sıfırla
         </button>
@@ -1811,27 +1869,33 @@ function renderSidebar() {
 function renderHeader() {
   const activeObj = NAV_ITEMS.find(i => i.id === state.activePage) || NAV_ITEMS[0];
   const roleBadge = state.currentRole === 'admin'
-    ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-800 border border-sky-300 font-bold">ROL: YÖNETİCİ</span>'
+    ? '<span class="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-700 border border-slate-200 font-medium">ROL: YÖNETİCİ</span>'
     : state.currentRole === 'planner'
-    ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold">ROL: PLANLAMA</span>'
-    : '<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-50 text-rose-800 border border-rose-300 font-bold">ROL: GÖRÜNTÜLEYİCİ</span>';
+    ? '<span class="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-700 border border-slate-200 font-medium">ROL: PLANLAMA</span>'
+    : '<span class="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-700 border border-slate-200 font-medium">ROL: GÖRÜNTÜLEYİCİ</span>';
 
   return `
-    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0 shadow-xs">
-      <div class="flex items-center gap-3">
-        <h2 class="text-sm font-bold text-slate-900 tracking-tight">${activeObj.label}</h2>
-        <span class="text-xs text-slate-400 font-mono">/</span>
-        <span class="text-xs text-slate-500 font-mono">Lider Aerosol Workbench</span>
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-6 flex-shrink-0 shadow-xs">
+      <div class="flex items-center gap-2 sm:gap-2.5">
+        <button
+          onclick="state.isMobileSidebarOpen = !state.isMobileSidebarOpen; renderApp();"
+          class="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 rounded hover:bg-slate-100 cursor-pointer"
+          title="Menüyü Aç/Kapat"
+        >
+          ${getSvgIcon('menu', 'w-5 h-5')}
+        </button>
+        <h1 class="text-sm font-semibold text-slate-900 tracking-tight">${activeObj.label}</h1>
+        <span class="text-slate-300 hidden sm:inline">/</span>
+        <span class="text-xs text-slate-500 font-normal hidden sm:inline">Lider Aerosol Satış & Dolum Talepleri</span>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3">
         ${roleBadge}
-        ${state.backendConnected
-          ? '<span class="px-2.5 py-1 text-xs font-mono bg-emerald-50 text-emerald-800 border border-emerald-300 rounded flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> DB Bağlı (PostgreSQL)</span>'
-          : '<span class="px-2.5 py-1 text-xs font-mono bg-amber-50 text-amber-800 border border-amber-300 rounded flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Çevrimdışı (Demo)</span>'}
-        <span class="px-2.5 py-1 text-xs font-mono bg-slate-100 text-slate-700 border border-slate-200 rounded">
-          Faz 2C Tamamlandı
-        </span>
+        <div class="flex items-center gap-1.5 px-2 py-1 text-xs text-slate-600 border border-slate-200 rounded bg-slate-50">
+          <span class="w-2 h-2 rounded-full ${state.backendConnected ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
+          <span class="font-medium text-[11px] sm:text-xs">${state.backendConnected ? 'PostgreSQL' : 'Demo'}</span>
+        </div>
+        <span class="text-[11px] font-mono text-slate-400 hidden sm:inline">v2.4 (Faz 2D)</span>
       </div>
     </header>
   `;
@@ -1911,104 +1975,496 @@ function renderOverview() {
   `;
 }
 
-// Screen 2: İhtiyaç Havuzu
+// Screen 2: İhtiyaç Havuzu (Faz 2D Pilot Tasarımı - Impeccable & UI UX Pro Max)
 function renderDemands() {
+  const searchQuery = (state.demandSearch || '').trim().toLowerCase();
   const filtered = state.demands.filter(d => {
     if (state.demandFilterSize !== 'ALL' && d.tube_size !== state.demandFilterSize) return false;
     if (state.demandFilterSurface !== 'ALL' && d.print_surface !== state.demandFilterSurface) return false;
     if (state.demandFilterStatus !== 'ALL' && d.definition_status !== state.demandFilterStatus) return false;
+    if (state.demandFilterRecordKind !== 'ALL' && d.record_kind !== state.demandFilterRecordKind) return false;
+    if (searchQuery) {
+      const matchRef = (d.reference_no || '').toLowerCase().includes(searchQuery);
+      const matchCode = (d.stock_code || '').toLowerCase().includes(searchQuery);
+      const matchName = (d.stock_name || '').toLowerCase().includes(searchQuery);
+      const matchSize = (d.tube_size || '').toLowerCase().includes(searchQuery);
+      const matchSheet = (d.raw_sheet_desc || '').toLowerCase().includes(searchQuery);
+      if (!matchRef && !matchCode && !matchName && !matchSize && !matchSheet) return false;
+    }
     return true;
   });
 
-  const sizes = Array.from(new Set(state.demands.map(d => d.tube_size)));
-  const surfaces = Array.from(new Set(state.demands.map(d => d.print_surface)));
+  const sizes = Array.from(new Set(state.demands.map(d => d.tube_size))).filter(Boolean).sort();
+  const surfaces = Array.from(new Set(state.demands.map(d => d.print_surface))).filter(Boolean).sort();
+
+  const totalGross = filtered.reduce((a, b) => a + (b.gross_quantity || 0), 0);
+  const totalStock = filtered.reduce((a, b) => a + (b.available_stock || 0), 0);
+  const totalNet = filtered.reduce((a, b) => a + (b.net_quantity || 0), 0);
+
+  const filteredIds = filtered.map(d => d.id);
+  const allFilteredSelected = filtered.length > 0 && filtered.every(d => state.selectedDemandIds.includes(d.id));
+  const selectedCount = state.selectedDemandIds.length;
+  const isFiltered = Boolean(state.demandSearch || state.demandFilterSize !== 'ALL' || state.demandFilterSurface !== 'ALL' || state.demandFilterRecordKind !== 'ALL');
 
   return `
     <div class="space-y-4">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
+      <!-- Üst Bilgi ve Aksiyon Kartı -->
+      <div class="bg-white border border-slate-200 rounded-lg p-4 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div>
-          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-900">DOLUM VE SATIŞ TÜP İHTİYAÇLARI</h2>
-          <p class="text-xs text-slate-500 mt-0.5">Zemin, vernik, lak ve iç kaplama 4 bağımsız alandır. Satırları seçip kombinasyona aktarabilirsiniz.</p>
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-semibold text-slate-900 tracking-tight uppercase">Dolum ve Satış Tüp İhtiyaçları</h2>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 border border-slate-200">
+              ${filtered.length} / ${state.demands.length} Talep
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            Brüt dolum ihtiyaçları, ambar stokları ve montaja gidecek net tüp miktarları. Zemin, vernik, lak ve iç kaplama 4 bağımsız teknik alandır.
+          </p>
         </div>
-        <div class="flex items-center gap-2">
-          <button onclick="state.activePage='workbench'; renderApp();" class="px-3.5 py-1.5 text-xs font-bold rounded bg-sky-600 text-white hover:bg-sky-700 shadow-sm flex items-center gap-1.5">
-            <span>🧩 Kombinasyona Aktar</span>
-            <span class="bg-sky-800 px-1.5 py-0.2 rounded text-[10px] font-mono">${state.selectedDemandIds.length}</span>
+
+        <div class="flex items-center gap-2.5 flex-shrink-0">
+          <button
+            ${selectedCount > 0 ? `onclick="transferSelectedDemandsToWorkbench();"` : 'disabled'}
+            class="px-3.5 py-2 text-xs font-semibold rounded transition-colors flex items-center gap-2 shadow-xs ${
+              selectedCount > 0
+                ? 'bg-sky-700 hover:bg-sky-800 text-white cursor-pointer'
+                : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+            }"
+            title="${selectedCount > 0 ? 'Seçili talepleri baskı kombinasyon masasına aktar' : 'Lütfen tablodan en az bir talep seçin'}"
+          >
+            ${getSvgIcon('arrow-right', 'w-4 h-4')}
+            <span>Kombinasyona Aktar</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${selectedCount > 0 ? 'bg-sky-900/60 text-white' : 'bg-slate-200 text-slate-500'}">
+              ${selectedCount}
+            </span>
+          </button>
+
+          <button
+            disabled
+            title="Faz 5A: Tek Makine Çizelgeleme Entegrasyonu (Gelecek Aşama)"
+            class="px-3.5 py-2 text-xs font-medium rounded bg-slate-50 text-slate-400 border border-dashed border-slate-200 cursor-not-allowed flex items-center gap-1.5"
+          >
+            <span>Tüp Planına Aktar</span>
+            <span class="text-[10px] text-slate-400 font-mono">(Faz 5A)</span>
           </button>
         </div>
       </div>
 
-      <!-- Filters -->
-      <div class="flex flex-wrap items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg text-xs font-mono shadow-sm">
-        <div class="flex items-center gap-1.5">
-          <span class="text-slate-500 font-semibold">EBAT:</span>
-          <select onchange="state.demandFilterSize=this.value; renderApp();" class="bg-slate-50 border border-slate-300 text-slate-800 rounded px-2 py-1 text-xs">
-            <option value="ALL">Tümü (${state.demands.length})</option>
-            ${sizes.map(s => `<option value="${s}" ${state.demandFilterSize===s?'selected':''}>${s}</option>`).join('')}
-          </select>
+      <!-- Filtreler ve Arama Çubuğu -->
+      <div class="bg-white border border-slate-200 rounded-lg p-3 shadow-xs space-y-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Arama Kutusu -->
+          <div class="relative flex-1 min-w-[240px]">
+            <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+              ${getSvgIcon('search', 'w-4 h-4')}
+            </span>
+            <input
+              type="text"
+              placeholder="Stok kodu, ürün adı veya sipariş no ile ara..."
+              value="${escapeHtml(state.demandSearch || '')}"
+              oninput="state.demandSearch = this.value; renderApp();"
+              class="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-200 rounded focus:outline-none focus:border-sky-500 text-slate-900 font-sans transition-colors"
+            />
+            ${state.demandSearch ? `
+              <button onclick="state.demandSearch=''; renderApp();" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600">
+                ${getSvgIcon('x', 'w-3.5 h-3.5')}
+              </button>
+            ` : ''}
+          </div>
+
+          <!-- Ebat Filtresi -->
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="text-slate-500 font-medium">Ebat:</span>
+            <select
+              onchange="state.demandFilterSize = this.value; renderApp();"
+              class="bg-slate-50 border border-slate-200 text-slate-800 rounded px-2.5 py-1.5 text-xs font-sans focus:outline-none focus:border-sky-500"
+            >
+              <option value="ALL">Tümü (${state.demands.length})</option>
+              ${sizes.map(s => {
+                const count = state.demands.filter(d => d.tube_size === s).length;
+                return `<option value="${s}" ${state.demandFilterSize === s ? 'selected' : ''}>${s} (${count})</option>`;
+              }).join('')}
+            </select>
+          </div>
+
+          <!-- Zemin Filtresi -->
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="text-slate-500 font-medium">Zemin:</span>
+            <select
+              onchange="state.demandFilterSurface = this.value; renderApp();"
+              class="bg-slate-50 border border-slate-200 text-slate-800 rounded px-2.5 py-1.5 text-xs font-sans focus:outline-none focus:border-sky-500"
+            >
+              <option value="ALL">Tümü</option>
+              ${surfaces.map(s => `
+                <option value="${s}" ${state.demandFilterSurface === s ? 'selected' : ''}>${s}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <!-- Kayıt Türü Filtresi -->
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="text-slate-500 font-medium">Kayıt Türü:</span>
+            <select
+              onchange="state.demandFilterRecordKind = this.value; renderApp();"
+              class="bg-slate-50 border border-slate-200 text-slate-800 rounded px-2.5 py-1.5 text-xs font-sans focus:outline-none focus:border-sky-500"
+            >
+              <option value="ALL" ${state.demandFilterRecordKind === 'ALL' ? 'selected' : ''}>Tümü</option>
+              <option value="source_transcription" ${state.demandFilterRecordKind === 'source_transcription' ? 'selected' : ''}>Kaynak Veri (ERP)</option>
+              <option value="synthetic_demo" ${state.demandFilterRecordKind === 'synthetic_demo' ? 'selected' : ''}>Demo Senaryo</option>
+            </select>
+          </div>
         </div>
 
-        <div class="flex items-center gap-1.5">
-          <span class="text-slate-500 font-semibold">ZEMİN:</span>
-          <select onchange="state.demandFilterSurface=this.value; renderApp();" class="bg-slate-50 border border-slate-300 text-slate-800 rounded px-2 py-1 text-xs">
-            <option value="ALL">Tümü</option>
-            ${surfaces.map(s => `<option value="${s}" ${state.demandFilterSurface===s?'selected':''}>${s}</option>`).join('')}
-          </select>
+        <!-- Seçim Durumu ve Sayaç Çubuğu -->
+        <div class="flex flex-wrap items-center justify-between text-xs pt-2 border-t border-slate-100 text-slate-600 gap-2">
+          <div class="flex items-center gap-3">
+            <div>
+              <span class="font-semibold text-slate-900">${selectedCount}</span> / ${state.demands.length} satır seçili
+              ${filtered.length !== state.demands.length ? `<span class="text-slate-400 font-mono text-[11px]">(${filtered.length} filtrelendi)</span>` : ''}
+            </div>
+            <div class="h-3 w-px bg-slate-200"></div>
+            <button
+              onclick="toggleSelectAllDemands(!${allFilteredSelected}, ${JSON.stringify(filteredIds).replace(/"/g, '&quot;')});"
+              class="text-sky-700 hover:text-sky-900 font-medium transition-colors cursor-pointer"
+            >
+              ${allFilteredSelected ? 'Filtrelenenlerin Seçimini Kaldır' : 'Filtrelenenleri Seç'}
+            </button>
+            ${selectedCount > 0 ? `
+              <button
+                onclick="state.selectedDemandIds=[]; renderApp();"
+                class="text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                Seçimi Temizle
+              </button>
+            ` : ''}
+          </div>
+
+          <div class="flex items-center gap-3">
+            ${isFiltered ? `
+              <button
+                onclick="resetDemandFilters();"
+                class="text-rose-600 hover:text-rose-800 font-medium flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                ${getSvgIcon('x', 'w-3.5 h-3.5')}
+                <span>Filtreleri Temizle</span>
+              </button>
+            ` : ''}
+            <div class="text-[11px] font-mono text-slate-500 flex items-center gap-2">
+              <span>Brüt: <strong class="text-slate-800 tabular-nums">${formatNum(totalGross)}</strong></span>
+              <span>• Stok: <strong class="text-emerald-700 tabular-nums">${totalStock > 0 ? `-${formatNum(totalStock)}` : '0'}</strong></span>
+              <span>• Net Tüp: <strong class="text-sky-900 tabular-nums">${formatNum(totalNet)}</strong></span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Table -->
-      <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-        <table class="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr class="bg-slate-50 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
-              <th class="py-2.5 px-3 w-10 text-center"><input type="checkbox" onchange="toggleSelectAllDemands(this.checked);" /></th>
-              <th class="py-2.5 px-3">Sipariş No</th>
-              <th class="py-2.5 px-3">Tüp Adı & Stok Kodu</th>
-              <th class="py-2.5 px-2">Ebat</th>
-              <th class="py-2.5 px-2 text-right">Brüt İhtiyaç</th>
-              <th class="py-2.5 px-2 text-right">Ambar Stok</th>
-              <th class="py-2.5 px-2 text-right">Net İhtiyaç</th>
-              <th class="py-2.5 px-2">Zemin</th>
-              <th class="py-2.5 px-2">İç Kaplama</th>
-              <th class="py-2.5 px-2">Renkler</th>
-              <th class="py-2.5 px-2">Kayıt Türü</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            ${filtered.map(d => {
-              const isSelected = state.selectedDemandIds.includes(d.id);
-              return `
-                <tr class="hover:bg-slate-50 ${isSelected ? 'bg-sky-50/50' : ''}">
-                  <td class="py-2.5 px-3 text-center">
-                    <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSelectDemand('${d.id}');" />
-                  </td>
-                  <td class="py-2.5 px-3 font-mono font-bold text-sky-700">${d.reference_no}</td>
-                  <td class="py-2.5 px-3">
-                    <div class="font-medium text-slate-900 line-clamp-1">${d.stock_name}</div>
-                    <div class="text-[10px] font-mono text-slate-500">${d.stock_code}</div>
-                  </td>
-                  <td class="py-2.5 px-2 font-mono text-slate-700">${d.tube_size}</td>
-                  <td class="py-2.5 px-2 text-right font-mono text-slate-500">${formatNum(d.gross_quantity)}</td>
-                  <td class="py-2.5 px-2 text-right font-mono text-emerald-700 font-semibold">${d.available_stock > 0 ? `-${formatNum(d.available_stock)}` : '0'}</td>
-                  <td class="py-2.5 px-2 text-right font-mono font-bold text-slate-900">${formatNum(d.net_quantity)}</td>
-                  <td class="py-2.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${d.print_surface==='METALİK'?'bg-purple-50 text-purple-800 border border-purple-200':'bg-slate-100 text-slate-700'}">${d.print_surface}</span></td>
-                  <td class="py-2.5 px-2">
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${d.inside_coating==='GOLD'?'bg-amber-100 text-amber-900 border-amber-300 font-bold':'bg-slate-100 text-slate-600 border-slate-200'}">
-                      ${d.inside_coating || 'BELİRTİLMEMİŞ'}
-                    </span>
-                  </td>
-                  <td class="py-2.5 px-2"><div class="flex flex-wrap gap-1">${d.colors.map(renderColorChip).join('')}</div></td>
-                  <td class="py-2.5 px-2">
-                    <span class="text-[9px] font-mono px-1.5 py-0.5 rounded ${d.record_kind==='source_transcription'?'bg-emerald-50 text-emerald-800 border border-emerald-300':'bg-amber-50 text-amber-800 border border-amber-300'}">
-                      ${d.record_kind==='source_transcription'?'KAYNAK':'DEMO'}
-                    </span>
+      <!-- Tablo Konteyneri -->
+      <div class="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
+        <div class="overflow-x-auto max-h-[calc(100vh-270px)]">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold tracking-wider text-[11px] uppercase select-none">
+              <tr>
+                <th class="py-2 px-2.5 w-9 text-center">
+                  <input
+                    type="checkbox"
+                    ${allFilteredSelected ? 'checked' : ''}
+                    onchange="toggleSelectAllDemands(this.checked, ${JSON.stringify(filteredIds).replace(/"/g, '&quot;')});"
+                    class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                  />
+                </th>
+                <th class="py-2 px-2.5 min-w-[115px]">Sipariş No</th>
+                <th class="py-2 px-2.5 min-w-[240px]">Tüp Adı & Stok Kodu</th>
+                <th class="py-2 px-2 min-w-[65px]">Ebat</th>
+                <th class="py-2 px-2.5 text-right min-w-[85px]">
+                  <div>Brüt İhtiyaç</div>
+                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">dolum talebi</div>
+                </th>
+                <th class="py-2 px-2.5 text-right min-w-[85px]">
+                  <div>Ambar Stok</div>
+                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">kullanılabilir</div>
+                </th>
+                <th class="py-2 px-2.5 text-right min-w-[85px]">
+                  <div>Net Tüp</div>
+                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">tüp üretimi</div>
+                </th>
+                <th class="py-2 px-2 text-center min-w-[105px]">
+                  <div>Kesik / Baskı</div>
+                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">faz 3b netleme</div>
+                </th>
+                <th class="py-2 px-2 text-center min-w-[65px]">Zemin</th>
+                <th class="py-2 px-2 text-center min-w-[80px]">İç Kaplama</th>
+                <th class="py-2 px-2.5 min-w-[125px]">Renkler</th>
+                <th class="py-2 px-2 text-center min-w-[70px]">Kayıt Türü</th>
+                <th class="py-2 px-2 text-center min-w-[55px]">Detay</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-800">
+              ${filtered.length === 0 ? `
+                <tr>
+                  <td colspan="13" class="py-12 px-4 text-center">
+                    <div class="max-w-sm mx-auto space-y-2">
+                      <div class="text-slate-400 mx-auto w-8 h-8 flex justify-center">${getSvgIcon('info', 'w-8 h-8')}</div>
+                      <div class="font-medium text-slate-900 text-sm">Eşleşen talep bulunamadı</div>
+                      <p class="text-slate-500 text-xs">Arama kelimesini veya seçili filtreleri değiştirerek tekrar deneyebilirsiniz.</p>
+                      <div class="pt-2">
+                        <button
+                          onclick="resetDemandFilters();"
+                          class="px-3 py-1.5 text-xs font-medium rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                        >
+                          Filtreleri Sıfırla
+                        </button>
+                      </div>
+                    </div>
                   </td>
                 </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
+              ` : filtered.map(d => {
+                const isSelected = state.selectedDemandIds.includes(d.id);
+                return `
+                  <tr class="hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-sky-50/50' : ''}">
+                    <td class="py-2 px-2.5 text-center">
+                      <input
+                        type="checkbox"
+                        ${isSelected ? 'checked' : ''}
+                        onchange="toggleSelectDemand('${d.id}');"
+                        class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                      />
+                    </td>
+                    <td class="py-2 px-2.5 font-mono font-medium text-sky-800 text-[11px] whitespace-nowrap">
+                      <button onclick="openDemandDetail('${d.id}');" class="hover:underline text-left cursor-pointer font-semibold">
+                        ${d.reference_no}
+                      </button>
+                    </td>
+                    <td class="py-2 px-2.5 min-w-[240px]">
+                      <div class="font-medium text-slate-900 line-clamp-1" title="${escapeHtml(d.stock_name)}">
+                        ${d.stock_name}
+                      </div>
+                      <div class="text-[10px] font-mono text-slate-500">${d.stock_code}</div>
+                    </td>
+                    <td class="py-2 px-2 font-mono text-slate-700 whitespace-nowrap">${d.tube_size}</td>
+                    <td class="py-2 px-2.5 text-right font-mono tabular-nums text-slate-600 whitespace-nowrap">
+                      ${formatNum(d.gross_quantity)}
+                    </td>
+                    <td class="py-2 px-2.5 text-right font-mono tabular-nums whitespace-nowrap ${d.available_stock > 0 ? 'text-emerald-700 font-medium' : 'text-slate-400'}">
+                      ${d.available_stock > 0 ? `-${formatNum(d.available_stock)}` : '0'}
+                    </td>
+                    <td class="py-2 px-2.5 text-right font-mono tabular-nums font-bold text-slate-900 whitespace-nowrap">
+                      ${formatNum(d.net_quantity)}
+                    </td>
+                    <td class="py-2 px-2 text-center whitespace-nowrap">
+                      <span
+                        class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-500 border border-dashed border-slate-300"
+                        title="Faz 3B çok seviyeli stok netleme motoru ile hesaplanacaktır"
+                      >
+                        Hesaplanmadı
+                      </span>
+                    </td>
+                    <td class="py-2 px-2 text-center whitespace-nowrap">
+                      <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${
+                        d.print_surface === 'METALİK'
+                          ? 'bg-purple-50 text-purple-800 border border-purple-200'
+                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+                      }">
+                        ${d.print_surface}
+                      </span>
+                    </td>
+                    <td class="py-2 px-2 text-center whitespace-nowrap">
+                      <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+                        d.inside_coating === 'GOLD'
+                          ? 'bg-amber-50 text-amber-800 border-amber-200 font-semibold'
+                          : 'bg-slate-100 text-slate-500 border border-slate-200'
+                      }">
+                        ${d.inside_coating || 'STANDART'}
+                      </span>
+                    </td>
+                    <td class="py-2 px-2.5">
+                      <div class="flex flex-wrap gap-1">
+                        ${d.colors.map(renderColorChip).join('')}
+                      </div>
+                    </td>
+                    <td class="py-2 px-2 text-center whitespace-nowrap">
+                      <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-medium ${
+                        d.record_kind === 'source_transcription'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-800 border border-amber-200'
+                      }">
+                        ${d.record_kind === 'source_transcription' ? 'KAYNAK' : 'DEMO'}
+                      </span>
+                    </td>
+                    <td class="py-2 px-2 text-center whitespace-nowrap">
+                      <button
+                        onclick="openDemandDetail('${d.id}');"
+                        class="px-2 py-0.5 text-[11px] font-medium text-sky-700 hover:text-sky-900 hover:bg-sky-50 rounded border border-slate-200 transition-colors cursor-pointer"
+                        title="Ürün teknik detaylarını ve reçetesini görüntüle"
+                      >
+                        İncele
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Slide-Over Detay Çekmecesi -->
+      ${state.selectedDemandDetailId ? renderDemandDetailDrawer() : ''}
+    </div>
+  `;
+}
+
+// Slide-Over Detay Çekmecesi (Ürün ve İhtiyaç Teknik Kartı)
+function renderDemandDetailDrawer() {
+  const d = state.demands.find(item => item.id === state.selectedDemandDetailId);
+  if (!d) return '';
+
+  return `
+    <div class="fixed inset-0 z-50 overflow-hidden flex justify-end" style="background-color: rgba(15, 23, 42, 0.35);">
+      <div class="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between border-l border-slate-200 animate-slideLeft">
+        <!-- Drawer Header -->
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-mono font-bold text-sky-800 bg-sky-50 px-2 py-1 rounded border border-sky-200">
+              ${d.reference_no}
+            </span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded font-medium ${
+              d.record_kind === 'source_transcription'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                : 'bg-amber-50 text-amber-800 border border-amber-200'
+            }">
+              ${d.record_kind === 'source_transcription' ? 'KAYNAK VERİ (ERP)' : 'DEMO SENARYO'}
+            </span>
+          </div>
+
+          <button
+            onclick="closeDemandDetail();"
+            class="text-slate-400 hover:text-slate-700 p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+            title="Kapat"
+          >
+            ${getSvgIcon('x', 'w-5 h-5')}
+          </button>
+        </div>
+
+        <!-- Drawer Body -->
+        <div class="p-5 flex-1 overflow-y-auto space-y-5">
+          <!-- Ürün Başlığı ve Stok Kodu -->
+          <div>
+            <div class="text-[11px] font-mono uppercase text-slate-400">Ürün Adı & Stok Tanımı</div>
+            <h3 class="text-sm font-semibold text-slate-900 mt-1 leading-snug">
+              ${escapeHtml(d.stock_name)}
+            </h3>
+            <div class="mt-2 inline-flex items-center gap-2 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded font-mono text-xs text-slate-700">
+              <span>ERP Kodu:</span>
+              <strong class="text-slate-900">${d.stock_code}</strong>
+            </div>
+          </div>
+
+          <!-- Kademeli İhtiyaç Matrisi (Kural 9 & 10 İlkesi) -->
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-2.5">
+            <div class="text-xs font-semibold text-slate-800 flex items-center justify-between">
+              <span>Kademeli İhtiyaç Seviyeleri</span>
+              <span class="text-[10px] font-mono text-slate-400">Netleme Mantığı</span>
+            </div>
+
+            <div class="space-y-1.5 text-xs font-mono">
+              <div class="flex justify-between items-center py-1 border-b border-slate-200">
+                <span class="text-slate-600">1. Brüt İhtiyaç (Dolum/Satış):</span>
+                <span class="font-semibold text-slate-900 tabular-nums">${formatNum(d.gross_quantity)} adet</span>
+              </div>
+              <div class="flex justify-between items-center py-1 border-b border-slate-200">
+                <span class="text-slate-600">2. Kullanılabilir Ambar Stok:</span>
+                <span class="font-semibold ${d.available_stock > 0 ? 'text-emerald-700' : 'text-slate-500'} tabular-nums">
+                  ${d.available_stock > 0 ? `-${formatNum(d.available_stock)} adet` : '0 adet'}
+                </span>
+              </div>
+              <div class="flex justify-between items-center py-1 border-b border-slate-200 bg-sky-50/60 px-2 rounded">
+                <span class="text-sky-900 font-medium">3. Net Tüp Üretim Hedefi:</span>
+                <span class="font-bold text-sky-900 tabular-nums">${formatNum(d.net_quantity)} adet</span>
+              </div>
+              <div class="flex justify-between items-center py-1 border-b border-dashed border-slate-200 text-slate-400">
+                <span>4. Kesik Levha Eşdeğer Stok:</span>
+                <span class="italic text-[11px]">Hesaplanmadı (Faz 3B)</span>
+              </div>
+              <div class="flex justify-between items-center py-1 border-b border-dashed border-slate-200 text-slate-400">
+                <span>5. Baskılı Levha Eşdeğer Stok:</span>
+                <span class="italic text-[11px]">Hesaplanmadı (Faz 3B)</span>
+              </div>
+              <div class="flex justify-between items-center py-1 text-slate-500">
+                <span>6. Net Baskı İhtiyacı:</span>
+                <span class="italic text-[11px]">Faz 3B'de devreye girecek</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Teknik Özellikler Grid -->
+          <div class="space-y-2.5">
+            <div class="text-xs font-semibold text-slate-800">Teknik Tanım ve Reçete Parametreleri</div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <div class="text-[10px] text-slate-400 font-mono uppercase">Ebat (Çap x Boy)</div>
+                <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.tube_size}</div>
+                <div class="text-[10px] text-slate-500 font-mono">Çap: ${d.diameter_mm || 52} mm • Boy: ${d.height_mm || 195} mm</div>
+              </div>
+
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <div class="text-[10px] text-slate-400 font-mono uppercase">Zemin Türü</div>
+                <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.print_surface || 'EMAYE'}</div>
+                <div class="text-[10px] text-slate-500">Baskı alt yüzeyi</div>
+              </div>
+
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <div class="text-[10px] text-slate-400 font-mono uppercase">İç Kaplama</div>
+                <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.inside_coating || 'BELİRTİLMEMİŞ'}</div>
+                <div class="text-[10px] text-slate-500">Kutu içi lak/koruma</div>
+              </div>
+
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <div class="text-[10px] text-slate-400 font-mono uppercase">Vernik / Dış Lak</div>
+                <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.vernish || d.varnish || 'BELİRTİLMEMİŞ'} / ${d.lacquer || 'BELİRTİLMEMİŞ'}</div>
+                <div class="text-[10px] text-slate-500">Yüzey koruma ve parlaklık</div>
+              </div>
+            </div>
+
+            <div class="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs">
+              <div class="text-[10px] text-slate-400 font-mono uppercase">Onaylı Ham Levha Bağlantısı</div>
+              <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.raw_sheet_code || 'Tanımlı Değil'}</div>
+              <div class="text-[11px] text-slate-600 mt-0.5">${d.raw_sheet_desc || 'Katalogda henüz eşleşmiş ham levha bulunmuyor.'}</div>
+            </div>
+          </div>
+
+          <!-- Renkler -->
+          <div class="space-y-2">
+            <div class="text-xs font-semibold text-slate-800 flex items-center justify-between">
+              <span>Baskı Renkleri (${d.colors.length} Renk)</span>
+              <span class="text-[10px] font-mono text-slate-400">Maks. 6 Renk Sınırı</span>
+            </div>
+            <div class="flex flex-wrap gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded">
+              ${d.colors.map(c => `
+                <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded px-2 py-1 shadow-2xs">
+                  ${renderColorChip(c)}
+                  <span class="text-xs font-mono font-medium text-slate-700">${c}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+
+        <!-- Drawer Footer -->
+        <div class="p-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between gap-3">
+          <button
+            onclick="addDemandToWorkbench('${d.id}'); state.activePage='workbench'; closeDemandDetail();"
+            class="flex-1 py-2 px-3 text-xs font-semibold rounded bg-sky-700 hover:bg-sky-800 text-white shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+          >
+            ${getSvgIcon('arrow-right', 'w-4 h-4')}
+            <span>Bu Ürünü Kombinasyona Aktar</span>
+          </button>
+          <button
+            onclick="closeDemandDetail();"
+            class="py-2 px-4 text-xs font-medium rounded border border-slate-300 hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer"
+          >
+            Kapat
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -3708,8 +4164,49 @@ function toggleSelectDemand(id) {
   renderApp();
 }
 
-function toggleSelectAllDemands(checked) {
-  state.selectedDemandIds = checked ? state.demands.map(d => d.id) : [];
+function toggleSelectAllDemands(checked, filteredIds = null) {
+  if (checked) {
+    if (filteredIds && Array.isArray(filteredIds) && filteredIds.length > 0) {
+      const merged = new Set([...state.selectedDemandIds, ...filteredIds]);
+      state.selectedDemandIds = Array.from(merged);
+    } else {
+      state.selectedDemandIds = state.demands.map(d => d.id);
+    }
+  } else {
+    if (filteredIds && Array.isArray(filteredIds) && filteredIds.length > 0) {
+      state.selectedDemandIds = state.selectedDemandIds.filter(id => !filteredIds.includes(id));
+    } else {
+      state.selectedDemandIds = [];
+    }
+  }
+  renderApp();
+}
+
+function transferSelectedDemandsToWorkbench() {
+  if (!state.selectedDemandIds || state.selectedDemandIds.length === 0) return;
+  state.selectedDemandIds.forEach(id => {
+    addDemandToWorkbench(id);
+  });
+  state.activePage = 'workbench';
+  renderApp();
+}
+
+function openDemandDetail(id) {
+  state.selectedDemandDetailId = id;
+  renderApp();
+}
+
+function closeDemandDetail() {
+  state.selectedDemandDetailId = null;
+  renderApp();
+}
+
+function resetDemandFilters() {
+  state.demandSearch = '';
+  state.demandFilterSize = 'ALL';
+  state.demandFilterSurface = 'ALL';
+  state.demandFilterStatus = 'ALL';
+  state.demandFilterRecordKind = 'ALL';
   renderApp();
 }
 
