@@ -254,6 +254,1156 @@ const INITIAL_PRINTING_PRESS_RULES = [
   }
 ];
 
+// 11. ERP STOK KATALOĞU (Faz 2C - ERP Senkron Ana Kartları - Salt Okunur)
+const INITIAL_STOCK_CATALOG = [
+  {
+    "stock_code": "500011000004-1103",
+    "stock_name": "HAM LEVHA-018x863x866- (T 57) -45x140",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "45x140",
+    "dimensions": "863x866 - 0.18mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1104",
+    "stock_name": "HAM LEVHA-018x863x898- (T 57) -45x175",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "45x175",
+    "dimensions": "863x898 - 0.18mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1202",
+    "stock_name": "HAM LEVHA-017x835x872- (T 61) -52x105",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "52x105",
+    "dimensions": "835x872 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1204",
+    "stock_name": "HAM LEVHA-017x832x827- (T 61) -52x161",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "52x161",
+    "dimensions": "832x827 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1205",
+    "stock_name": "HAM LEVHA-017x832x847- (T 61) -52x165",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "52x165",
+    "dimensions": "832x847 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1206",
+    "stock_name": "HAM LEVHA-017x832x800- (T 61) -52x195",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "52x195",
+    "dimensions": "832x800 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1207",
+    "stock_name": "HAM LEVHA-017x832x875- (T 61) -52x214",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "52x214",
+    "dimensions": "832x875 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1208",
+    "stock_name": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "52x234",
+    "dimensions": "832x720 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1209",
+    "stock_name": "HAM LEVHA-017x835x848- (T 61) -65x165",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "65x165",
+    "dimensions": "835x848 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1406",
+    "stock_name": "HAM LEVHA-017x835x827- (T 61) -65x270",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "65x270",
+    "dimensions": "835x827 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1408",
+    "stock_name": "HAM LEVHA-017x835x864- (T 61) -65x104",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "65x104",
+    "dimensions": "835x864 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1414",
+    "stock_name": "HAM LEVHA-018x835x915- (T 61) -65x300",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "65x300",
+    "dimensions": "835x915 - 0.18mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1415",
+    "stock_name": "HAM LEVHA-017x835x798- (T 61) -65x195",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "65x195",
+    "dimensions": "835x798 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "500011000004-1411",
+    "stock_name": "HAM LEVHA-017x835x808- (T 61) -65x157",
+    "category": "Ham Levha",
+    "unit": "LEVHA",
+    "tube_size": "65x157",
+    "dimensions": "835x808 - 0.17mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010410-1102",
+    "stock_name": "TUP-GW MOBILYA 300 ml (52x214)-LEMON",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x214",
+    "dimensions": "Ø52x214 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010410-7026",
+    "stock_name": "TUP-GW MOBILYA CIL. 300 ml (52x214)-LEMON SCENT",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x214",
+    "dimensions": "Ø52x214 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010410-7025",
+    "stock_name": "TUP-GW MOBILYA CIL. 300 ml (52x214)-NATURAL SCENT",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x214",
+    "dimensions": "Ø52x214 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010410-7024",
+    "stock_name": "TUP-GW MOBILYA CIL. 300 ml (52x214)-POTPORI SCENT",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x214",
+    "dimensions": "Ø52x214 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511115011310-7458",
+    "stock_name": "TUP-GW ODA SPR-500 ml (65x195)-CHRISTMAS EDITION",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "65x195",
+    "dimensions": "Ø65x195 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-7284",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-CITRUS FEST",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-7285",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-ELEGANT AMBER",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-7283",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-J.CHERRY BLO.",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4634",
+    "stock_name": "TUP-GW-MS SDCM ALKOL B.-400 ml (52x234)-BUBBLE GUM",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4640",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-ORANGE",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4630",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-ROSE&PEARL",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4631",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-S.BERRY",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4641",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-TOBACCO",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4625",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-ANTI TABAC",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4620",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-JASMIN&COT.",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4632",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-LILAC&LOTUS",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4623",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-LIME&ORANGE",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4624",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-M.FRAN OCEA",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4629",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-MOSS&SPRING",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4628",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-TUTTI FRUTTI",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4633",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-LAVENDER&CHOM",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-4635",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-MOUNTAIN LAKE",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x234",
+    "dimensions": "Ø52x234 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-1001",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-VANILLA",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x195",
+    "dimensions": "Ø52x195 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-1002",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-OCEANIC",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x195",
+    "dimensions": "Ø52x195 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-1003",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-LAVENDER",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x195",
+    "dimensions": "Ø52x195 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-1004",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-LILAC",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x195",
+    "dimensions": "Ø52x195 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-1005",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-SPRING",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x195",
+    "dimensions": "Ø52x195 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  },
+  {
+    "stock_code": "511109010910-1006",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-ROSE",
+    "category": "Tüp Mamul",
+    "unit": "ADET",
+    "tube_size": "52x195",
+    "dimensions": "Ø52x195 mm",
+    "source_system": "MikroDesktop_LIDER26",
+    "status": "active"
+  }
+];
+
+// 12. TÜP TEKNİK KARTLARI (Faz 2C - Uygulama Tarafında Yönetilen Teknik Veriler)
+const INITIAL_TECHNICAL_PRODUCTS = [
+  {
+    "id": "TECH-1",
+    "stock_code": "511109010410-1102",
+    "stock_name": "TUP-GW MOBILYA 300 ml (52x214)-LEMON",
+    "tube_size": "52x214",
+    "diameter_mm": 52,
+    "height_mm": 214,
+    "raw_sheet_code": "500011000004-1207",
+    "raw_sheet_desc": "HAM LEVHA-017x832x875- (T 61) -52x214",
+    "print_surface": "METALİK",
+    "varnish": "KISMİ",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "1225C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-2",
+    "stock_code": "511109010410-7026",
+    "stock_name": "TUP-GW MOBILYA CIL. 300 ml (52x214)-LEMON SCENT",
+    "tube_size": "52x214",
+    "diameter_mm": 52,
+    "height_mm": 214,
+    "raw_sheet_code": "500011000004-1207",
+    "raw_sheet_desc": "HAM LEVHA-017x832x875- (T 61) -52x214",
+    "print_surface": "METALİK",
+    "varnish": "KISMİ",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "1225C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-3",
+    "stock_code": "511109010410-7025",
+    "stock_name": "TUP-GW MOBILYA CIL. 300 ml (52x214)-NATURAL SCENT",
+    "tube_size": "52x214",
+    "diameter_mm": 52,
+    "height_mm": 214,
+    "raw_sheet_code": "500011000004-1207",
+    "raw_sheet_desc": "HAM LEVHA-017x832x875- (T 61) -52x214",
+    "print_surface": "METALİK",
+    "varnish": "KISMİ",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "1225C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-4",
+    "stock_code": "511109010410-7024",
+    "stock_name": "TUP-GW MOBILYA CIL. 300 ml (52x214)-POTPORI SCENT",
+    "tube_size": "52x214",
+    "diameter_mm": 52,
+    "height_mm": 214,
+    "raw_sheet_code": "500011000004-1207",
+    "raw_sheet_desc": "HAM LEVHA-017x832x875- (T 61) -52x214",
+    "print_surface": "METALİK",
+    "varnish": "KISMİ",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "1225C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-5",
+    "stock_code": "511115011310-7458",
+    "stock_name": "TUP-GW ODA SPR-500 ml (65x195)-CHRISTMAS EDITION",
+    "tube_size": "65x195",
+    "diameter_mm": 65,
+    "height_mm": 195,
+    "raw_sheet_code": "500011000004-1415",
+    "raw_sheet_desc": "HAM LEVHA-017x835x798- (T 61) -65x195",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "7621C",
+      "364C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-6",
+    "stock_code": "511109010910-7284",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-CITRUS FEST",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-7",
+    "stock_code": "511109010910-7285",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-ELEGANT AMBER",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-8",
+    "stock_code": "511109010910-7283",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-J.CHERRY BLO.",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-9",
+    "stock_code": "511109010910-4634",
+    "stock_name": "TUP-GW-MS SDCM ALKOL B.-400 ml (52x234)-BUBBLE GUM",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-10",
+    "stock_code": "511109010910-4640",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-ORANGE",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-11",
+    "stock_code": "511109010910-4630",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-ROSE&PEARL",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-12",
+    "stock_code": "511109010910-4631",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-S.BERRY",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-13",
+    "stock_code": "511109010910-4641",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-TOBACCO",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-14",
+    "stock_code": "511109010910-4625",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-ANTI TABAC",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-15",
+    "stock_code": "511109010910-4620",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-JASMIN&COT.",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-16",
+    "stock_code": "511109010910-4632",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-LILAC&LOTUS",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-17",
+    "stock_code": "511109010910-4623",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-LIME&ORANGE",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-18",
+    "stock_code": "511109010910-4624",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-M.FRAN OCEA",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-19",
+    "stock_code": "511109010910-4629",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-MOSS&SPRING",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-20",
+    "stock_code": "511109010910-4628",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-TUTTI FRUTTI",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-21",
+    "stock_code": "511109010910-4633",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-LAVENDER&CHOM",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-22",
+    "stock_code": "511109010910-4635",
+    "stock_name": "TUP-GW-MS ODA ALKOL-400 ml (52x234)-MOUNTAIN LAKE",
+    "tube_size": "52x234",
+    "diameter_mm": 52,
+    "height_mm": 234,
+    "raw_sheet_code": "500011000004-1208",
+    "raw_sheet_desc": "HAM LEVHA-017x832x720- (T 61) -52x234",
+    "print_surface": "EMAYE",
+    "varnish": "PARLAK",
+    "lacquer": "LAKLI",
+    "inside_coating": "BELİRTİLMEMİŞ",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K",
+      "368C",
+      "357C"
+    ],
+    "special_parameter": "",
+    "is_active": true,
+    "record_kind": "source_transcription"
+  },
+  {
+    "id": "TECH-SOFT-1",
+    "stock_code": "511109010910-1001",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-VANILLA",
+    "tube_size": "52x195",
+    "diameter_mm": 52,
+    "height_mm": 195,
+    "raw_sheet_code": "500011000004-1206",
+    "raw_sheet_desc": "HAM LEVHA-017x832x800- (T 61) -52x195",
+    "print_surface": "EMAYE",
+    "varnish": "BELİRTİLMEMİŞ",
+    "lacquer": "BELİRTİLMEMİŞ",
+    "inside_coating": "GOLD",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K"
+    ],
+    "special_parameter": "SOFT REV NO:08 - İçi GOLD",
+    "is_active": true,
+    "record_kind": "synthetic_demo"
+  },
+  {
+    "id": "TECH-SOFT-2",
+    "stock_code": "511109010910-1002",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-OCEANIC",
+    "tube_size": "52x195",
+    "diameter_mm": 52,
+    "height_mm": 195,
+    "raw_sheet_code": "500011000004-1206",
+    "raw_sheet_desc": "HAM LEVHA-017x832x800- (T 61) -52x195",
+    "print_surface": "EMAYE",
+    "varnish": "BELİRTİLMEMİŞ",
+    "lacquer": "BELİRTİLMEMİŞ",
+    "inside_coating": "GOLD",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K"
+    ],
+    "special_parameter": "SOFT REV NO:08 - İçi GOLD",
+    "is_active": true,
+    "record_kind": "synthetic_demo"
+  },
+  {
+    "id": "TECH-SOFT-3",
+    "stock_code": "511109010910-1003",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-LAVENDER",
+    "tube_size": "52x195",
+    "diameter_mm": 52,
+    "height_mm": 195,
+    "raw_sheet_code": "500011000004-1206",
+    "raw_sheet_desc": "HAM LEVHA-017x832x800- (T 61) -52x195",
+    "print_surface": "EMAYE",
+    "varnish": "BELİRTİLMEMİŞ",
+    "lacquer": "BELİRTİLMEMİŞ",
+    "inside_coating": "GOLD",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K"
+    ],
+    "special_parameter": "SOFT REV NO:08 - İçi GOLD",
+    "is_active": true,
+    "record_kind": "synthetic_demo"
+  },
+  {
+    "id": "TECH-SOFT-4",
+    "stock_code": "511109010910-1004",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-LILAC",
+    "tube_size": "52x195",
+    "diameter_mm": 52,
+    "height_mm": 195,
+    "raw_sheet_code": "500011000004-1206",
+    "raw_sheet_desc": "HAM LEVHA-017x832x800- (T 61) -52x195",
+    "print_surface": "EMAYE",
+    "varnish": "BELİRTİLMEMİŞ",
+    "lacquer": "BELİRTİLMEMİŞ",
+    "inside_coating": "GOLD",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K"
+    ],
+    "special_parameter": "SOFT REV NO:08 - İçi GOLD",
+    "is_active": true,
+    "record_kind": "synthetic_demo"
+  },
+  {
+    "id": "TECH-SOFT-5",
+    "stock_code": "511109010910-1005",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-SPRING",
+    "tube_size": "52x195",
+    "diameter_mm": 52,
+    "height_mm": 195,
+    "raw_sheet_code": "500011000004-1206",
+    "raw_sheet_desc": "HAM LEVHA-017x832x800- (T 61) -52x195",
+    "print_surface": "EMAYE",
+    "varnish": "BELİRTİLMEMİŞ",
+    "lacquer": "BELİRTİLMEMİŞ",
+    "inside_coating": "GOLD",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K"
+    ],
+    "special_parameter": "SOFT REV NO:08 - İçi GOLD",
+    "is_active": true,
+    "record_kind": "synthetic_demo"
+  },
+  {
+    "id": "TECH-SOFT-6",
+    "stock_code": "511109010910-1006",
+    "stock_name": "TUP-SOFT ODA SPR 300 ml (52x195)-ROSE",
+    "tube_size": "52x195",
+    "diameter_mm": 52,
+    "height_mm": 195,
+    "raw_sheet_code": "500011000004-1206",
+    "raw_sheet_desc": "HAM LEVHA-017x832x800- (T 61) -52x195",
+    "print_surface": "EMAYE",
+    "varnish": "BELİRTİLMEMİŞ",
+    "lacquer": "BELİRTİLMEMİŞ",
+    "inside_coating": "GOLD",
+    "colors": [
+      "C",
+      "M",
+      "Y",
+      "K"
+    ],
+    "special_parameter": "SOFT REV NO:08 - İçi GOLD",
+    "is_active": true,
+    "record_kind": "synthetic_demo"
+  }
+];
+
+// 13. BAĞIMSIZ SÖZLÜKLER (Faz 2C)
+const INITIAL_DICTIONARIES = {
+  surfaces: [
+    { code: 'EMAYE', name: 'Beyaz Emaye Zemin', is_active: true },
+    { code: 'METALİK', name: 'Metalik Vernikli Zemin', is_active: true }
+  ],
+  varnishes: [
+    { code: 'PARLAK', name: 'Parlak Dış Vernik', is_active: true },
+    { code: 'MAT', name: 'Mat Dış Vernik', is_active: true },
+    { code: 'KISMİ', name: 'Kısmi Vernik', is_active: true },
+    { code: 'BELİRTİLMEMİŞ', name: 'Belirtilmemiş Vernik', is_active: true }
+  ],
+  lacquers: [
+    { code: 'LAKLI', name: 'Laklı Yüzey (Kurutma Gerekir)', is_active: true, description: 'Özel lak uygulanmış ürünler' },
+    { code: 'LAKSIZ', name: 'Laksız Standart Yüzey', is_active: true, description: 'Laksız hat ürünü' },
+    { code: 'BILINMIYOR', name: 'Bilinmiyor / Belirtilmemiş', is_active: true, description: 'Boş bırakılan veya netleşmemiş durum; otomatik laklı kabul edilmez' }
+  ],
+  inside_coatings: [
+    { code: 'GOLD', name: 'İçi GOLD Kaplama', is_active: true, description: 'Gıda/özel formül koruyucu sarı lak/kaplama' },
+    { code: 'ŞEFFAF', name: 'Şeffaf İç Koruyucu', is_active: true, description: 'Standart şeffaf koruyucu astar' },
+    { code: 'STANDART', name: 'Standart Teneke İçi', is_active: true, description: 'Kaplamasız teneke yüzeyi' },
+    { code: 'BELİRTİLMEMİŞ', name: 'Belirtilmemiş', is_active: true, description: 'İç kaplama alanı tanımlanmamış' }
+  ],
+  colors: [
+    { code: 'C', name: 'Cyan (Proses Mavi)', hex: '#0284c7' },
+    { code: 'M', name: 'Magenta (Proses Kırmızı)', hex: '#ec4899' },
+    { code: 'Y', name: 'Yellow (Proses Sarı)', hex: '#eab308' },
+    { code: 'K', name: 'Key/Black (Proses Siyah)', hex: '#0f172a' },
+    { code: '1225C', name: 'Pantone 1225 C (Sarı)', hex: '#f59e0b' },
+    { code: '368C', name: 'Pantone 368 C (Açık Yeşil)', hex: '#22c55e' },
+    { code: '357C', name: 'Pantone 357 C (Koyu Yeşil)', hex: '#15803d' },
+    { code: '185C', name: 'Pantone 185 C (Kırmızı)', hex: '#dc2626' },
+    { code: '2665C', name: 'Pantone 2665 C (Mor)', hex: '#9333ea' },
+    { code: '2587C', name: 'Pantone 2587 C (Eflatun)', hex: '#a855f7' },
+    { code: '109C', name: 'Pantone 109 C (Parlak Sarı)', hex: '#facc15' }
+  ]
+};
+
 // 10. PARAMETRİK LAK VE ÜRÜN KOMBİNASYON KURALLARI (Product & Lacquer Combination Rules)
 const INITIAL_COMBINATION_RULES = [
   {
@@ -343,6 +1493,24 @@ let state = {
     {productId:'DEM-002', stockCode:'511109010910-1002', stockName:'TUP-SOFT ODA SPR 300 ml (52x195)-OCEANIC', tubeSize:'52x195', printSurface:'EMAYE', varnish:'BELİRTİLMEMİŞ', lacquer:'BELİRTİLMEMİŞ', inside_coating:'GOLD', rawSheetCode:'500011000004-1206', colors:['C','M','Y','K'], netDemand:10000, repeatsPerSheet:8, record_kind:'synthetic_demo'},
     {productId:'DEM-003', stockCode:'511109010910-1003', stockName:'TUP-SOFT ODA SPR 300 ml (52x195)-LAVENDER', tubeSize:'52x195', printSurface:'EMAYE', varnish:'BELİRTİLMEMİŞ', lacquer:'BELİRTİLMEMİŞ', inside_coating:'GOLD', rawSheetCode:'500011000004-1206', colors:['C','M','Y','K'], netDemand:10000, repeatsPerSheet:8, record_kind:'synthetic_demo'}
   ],
+
+  // Faz 2C: Tanımlar Merkezi & Excel İçe Aktarma State
+  stockCatalog: INITIAL_STOCK_CATALOG,
+  technicalProducts: JSON.parse(localStorage.getItem('tp_technical_products_v2')) || INITIAL_TECHNICAL_PRODUCTS,
+  dictionaries: JSON.parse(localStorage.getItem('tp_dictionaries_v2')) || INITIAL_DICTIONARIES,
+  technicalSearchQuery: '',
+  technicalFilterSize: 'ALL',
+  technicalFilterSurface: 'ALL',
+  technicalFilterLacquer: 'ALL',
+  technicalFilterStatus: 'ALL',
+  isProductModalOpen: false,
+  editingProduct: null,
+  isImportModalOpen: false,
+  importStep: 1,
+  importRawData: '',
+  importParsedRows: [],
+  importPolicy: 'all', // 'all' | 'new_only' | 'update_only'
+  importValidation: null,
 
   // Screen filters
   demandFilterSize: 'ALL',
@@ -2370,62 +3538,876 @@ function toggleSelectAllDemands(checked) {
 }
 
 // Screen 4: Teknik Tanımlar ve Parametreler (Faz 2)
+
+// ==============================================================================
+// FAZ 2C: TANIMLAR MERKEZİ VE EXCEL İÇE AKTARMA MOTORU
+// ==============================================================================
+
+function saveTechnicalProducts() {
+  localStorage.setItem('tp_technical_products_v2', JSON.stringify(state.technicalProducts));
+}
+
+function openProductModal(productId) {
+  if (state.currentRole === 'viewer') return;
+  if (!productId) {
+    state.editingProduct = {
+      id: '',
+      stock_code: '',
+      stock_name: '',
+      tube_size: '52x195',
+      diameter_mm: 52,
+      height_mm: 195,
+      raw_sheet_code: '500011000004-1206',
+      raw_sheet_desc: 'HAM LEVHA-017x832x800- (T 61) -52x195',
+      print_surface: 'EMAYE',
+      varnish: 'BELİRTİLMEMİŞ',
+      lacquer: 'LAKLI',
+      inside_coating: 'STANDART',
+      colors: ['C', 'M', 'Y', 'K'],
+      special_parameter: '',
+      is_active: true,
+      record_kind: 'manual',
+      catalog_verified: false
+    };
+  } else {
+    const existing = state.technicalProducts.find(p => p.id === productId || p.stock_code === productId);
+    if (existing) {
+      state.editingProduct = JSON.parse(JSON.stringify(existing));
+      const inCat = state.stockCatalog.find(c => c.stock_code === existing.stock_code);
+      state.editingProduct.catalog_verified = !!inCat;
+    }
+  }
+  state.isProductModalOpen = true;
+  renderApp();
+}
+
+function closeProductModal() {
+  state.isProductModalOpen = false;
+  state.editingProduct = null;
+  renderApp();
+}
+
+function onStockCodeChange(val) {
+  if (!state.editingProduct) return;
+  const cleanCode = (val || '').trim();
+  state.editingProduct.stock_code = cleanCode;
+
+  const found = state.stockCatalog.find(c => c.stock_code === cleanCode);
+  if (found) {
+    state.editingProduct.stock_name = found.stock_name;
+    state.editingProduct.catalog_verified = true;
+    if (found.tube_size && !state.editingProduct.id) {
+      onProductSizeChange(found.tube_size);
+    }
+  } else {
+    state.editingProduct.catalog_verified = false;
+    if (!state.editingProduct.id) {
+      state.editingProduct.stock_name = cleanCode ? 'Taslak Ürün - ERP Eşleşmesi Bekliyor' : '';
+    }
+  }
+  renderApp();
+}
+
+function onProductSizeChange(sizeVal) {
+  if (!state.editingProduct) return;
+  state.editingProduct.tube_size = sizeVal;
+  const cap = state.capacities.find(c => c.tube_size === sizeVal);
+  const parts = sizeVal.split('x');
+  if (parts.length === 2) {
+    state.editingProduct.diameter_mm = parseInt(parts[0], 10) || 52;
+    state.editingProduct.height_mm = parseInt(parts[1], 10) || 195;
+  }
+  // Ham levha adayı bul
+  const matchingSheet = state.rawSheets.find(r => r.tube_size === sizeVal);
+  if (matchingSheet) {
+    state.editingProduct.raw_sheet_code = matchingSheet.stock_code;
+    state.editingProduct.raw_sheet_desc = matchingSheet.stock_name;
+  }
+  renderApp();
+}
+
+function toggleColorInEditingProduct(colorCode) {
+  if (!state.editingProduct) return;
+  const cols = state.editingProduct.colors || [];
+  if (cols.includes(colorCode)) {
+    state.editingProduct.colors = cols.filter(c => c !== colorCode);
+  } else {
+    if (cols.length >= 8) {
+      alert('En fazla 8 renk seçilebilir (Varsayılan sınır 6 benzersiz renktir).');
+      return;
+    }
+    state.editingProduct.colors = [...cols, colorCode];
+  }
+  renderApp();
+}
+
+function addCustomPantoneToEditingProduct() {
+  const input = document.getElementById('custom_pantone_input');
+  if (!input) return;
+  const val = input.value.trim().toUpperCase();
+  if (!val) return;
+  const colorCode = val.endsWith('C') ? val : val + 'C';
+  toggleColorInEditingProduct(colorCode);
+  input.value = '';
+}
+
+function saveProductForm() {
+  if (state.currentRole === 'viewer') return;
+  const p = state.editingProduct;
+  if (!p) return;
+
+  if (!p.stock_code || !p.stock_code.trim()) {
+    alert('Hata: Stok kodu zorunludur!');
+    return;
+  }
+
+  if (!p.raw_sheet_code) {
+    alert('Hata: Onaylı ham levha seçimi zorunludur!');
+    return;
+  }
+
+  // Ham levha ebat kontrolü
+  const selSheet = state.rawSheets.find(r => r.stock_code === p.raw_sheet_code);
+  if (selSheet && selSheet.tube_size !== p.tube_size) {
+    const confirmMismatch = confirm(
+      `Uyarı: Seçilen ham levha ebadı (${selSheet.tube_size}), ürün ebadı (${p.tube_size}) ile uyuşmuyor!\nReçete uyuşmazlığı üretim onayı engelleyebilir.\nYine de devam etmek istiyor musunuz?`
+    );
+    if (!confirmMismatch) return;
+  }
+
+  p.stock_code = p.stock_code.trim();
+  p.stock_name = p.stock_name || 'Taslak Ürün - ERP Eşleşmesi Bekliyor';
+
+  const isNew = !p.id;
+  if (isNew) {
+    p.id = 'TECH-' + Date.now();
+    state.technicalProducts.unshift(p);
+    logAudit('technical_product', p.stock_code, 'create', `Yeni teknik kart oluşturuldu: ${p.stock_code} - ${p.stock_name} (${p.tube_size})`);
+  } else {
+    const idx = state.technicalProducts.findIndex(x => x.id === p.id || x.stock_code === p.stock_code);
+    if (idx !== -1) {
+      state.technicalProducts[idx] = p;
+      logAudit('technical_product', p.stock_code, 'update', `Teknik kart güncellendi: ${p.stock_code} (${p.tube_size}, ${p.print_surface}, ${p.lacquer})`);
+    } else {
+      state.technicalProducts.unshift(p);
+    }
+  }
+
+  saveTechnicalProducts();
+  closeProductModal();
+}
+
+function toggleTechnicalProductActive(productId) {
+  if (state.currentRole === 'viewer') return;
+  const item = state.technicalProducts.find(p => p.id === productId || p.stock_code === productId);
+  if (!item) return;
+
+  item.is_active = !item.is_active;
+  logAudit('technical_product', item.stock_code, 'update', `Kart durumu değiştirildi: ${item.is_active ? 'Aktifleştirildi' : 'Pasife Alındı'}`);
+  saveTechnicalProducts();
+  renderApp();
+}
+
+function deleteTechnicalProduct(productId) {
+  if (state.currentRole === 'viewer') return;
+  const item = state.technicalProducts.find(p => p.id === productId || p.stock_code === productId);
+  if (!item) return;
+
+  // REFERANS BÜTÜNLÜĞÜ KONTROLÜ
+  const demandRefs = state.demands.filter(d => d.stock_code === item.stock_code).length;
+  const planRefs = state.productionPlans.filter(p => p.consumption_code === item.stock_code).length;
+  const workbenchRefs = state.workbenchItems.filter(w => w.stockCode === item.stock_code).length;
+  const totalRefs = demandRefs + planRefs + workbenchRefs;
+
+  if (totalRefs > 0) {
+    alert(
+      `🚫 Referans Bütünlüğü Koruması:\n\nBu teknik kart aktif planda, ihtiyaç havuzunda veya montaj masasında kullanılmaktadır (${totalRefs} referans: ${demandRefs} talep, ${planRefs} üretim planı, ${workbenchRefs} montaj).\n\nFiziksel olarak silinemez; geçmiş ve mevcut planların bozulmaması için yalnızca "Pasife Al" yapabilirsiniz.`
+    );
+    return;
+  }
+
+  if (confirm(`"${item.stock_code} - ${item.stock_name}" teknik kartını kalıcı olarak silmek istediğinizden emin misiniz?`)) {
+    state.technicalProducts = state.technicalProducts.filter(p => p.id !== item.id && p.stock_code !== item.stock_code);
+    logAudit('technical_product', item.stock_code, 'delete', `Kullanılmayan teknik kart silindi: ${item.stock_code}`);
+    saveTechnicalProducts();
+    renderApp();
+  }
+}
+
+// ------------------------------------------------------------------------------
+// EXCEL İÇE AKTARMA (IMPORT) MOTORU
+// ------------------------------------------------------------------------------
+
+function openImportModal() {
+  if (state.currentRole === 'viewer') return;
+  state.isImportModalOpen = true;
+  state.importStep = 1;
+  state.importRawData = '';
+  state.importParsedRows = [];
+  state.importValidation = null;
+  state.importPolicy = 'all';
+  renderApp();
+}
+
+function closeImportModal() {
+  state.isImportModalOpen = false;
+  state.importStep = 1;
+  state.importRawData = '';
+  state.importParsedRows = [];
+  state.importValidation = null;
+  renderApp();
+}
+
+function downloadSampleTemplate() {
+  const headers = 'Stok Kodu;Stok İsmi;Ham Levha kodu;Boy ve Çap;Baskı Yüzeyi;Vernik;Lak;İç Kaplama;Renk1;Renk2;Renk3;Renk4;Renk5;Renk6;Parametre 1';
+  const sample1 = '511109010410-1102;TUP-GW MOBILYA 300 ml (52x214)-LEMON;HAM LEVHA-017x832x875- (T 61) -52x214;52x214;METALİK;KISMİ;LAKLI;BELİRTİLMEMİŞ;C;M;Y;K;1225C;;image(20261105-112000).png';
+  const sample2 = '511109010910-1001;TUP-SOFT ODA SPR 300 ml (52x195)-VANILLA;HAM LEVHA-017x832x800- (T 61) -52x195;52x195;EMAYE;BELİRTİLMEMİŞ;BELİRTİLMEMİŞ;GOLD;C;M;Y;K;;;SOFT REV NO:08';
+  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers, sample1, sample2].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', 'Teneke_Teknik_Kart_Sablonu.csv');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function loadSampleImportData() {
+  const lines = [
+    'Stok Kodu\tStok İsmi\tHam Levha kodu\tBoy ve Çap\tBaskı Yüzeyi\tVernik\tLak\tİç Kaplama\tRenk1\tRenk2\tRenk3\tRenk4\tRenk5\tRenk6\tParametre 1',
+    '511109010410-1102\tTUP-GW MOBILYA 300 ml (52x214)-LEMON\tHAM LEVHA-017x832x875- (T 61) -52x214\t52x214\tMETALİK\tKISMİ\tLAKLI\tBELİRTİLMEMİŞ\tC\tM\tY\tK\t1225C\t\tKaynak Transkripsiyonu',
+    '511109010410-7026\tTUP-GW MOBILYA CIL. 300 ml (52x214)-LEMON SCENT\tHAM LEVHA-017x832x875- (T 61) -52x214\t52x214\tMETALİK\tKISMİ\tLAKLI\tBELİRTİLMEMİŞ\tC\tM\tY\tK\t1225C\t\tKaynak Transkripsiyonu',
+    '511109010910-1007\tTUP-ROOMSTAR YEDEK SPR 260 ml (65x104)-LAVENDER\tHAM LEVHA-017x835x864- (T 61) -65x104\t65x104\tEMAYE\tPARLAK\tLAKLI\tBELİRTİLMEMİŞ\tC\tM\tY\tK\t2665C\t\tKaynak Transkripsiyonu',
+    '511109010910-7284\tTUP-GW-MS ODA ALKOL-400 ml (52x234)-CITRUS FEST\tHAM LEVHA-017x832x720- (T 61) -52x234\t52x234\tEMAYE\tPARLAK\tLAKLI\tBELİRTİLMEMİŞ\tC\tM\tY\tK\t368C\t357C\tKaynak Transkripsiyonu',
+    '511109010910-1004\tTUP-SOFT ODA SPR 300 ml (52x195)-LILAC\tHAM LEVHA-017x832x800- (T 61) -52x195\t52x195\tEMAYE\tBELİRTİLMEMİŞ\tBELİRTİLMEMİŞ\tGOLD\tC\tM\tY\tK\t\t\tSOFT Sipariş Formu',
+    '\tTUP-GECERSIZ-KART-KODSUZ\tHAM LEVHA-017x832x800- (T 61) -52x195\t52x195\tEMAYE\tPARLAK\tLAKLI\tBELİRTİLMEMİŞ\tC\tM\tY\tK\t\t\tHATA TESTİ (Stok Kodu Yok)',
+    '519999010999-TEST\tTUP-TANIMSIZ-LEVHA\tHAM LEVHA-BILINMEYEN-EBAT-999x999\t52x195\tEMAYE\tPARLAK\tLAKLI\tBELİRTİLMEMİŞ\tC\tM\tY\tK\t\t\tHATA TESTİ (Levha Eşleşmedi)'
+  ];
+  state.importRawData = lines.join('\n');
+  renderApp();
+}
+
+function processImportStep1() {
+  const textarea = document.getElementById('import_textarea');
+  if (textarea) {
+    state.importRawData = textarea.value.trim();
+  }
+
+  if (!state.importRawData) {
+    alert('Lütfen Excel verisi yapıştırın veya dosya yükleyin!');
+    return;
+  }
+
+  // Parse rows (support tab, semicolon, comma)
+  const lines = state.importRawData.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) {
+    alert('Veri en az 1 başlık ve 1 veri satırı içermelidir!');
+    return;
+  }
+
+  // Delimiter detection
+  const firstLine = lines[0];
+  const delim = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
+
+  const headers = firstLine.split(delim).map(h => h.trim().replace(/^["']|["']$/g, ''));
+  const rows = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const rawCols = lines[i].split(delim).map(c => c.trim().replace(/^["']|["']$/g, ''));
+    const rowObj = {};
+    headers.forEach((h, colIdx) => {
+      rowObj[h] = rawCols[colIdx] || '';
+    });
+    rows.push(rowObj);
+  }
+
+  state.importParsedRows = rows;
+  state.importStep = 2;
+  renderApp();
+}
+
+function processImportStep2() {
+  // Validate rows against business rules & catalogue
+  const validRows = [];
+  let newCount = 0;
+  let updateCount = 0;
+  let errorCount = 0;
+
+  state.importParsedRows.forEach((r, idx) => {
+    // Column lookups
+    const stockCode = (r['Stok Kodu'] || r['stok_kodu'] || r['StokKodu'] || r['STOK KODU'] || '').trim();
+    const stockName = (r['Stok İsmi'] || r['stok_adi'] || r['Stok Adı'] || r['STOK ISMI'] || '').trim();
+    const rawSheetInput = (r['Ham Levha kodu'] || r['Ham Levha Kodu'] || r['ham_levha'] || r['HAM LEVHA'] || '').trim();
+    const tubeSize = (r['Boy ve Çap'] || r['Ebat'] || r['tube_size'] || r['EBAT'] || '52x195').trim();
+    const printSurface = (r['Baskı Yüzeyi'] || r['Zemin'] || r['print_surface'] || 'EMAYE').trim().toUpperCase();
+    const varnish = (r['Vernik'] || r['varnish'] || 'BELİRTİLMEMİŞ').trim();
+    let lacquer = (r['Lak'] || r['lacquer'] || 'BILINMIYOR').trim().toUpperCase();
+    const insideCoating = (r['İç Kaplama'] || r['inside_coating'] || 'BELİRTİLMEMİŞ').trim();
+    const param1 = (r['Parametre 1'] || r['Özel Parametre'] || r['notes'] || '').trim();
+
+    // Renkler
+    const colors = [];
+    ['Renk1', 'Renk2', 'Renk3', 'Renk4', 'Renk5', 'Renk6', 'Renk 1', 'Renk 2', 'Renk 3', 'Renk 4', 'Renk 5', 'Renk 6'].forEach(rk => {
+      if (r[rk] && r[rk].trim()) {
+        const cVal = r[rk].trim().toUpperCase();
+        if (!colors.includes(cVal)) colors.push(cVal);
+      }
+    });
+    if (colors.length === 0) {
+      ['C', 'M', 'Y', 'K'].forEach(c => colors.push(c));
+    }
+
+    // DOĞRULAMA 1: Stok Kodu Zorunluluğu (Kabul Koşulu 1)
+    if (!stockCode) {
+      validRows.push({
+        status: 'ERROR',
+        error_message: 'Stok kodu boş olamaz (Kabul Koşulu 1)',
+        raw_row: r,
+        item: null
+      });
+      errorCount++;
+      return;
+    }
+
+    // DOĞRULAMA 2: Ham Levha Açık Kod / Açıklama Eşlemesi (Kabul Koşulu 4)
+    let matchedRawSheet = null;
+    if (rawSheetInput) {
+      // Önce doğrudan stok kodu
+      matchedRawSheet = state.rawSheets.find(s => s.stock_code === rawSheetInput);
+      // Bulunamazsa isim/açıklama ve ebat üzerinden açık tekil eşleme
+      if (!matchedRawSheet) {
+        const candidates = state.rawSheets.filter(s => s.stock_name.includes(rawSheetInput) || rawSheetInput.includes(s.stock_name) || s.tube_size === tubeSize);
+        if (candidates.length === 1) {
+          matchedRawSheet = candidates[0];
+        } else if (candidates.length > 1) {
+          const sizeMatch = candidates.find(c => c.tube_size === tubeSize);
+          if (sizeMatch) matchedRawSheet = sizeMatch;
+        }
+      }
+    }
+
+    if (!matchedRawSheet) {
+      validRows.push({
+        status: 'ERROR',
+        error_message: `Ham levha açıklaması katalogla eşleşmedi: "${rawSheetInput}" (Kabul Koşulu 4)`,
+        raw_row: r,
+        item: { stock_code: stockCode, stock_name: stockName, tube_size: tubeSize }
+      });
+      errorCount++;
+      return;
+    }
+
+    // Lak sözlüğü kontrolü
+    if (!['LAKLI', 'LAKSIZ', 'BILINMIYOR'].includes(lacquer)) {
+      lacquer = 'BILINMIYOR';
+    }
+
+    // ERP Stok Kataloğunda Ad Eşleştirme (Kabul Koşulu 2)
+    const inCatalog = state.stockCatalog.find(c => c.stock_code === stockCode);
+    const finalStockName = inCatalog ? inCatalog.stock_name : (stockName || 'Taslak Ürün - ERP Eşleşmesi Bekliyor');
+
+    // Mevcut kayıt kontrolü
+    const exists = state.technicalProducts.find(p => p.stock_code === stockCode);
+    const status = exists ? 'UPDATE' : 'NEW';
+    if (status === 'NEW') newCount++;
+    else updateCount++;
+
+    const item = {
+      id: exists ? exists.id : 'TECH-IMP-' + Date.now() + '-' + idx,
+      stock_code: stockCode,
+      stock_name: finalStockName,
+      tube_size: tubeSize,
+      diameter_mm: parseInt(tubeSize.split('x')[0], 10) || 52,
+      height_mm: parseInt(tubeSize.split('x')[1], 10) || 195,
+      raw_sheet_code: matchedRawSheet.stock_code,
+      raw_sheet_desc: matchedRawSheet.stock_name,
+      print_surface: printSurface || 'EMAYE',
+      varnish: varnish || 'BELİRTİLMEMİŞ',
+      lacquer: lacquer,
+      inside_coating: insideCoating || 'BELİRTİLMEMİŞ',
+      colors: colors,
+      special_parameter: param1,
+      is_active: true,
+      record_kind: 'excel_imported',
+      catalog_verified: !!inCatalog
+    };
+
+    validRows.push({
+      status: status,
+      item: item,
+      raw_row: r,
+      is_catalog_match: !!inCatalog
+    });
+  });
+
+  state.importValidation = {
+    total: state.importParsedRows.length,
+    newCount,
+    updateCount,
+    errorCount,
+    rows: validRows
+  };
+
+  state.importStep = 3;
+  renderApp();
+}
+
+function commitImport() {
+  if (state.currentRole === 'viewer') return;
+  if (!state.importValidation) return;
+
+  const policy = state.importPolicy;
+  let appliedCount = 0;
+
+  state.importValidation.rows.forEach(vr => {
+    if (vr.status === 'ERROR') return;
+    if (policy === 'new_only' && vr.status !== 'NEW') return;
+    if (policy === 'update_only' && vr.status !== 'UPDATE') return;
+
+    const item = vr.item;
+    const existingIdx = state.technicalProducts.findIndex(p => p.stock_code === item.stock_code);
+    if (existingIdx !== -1) {
+      state.technicalProducts[existingIdx] = { ...state.technicalProducts[existingIdx], ...item };
+    } else {
+      state.technicalProducts.unshift(item);
+    }
+    appliedCount++;
+  });
+
+  logAudit(
+    'excel_import',
+    'IMP-' + Date.now(),
+    'import',
+    `Excel üzerinden ${appliedCount} adet teknik kart başarıyla aktarıldı (${state.importValidation.newCount} yeni, ${state.importValidation.updateCount} güncelleme, politika: ${policy})`
+  );
+
+  saveTechnicalProducts();
+  state.importStep = 4;
+  state.importAppliedCount = appliedCount;
+  renderApp();
+}
+
 function renderTechnical() {
   const isReadOnly = state.currentRole === 'viewer';
 
+  // Products filtering
+  let filteredProducts = state.technicalProducts || [];
+  if (state.technicalSearchQuery) {
+    const q = state.technicalSearchQuery.toLowerCase();
+    filteredProducts = filteredProducts.filter(p =>
+      (p.stock_code && p.stock_code.toLowerCase().includes(q)) ||
+      (p.stock_name && p.stock_name.toLowerCase().includes(q))
+    );
+  }
+  if (state.technicalFilterSize && state.technicalFilterSize !== 'ALL') {
+    filteredProducts = filteredProducts.filter(p => p.tube_size === state.technicalFilterSize);
+  }
+  if (state.technicalFilterSurface && state.technicalFilterSurface !== 'ALL') {
+    filteredProducts = filteredProducts.filter(p => p.print_surface === state.technicalFilterSurface);
+  }
+  if (state.technicalFilterLacquer && state.technicalFilterLacquer !== 'ALL') {
+    filteredProducts = filteredProducts.filter(p => p.lacquer === state.technicalFilterLacquer);
+  }
+  if (state.technicalFilterStatus && state.technicalFilterStatus !== 'ALL') {
+    const isActive = state.technicalFilterStatus === 'ACTIVE';
+    filteredProducts = filteredProducts.filter(p => p.is_active === isActive);
+  }
+
   return `
-    <div class="space-y-4">
-      <div class="flex flex-wrap items-center gap-2 p-3 bg-white border border-slate-200 rounded-lg text-xs font-mono shadow-xs">
-        <button onclick="state.technicalTab='products'; renderApp();" class="px-3 py-1.5 rounded ${state.technicalTab==='products'?'bg-sky-600 text-white font-bold':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">📦 Tüp Kartları</button>
-        <button onclick="state.technicalTab='layouts'; renderApp();" class="px-3 py-1.5 rounded ${state.technicalTab==='layouts'?'bg-sky-600 text-white font-bold':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">📐 Montaj Görünümü (${state.sheetLayouts.length})</button>
-        <button onclick="state.technicalTab='rules'; renderApp();" class="px-3 py-1.5 rounded ${state.technicalTab==='rules'?'bg-sky-600 text-white font-bold':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">⚖️ İş Kuralları (${state.businessRules.length})</button>
-        <button onclick="state.technicalTab='raw_sheets'; renderApp();" class="px-3 py-1.5 rounded ${state.technicalTab==='raw_sheets'?'bg-sky-600 text-white font-bold':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">📄 Ham Levhalar (14)</button>
-        <button onclick="state.technicalTab='capacities'; renderApp();" class="px-3 py-1.5 rounded ${state.technicalTab==='capacities'?'bg-sky-600 text-white font-bold':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">📏 Ebat / Kapasite (18)</button>
-        <button onclick="state.technicalTab='lines'; renderApp();" class="px-3 py-1.5 rounded ${state.technicalTab==='lines'?'bg-sky-600 text-white font-bold':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">🏭 Hat ve Vardiyalar</button>
-        <button onclick="state.technicalTab='audit'; renderApp();" class="px-3 py-1.5 rounded ${state.technicalTab==='audit'?'bg-sky-600 text-white font-bold':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">🛡️ Denetim İzi (${state.auditLogs.length})</button>
+    <div class="space-y-4 font-sans">
+      <!-- Tab Navigation -->
+      <div class="flex flex-wrap items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono shadow-xs">
+        <button onclick="state.technicalTab='products'; renderApp();" class="px-3 py-1.5 rounded transition-colors ${state.technicalTab==='products'?'bg-sky-600 text-white font-bold shadow-xs':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">📦 Tüp Teknik Kartları (${(state.technicalProducts||[]).length})</button>
+        <button onclick="state.technicalTab='stock_catalog'; renderApp();" class="px-3 py-1.5 rounded transition-colors ${state.technicalTab==='stock_catalog'?'bg-sky-600 text-white font-bold shadow-xs':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">🗄️ ERP Stok Kataloğu (${(state.stockCatalog||[]).length})</button>
+        <button onclick="state.technicalTab='raw_sheets'; renderApp();" class="px-3 py-1.5 rounded transition-colors ${state.technicalTab==='raw_sheets'?'bg-sky-600 text-white font-bold shadow-xs':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">📄 Ham Levhalar (14)</button>
+        <button onclick="state.technicalTab='dictionaries'; renderApp();" class="px-3 py-1.5 rounded transition-colors ${state.technicalTab==='dictionaries'?'bg-sky-600 text-white font-bold shadow-xs':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">📚 Bağımsız Sözlükler</button>
+        <button onclick="state.technicalTab='capacities'; renderApp();" class="px-3 py-1.5 rounded transition-colors ${state.technicalTab==='capacities'?'bg-sky-600 text-white font-bold shadow-xs':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">📏 Ebat / Kapasite (18)</button>
+        <button onclick="state.technicalTab='layouts'; renderApp();" class="px-3 py-1.5 rounded transition-colors ${state.technicalTab==='layouts'?'bg-sky-600 text-white font-bold shadow-xs':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">📐 Montaj Görünümü (${state.sheetLayouts.length})</button>
+        <button onclick="state.technicalTab='rules'; renderApp();" class="px-3 py-1.5 rounded transition-colors ${state.technicalTab==='rules'?'bg-sky-600 text-white font-bold shadow-xs':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">⚖️ İş Kuralları (${state.businessRules.length})</button>
+        <button onclick="state.technicalTab='lines'; renderApp();" class="px-3 py-1.5 rounded transition-colors ${state.technicalTab==='lines'?'bg-sky-600 text-white font-bold shadow-xs':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">🏭 Hat ve Vardiyalar</button>
+        <button onclick="state.technicalTab='audit'; renderApp();" class="px-3 py-1.5 rounded transition-colors ${state.technicalTab==='audit'?'bg-sky-600 text-white font-bold shadow-xs':'text-slate-600 bg-slate-100 hover:bg-slate-200'}">🛡️ Denetim İzi (${state.auditLogs.length})</button>
         <button onclick="state.activePage='printing_rules'; renderApp();" class="px-3 py-1.5 rounded text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-300 font-bold ml-auto">🖨️ Matbaa & Kombinasyon Kuralları ↗</button>
       </div>
 
       ${state.technicalTab === 'products' ? `
+        <!-- Action & Filter Bar -->
+        <div class="bg-white border border-slate-200 rounded-lg p-3.5 space-y-3 shadow-xs">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div>
+              <div class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span>📦 Tüp Teknik Kartları</span>
+                <span class="text-xs font-mono font-normal text-slate-500">(${filteredProducts.length} listeleniyor / ${(state.technicalProducts||[]).length} toplam)</span>
+              </div>
+              <div class="text-xs text-slate-500 mt-0.5">
+                Stok koduna bağlı renk, lak, zemin, iç kaplama ve onaylı ham levha ilişkileri yerel olarak yönetilir. ERP stok adını ezmez.
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                ${isReadOnly ? 'disabled' : ''}
+                onclick="downloadSampleTemplate();"
+                class="px-3 py-1.5 rounded bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-mono flex items-center gap-1.5 shadow-2xs"
+                title="Örnek içe aktarma CSV şablonunu indir"
+              >
+                <span>📄</span> Şablon İndir
+              </button>
+              <button
+                ${isReadOnly ? 'disabled' : ''}
+                onclick="openImportModal();"
+                class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-mono font-bold flex items-center gap-1.5 shadow-xs transition-colors ${isReadOnly?'cursor-not-allowed opacity-60':''}"
+              >
+                <span>📥</span> Excel'den İçe Aktar
+              </button>
+              <button
+                ${isReadOnly ? 'disabled' : ''}
+                onclick="openProductModal(null);"
+                class="px-3.5 py-1.5 rounded bg-sky-600 hover:bg-sky-700 text-white text-xs font-mono font-bold flex items-center gap-1.5 shadow-xs transition-colors ${isReadOnly?'cursor-not-allowed opacity-60':''}"
+              >
+                <span>➕</span> Yeni Teknik Kart Ekle
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters -->
+          <div class="flex flex-wrap items-center gap-2.5 text-xs font-mono">
+            <div class="flex-1 min-w-[200px]">
+              <input
+                type="text"
+                placeholder="Stok kodu veya mamul adı ile ara..."
+                value="${state.technicalSearchQuery || ''}"
+                oninput="state.technicalSearchQuery=this.value; renderApp();"
+                class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none focus:border-sky-500"
+              />
+            </div>
+            <select
+              onchange="state.technicalFilterSize=this.value; renderApp();"
+              class="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none"
+            >
+              <option value="ALL">Tüm Ebatlar (${state.capacities.length})</option>
+              ${state.capacities.map(c => `<option value="${c.tube_size}" ${state.technicalFilterSize===c.tube_size?'selected':''}>${c.tube_size}</option>`).join('')}
+            </select>
+            <select
+              onchange="state.technicalFilterSurface=this.value; renderApp();"
+              class="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none"
+            >
+              <option value="ALL">Tüm Zeminler</option>
+              <option value="EMAYE" ${state.technicalFilterSurface==='EMAYE'?'selected':''}>EMAYE</option>
+              <option value="METALİK" ${state.technicalFilterSurface==='METALİK'?'selected':''}>METALİK</option>
+            </select>
+            <select
+              onchange="state.technicalFilterLacquer=this.value; renderApp();"
+              class="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none"
+            >
+              <option value="ALL">Tüm Lak Durumları</option>
+              <option value="LAKLI" ${state.technicalFilterLacquer==='LAKLI'?'selected':''}>LAKLI</option>
+              <option value="LAKSIZ" ${state.technicalFilterLacquer==='LAKSIZ'?'selected':''}>LAKSIZ</option>
+              <option value="BILINMIYOR" ${state.technicalFilterLacquer==='BILINMIYOR'?'selected':''}>BILINMIYOR</option>
+            </select>
+            <select
+              onchange="state.technicalFilterStatus=this.value; renderApp();"
+              class="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none"
+            >
+              <option value="ALL">Tüm Durumlar</option>
+              <option value="ACTIVE" ${state.technicalFilterStatus==='ACTIVE'?'selected':''}>Aktif Kartlar</option>
+              <option value="PASSIVE" ${state.technicalFilterStatus==='PASSIVE'?'selected':''}>Pasif Kartlar</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Products Table -->
         <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
           <table class="w-full text-left text-xs border-collapse">
             <thead>
               <tr class="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
                 <th class="py-2.5 px-3">Stok Kodu</th>
-                <th class="py-2.5 px-3">Stok Adı</th>
+                <th class="py-2.5 px-3">Stok Adı (ERP)</th>
                 <th class="py-2.5 px-2">Ebat</th>
+                <th class="py-2.5 px-3">Onaylı Ham Levha (FK)</th>
                 <th class="py-2.5 px-2">Zemin</th>
                 <th class="py-2.5 px-2">Vernik</th>
                 <th class="py-2.5 px-2">Lak</th>
                 <th class="py-2.5 px-2">İç Kaplama</th>
-                <th class="py-2.5 px-2">Kayıt Türü</th>
                 <th class="py-2.5 px-3">Renkler</th>
+                <th class="py-2.5 px-2 text-center">Durum</th>
+                <th class="py-2.5 px-3 text-right">İşlemler</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 font-sans">
-              ${state.demands.map(p => `
-                <tr class="hover:bg-slate-50">
-                  <td class="py-2.5 px-3 font-mono font-semibold text-sky-700">${p.stock_code}</td>
-                  <td class="py-2.5 px-3 font-medium text-slate-900">${p.stock_name}</td>
-                  <td class="py-2.5 px-2 font-mono text-slate-700">${p.tube_size}</td>
-                  <td class="py-2.5 px-2 font-mono text-[10px] font-semibold text-slate-700">${p.print_surface}</td>
-                  <td class="py-2.5 px-2 font-mono text-slate-600">${p.varnish}</td>
-                  <td class="py-2.5 px-2 font-mono text-slate-600">${p.lacquer}</td>
-                  <td class="py-2.5 px-2">
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${p.inside_coating==='GOLD'?'bg-amber-100 text-amber-900 border-amber-300 font-bold':'bg-slate-100 text-slate-600 border-slate-200'}">
-                      ${p.inside_coating || 'BELİRTİLMEMİŞ'}
-                    </span>
+              ${filteredProducts.length === 0 ? `
+                <tr>
+                  <td colSpan="11" class="py-8 text-center text-slate-400 font-mono text-xs">
+                    Kriterlere uygun teknik kart bulunamadı.
                   </td>
-                  <td class="py-2.5 px-2">
-                    <span class="text-[9px] font-mono px-1.5 py-0.5 rounded ${p.record_kind==='source_transcription'?'bg-emerald-50 text-emerald-800 border border-emerald-300':'bg-amber-50 text-amber-800 border border-amber-300'}">
-                      ${p.record_kind==='source_transcription'?'KAYNAK VERİ':'TEMSİLİ DEMO'}
-                    </span>
-                  </td>
-                  <td class="py-2.5 px-3"><div class="flex flex-wrap gap-1">${p.colors.map(renderColorChip).join('')}</div></td>
                 </tr>
-              `).join('')}
+              ` : filteredProducts.map(p => {
+                const inCatalog = (state.stockCatalog||[]).find(c => c.stock_code === p.stock_code);
+                const rawSheet = state.rawSheets.find(r => r.stock_code === p.raw_sheet_code);
+                return `
+                  <tr class="hover:bg-slate-50 transition-colors ${!p.is_active ? 'opacity-60 bg-slate-50/50' : ''}">
+                    <td class="py-2.5 px-3">
+                      <div class="font-mono font-bold text-sky-700">${p.stock_code}</div>
+                      <div class="flex items-center gap-1 mt-0.5">
+                        ${inCatalog ? `
+                          <span class="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">✓ ERP</span>
+                        ` : `
+                          <span class="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">⚠️ Taslak</span>
+                        `}
+                        <span class="text-[9px] font-mono text-slate-400">${p.record_kind || 'manual'}</span>
+                      </div>
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <div class="font-medium text-slate-900">${p.stock_name}</div>
+                      ${p.special_parameter ? `<div class="text-[10px] font-mono text-slate-500 mt-0.5 truncate max-w-xs">${p.special_parameter}</div>` : ''}
+                    </td>
+                    <td class="py-2.5 px-2 font-mono font-bold text-slate-700">${p.tube_size}</td>
+                    <td class="py-2.5 px-3">
+                      <div class="font-mono text-xs text-slate-800 font-semibold">${p.raw_sheet_code}</div>
+                      <div class="text-[10px] font-mono text-slate-500 truncate max-w-xs">
+                        ${rawSheet ? `${rawSheet.width_mm}x${rawSheet.height_mm} mm (${rawSheet.thickness_source_value/100}mm)` : (p.raw_sheet_desc || 'Katalogda eşleşmemiş')}
+                      </div>
+                    </td>
+                    <td class="py-2.5 px-2 font-mono text-[10px] font-bold text-slate-700">${p.print_surface || 'EMAYE'}</td>
+                    <td class="py-2.5 px-2 font-mono text-slate-600">${p.varnish || 'BELİRTİLMEMİŞ'}</td>
+                    <td class="py-2.5 px-2">
+                      <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                        p.lacquer === 'LAKLI' ? 'bg-emerald-50 text-emerald-800 border border-emerald-300' :
+                        p.lacquer === 'LAKSIZ' ? 'bg-sky-50 text-sky-800 border border-sky-300' :
+                        'bg-amber-50 text-amber-800 border border-amber-300'
+                      }">
+                        ${p.lacquer || 'BILINMIYOR'}
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-2">
+                      <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+                        p.inside_coating === 'GOLD' ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold' :
+                        'bg-slate-100 text-slate-600 border-slate-200'
+                      }">
+                        ${p.inside_coating || 'BELİRTİLMEMİŞ'}
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <div class="flex flex-wrap gap-1">
+                        ${(p.colors || []).map(renderColorChip).join('')}
+                      </div>
+                    </td>
+                    <td class="py-2.5 px-2 text-center">
+                      <button
+                        ${isReadOnly ? 'disabled' : ''}
+                        onclick="toggleTechnicalProductActive('${p.id || p.stock_code}');"
+                        class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                          p.is_active ? 'bg-emerald-50 text-emerald-800 border border-emerald-300' :
+                          'bg-slate-100 text-slate-400 border border-slate-300'
+                        } ${isReadOnly ? 'cursor-not-allowed opacity-60' : ''}"
+                        title="Aktif/Pasif durumunu değiştir"
+                      >
+                        ${p.is_active ? 'AKTİF' : 'PASİF'}
+                      </button>
+                    </td>
+                    <td class="py-2.5 px-3 text-right">
+                      <div class="inline-flex items-center gap-1 font-mono text-xs">
+                        <button
+                          ${isReadOnly ? 'disabled' : ''}
+                          onclick="openProductModal('${p.id || p.stock_code}');"
+                          class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium transition-colors"
+                          title="Düzenle"
+                        >
+                          ✏️ Düzenle
+                        </button>
+                        <button
+                          ${isReadOnly ? 'disabled' : ''}
+                          onclick="deleteTechnicalProduct('${p.id || p.stock_code}');"
+                          class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-[11px] font-medium transition-colors"
+                          title="Sil (Referans Bütünlüğü Korumalı)"
+                        >
+                          🗑️ Sil
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
+        </div>
+      ` : state.technicalTab === 'stock_catalog' ? `
+        <!-- ERP Master Catalog Tab -->
+        <div class="bg-white border border-slate-200 rounded-lg p-3.5 space-y-3 shadow-xs">
+          <div class="flex items-start gap-3 p-3 bg-sky-50 border border-sky-200 rounded-lg text-xs text-sky-900">
+            <span class="text-base select-none">ℹ️</span>
+            <div>
+              <div class="font-bold">ERP Stok Kataloğu Veri Sahipliği Kuralı (Faz 2C & Faz 3A)</div>
+              <div class="text-[11px] text-sky-800 mt-0.5">
+                Stok kodu, stok adı, kategori ve temel birim ERP senkronunun (MikroDesktop_LIDER26) kontrolündedir ve salt okunurdur.
+                Uygulama ERP ana kartını silemez veya stok adını ezemez. Renk, lak, zemin ve ham levha ilişkileri "Tüp Teknik Kartları" sekmesinde yönetilir.
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div class="text-xs font-mono font-bold text-slate-700">
+              ERP Senkron Stok Kayıtları (${(state.stockCatalog||[]).length} Kart)
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+              Kaynak: MikroDesktop_LIDER26 (Salt Okunur)
+            </span>
+          </div>
+
+          <div class="overflow-hidden border border-slate-200 rounded-lg">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
+                  <th class="py-2.5 px-3">Stok Kodu</th>
+                  <th class="py-2.5 px-3">Stok Adı (ERP)</th>
+                  <th class="py-2.5 px-2">Kategori</th>
+                  <th class="py-2.5 px-2">Birim</th>
+                  <th class="py-2.5 px-2">Ölçü / Boyut</th>
+                  <th class="py-2.5 px-3">Kaynak Sistem</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-mono">
+                ${(state.stockCatalog||[]).map(c => `
+                  <tr class="hover:bg-slate-50">
+                    <td class="py-2 px-3 font-bold text-sky-700">${c.stock_code}</td>
+                    <td class="py-2 px-3 font-sans font-medium text-slate-900">${c.stock_name}</td>
+                    <td class="py-2 px-2">
+                      <span class="text-[10px] px-1.5 py-0.5 rounded font-bold ${c.category==='Ham Levha'?'bg-amber-50 text-amber-800 border border-amber-200':'bg-sky-50 text-sky-800 border border-sky-200'}">
+                        ${c.category}
+                      </span>
+                    </td>
+                    <td class="py-2 px-2 text-slate-600 font-bold">${c.unit}</td>
+                    <td class="py-2 px-2 text-slate-700">${c.dimensions || c.tube_size}</td>
+                    <td class="py-2 px-3 text-slate-500 text-[11px] font-sans">${c.source_system}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ` : state.technicalTab === 'dictionaries' ? `
+        <!-- Dictionaries Tab -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Zemin Sözlüğü -->
+          <div class="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-xs">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <span>🎨</span> Baskı Yüzeyi / Zemin Sözlüğü
+              </div>
+              <span class="text-[10px] font-mono text-slate-500">2 Tanımlı</span>
+            </div>
+            <div class="space-y-2 text-xs font-mono">
+              <div class="p-2.5 rounded bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-slate-900">EMAYE</div>
+                  <div class="text-[11px] text-slate-500 font-sans">Beyaz zemin boyası uygulanmış teneke yüzeyi</div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">Aktif</span>
+              </div>
+              <div class="p-2.5 rounded bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-slate-900">METALİK</div>
+                  <div class="text-[11px] text-slate-500 font-sans">Doğal sac yüzeyine şeffaf vernik zemin</div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">Aktif</span>
+              </div>
+            </div>
+            <div class="text-[10px] text-slate-500 font-sans italic border-t border-slate-100 pt-2">
+              ⚠️ Emaye ve metalik zeminler farklı baskı hattı ve hazırlık gerektirdiğinden aynı montajda birleştirilemez (KRL-ZEMIN-01).
+            </div>
+          </div>
+
+          <!-- Lak Durumları Sözlüğü -->
+          <div class="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-xs">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <span>🛡️</span> Lak Durumları Sözlüğü
+              </div>
+              <span class="text-[10px] font-mono text-slate-500">3 Tanımlı</span>
+            </div>
+            <div class="space-y-2 text-xs font-mono">
+              <div class="p-2.5 rounded bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-emerald-800">LAKLI</div>
+                  <div class="text-[11px] text-slate-500 font-sans">Ekstra lak uygulanmış yüzey (Kurutma fırını şartı)</div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">Aktif</span>
+              </div>
+              <div class="p-2.5 rounded bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-sky-800">LAKSIZ</div>
+                  <div class="text-[11px] text-slate-500 font-sans">Standart laksız yüzey işlemi</div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 text-[10px]">Aktif</span>
+              </div>
+              <div class="p-2.5 rounded bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-amber-800">BILINMIYOR</div>
+                  <div class="text-[11px] text-slate-500 font-sans">Boş/belirsiz lak durumu (Otomatik laklı sayılmaz!)</div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px]">Onay Bekler</span>
+              </div>
+            </div>
+            <div class="text-[10px] text-slate-500 font-sans italic border-t border-slate-100 pt-2">
+              ⚠️ Kesin Kural: Laklı ve Laksız ürünler aynı montaja giremez. Boş değer otomatik onaylanmaz.
+            </div>
+          </div>
+
+          <!-- İç Kaplama Sözlüğü -->
+          <div class="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-xs">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <span>🥫</span> İç Kaplama Sözlüğü (Bağımsız Alan)
+              </div>
+              <span class="text-[10px] font-mono text-slate-500">4 Tanımlı</span>
+            </div>
+            <div class="space-y-2 text-xs font-mono">
+              <div class="p-2.5 rounded bg-amber-50/60 border border-amber-200 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-amber-900">GOLD (İçi Gold)</div>
+                  <div class="text-[11px] text-amber-800 font-sans">Korozyon koruyucu sarı altın astar (SOFT vb.)</div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold">Özel</span>
+              </div>
+              <div class="p-2.5 rounded bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-slate-800">ŞEFFAF</div>
+                  <div class="text-[11px] text-slate-500 font-sans">Standart şeffaf koruyucu kaplama</div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px]">Standart</span>
+              </div>
+              <div class="p-2.5 rounded bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-slate-800">STANDART</div>
+                  <div class="text-[11px] text-slate-500 font-sans">Kaplamasız teneke sac içi</div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px]">Standart</span>
+              </div>
+            </div>
+            <div class="text-[10px] text-slate-500 font-sans italic border-t border-slate-100 pt-2">
+              ⚠️ Kesin Kural: "İçi GOLD" bilgisi iç kaplama alanında tutulur, dış lak veya vernik verilerini ezmez.
+            </div>
+          </div>
+
+          <!-- Renkler Kataloğu -->
+          <div class="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-xs">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <span>🌈</span> Proses & Pantone Renk Kataloğu
+              </div>
+              <span class="text-[10px] font-mono text-slate-500">11 Tanımlı Renk</span>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs font-mono">
+              ${(state.dictionaries?.colors || []).map(c => `
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-slate-50 border border-slate-200 shadow-2xs">
+                  <span class="w-3.5 h-3.5 rounded-full border border-black/10 shadow-inner flex-shrink-0" style="background-color: ${c.hex};"></span>
+                  <span class="font-bold text-slate-800">${c.code}</span>
+                  <span class="text-[10px] text-slate-500 font-sans">${c.name}</span>
+                </div>
+              `).join('')}
+            </div>
+            <div class="text-[10px] text-slate-500 font-sans italic border-t border-slate-100 pt-2">
+              ⚠️ Montaj kuralı: Bir montajda yer alan ürünlerin benzersiz renk birleşimi en fazla 6 olmalıdır.
+            </div>
+          </div>
         </div>
       ` : state.technicalTab === 'layouts' ? `
         <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm space-y-3">
@@ -2518,46 +4500,74 @@ function renderTechnical() {
           </table>
         </div>
       ` : state.technicalTab === 'lines' ? `
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          ${state.productionLines.map(line => `
-            <div class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-2">
-              <div class="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                <span class="font-bold text-slate-900 font-mono">${line.code}</span>
-                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">${line.line_type==='shearing'?'Makas':'Tüp Gövde'}</span>
-              </div>
-              <div class="text-xs font-semibold text-slate-800">${line.name}</div>
-              <div class="text-xs font-mono space-y-1 text-slate-600">
-                <div class="flex justify-between"><span>Vardiya:</span><b>${line.shifts_per_day} Vardiya</b></div>
-                <div class="flex justify-between"><span>Hız:</span><b class="text-sky-700">${formatNum(line.speed_units_per_hour)} birim/saat</b></div>
-                <div class="flex justify-between"><span>Fire:</span><b class="text-rose-700">%${line.waste_rate_percent}</b></div>
-              </div>
-            </div>
-          `).join('')}
+        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+          <table class="w-full text-left text-xs border-collapse font-sans">
+            <thead>
+              <tr class="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
+                <th class="py-2.5 px-3">Hat Kodu</th>
+                <th class="py-2.5 px-3">Hat Tanımı</th>
+                <th class="py-2.5 px-2">Hat Türü</th>
+                <th class="py-2.5 px-3">Desteklenen Ebatlar</th>
+                <th class="py-2.5 px-2 text-center">Vardiya / Gün</th>
+                <th class="py-2.5 px-2 text-right">Hız (Adet/Saat)</th>
+                <th class="py-2.5 px-2 text-right">Fire Payı</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-mono">
+              ${state.productionLines.map(l => `
+                <tr class="hover:bg-slate-50">
+                  <td class="py-2.5 px-3 font-bold text-sky-700">${l.code}</td>
+                  <td class="py-2.5 px-3 font-sans font-medium text-slate-900">${l.name}</td>
+                  <td class="py-2.5 px-2 font-sans">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${l.line_type==='print_press'?'bg-purple-50 text-purple-800 border border-purple-300':'bg-sky-50 text-sky-800 border border-sky-300'}">
+                      ${l.line_type==='print_press'?'Ofset Matbaa':'Tüp Gövde Hattı'}
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3">
+                    <div class="flex flex-wrap gap-1">
+                      ${l.supported_tube_sizes.map(s => `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px]">${s}</span>`).join('')}
+                    </div>
+                  </td>
+                  <td class="py-2.5 px-2 text-center font-bold text-slate-800">${l.shifts_per_day} Vardiya</td>
+                  <td class="py-2.5 px-2 text-right font-bold text-slate-900">${formatNum(l.speed_units_per_hour)}</td>
+                  <td class="py-2.5 px-2 text-right text-amber-700 font-bold">%${l.waste_rate_percent}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
         </div>
       ` : state.technicalTab === 'audit' ? `
-        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm space-y-2">
-          <div class="p-3 bg-slate-50 border-b border-slate-200 text-xs text-slate-600 flex justify-between">
-            <span>SİSTEM DENETİM İZİ (AUDIT LOG - ${state.auditLogs.length} Kayıt)</span>
-            <span class="font-mono text-slate-500">Kritik değişiklikler kayıt altındadır</span>
-          </div>
-          <table class="w-full text-left text-xs border-collapse">
+        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+          <table class="w-full text-left text-xs border-collapse font-sans">
             <thead>
               <tr class="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
                 <th class="py-2.5 px-3">Zaman</th>
                 <th class="py-2.5 px-3">Kullanıcı & Rol</th>
-                <th class="py-2.5 px-2">Varlık Türü</th>
+                <th class="py-2.5 px-2">Varlık</th>
                 <th class="py-2.5 px-2">İşlem</th>
-                <th class="py-2.5 px-3">Detay Açıklama</th>
+                <th class="py-2.5 px-3">Açıklama / Değişiklik Detayı</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
-              ${state.auditLogs.map(l => `
+              ${state.auditLogs.map(a => `
                 <tr class="hover:bg-slate-50">
-                  <td class="py-2 px-3 text-slate-500">${l.timestamp}</td>
-                  <td class="py-2 px-3 font-semibold text-slate-800">${l.user_name} <span class="text-[9px] text-slate-400">(${l.user_role})</span></td>
-                  <td class="py-2 px-2 text-slate-700">${l.entity_type}</td>
-                  <td class="py-2 px-2"><span class="px-1.5 py-0.2 rounded font-bold text-[10px] bg-slate-100 text-slate-700">${l.action.toUpperCase()}</span></td>
-                  <td class="py-2 px-3 font-sans text-slate-700">${l.details}</td>
+                  <td class="py-2 px-3 text-slate-500 whitespace-nowrap">${a.timestamp}</td>
+                  <td class="py-2 px-3 font-sans">
+                    <span class="font-semibold text-slate-900">${a.user_name}</span>
+                    <span class="text-[10px] text-slate-500">(${a.user_role})</span>
+                  </td>
+                  <td class="py-2 px-2 text-sky-800 font-bold">${a.entity_type}</td>
+                  <td class="py-2 px-2">
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      a.action==='create'?'bg-emerald-50 text-emerald-800 border border-emerald-300':
+                      a.action==='update'?'bg-sky-50 text-sky-800 border border-sky-300':
+                      a.action==='import'?'bg-purple-50 text-purple-800 border border-purple-300':
+                      'bg-rose-50 text-rose-800 border border-rose-300'
+                    }">
+                      ${a.action}
+                    </span>
+                  </td>
+                  <td class="py-2 px-3 font-sans text-slate-700">${a.details}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -2568,74 +4578,73 @@ function renderTechnical() {
           <table class="w-full text-left text-xs border-collapse">
             <thead>
               <tr class="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
-                <th class="py-2.5 px-3">Kısa İsim</th>
+                <th class="py-2.5 px-3">Kısa Kod</th>
                 <th class="py-2.5 px-3">Stok Kodu</th>
-                <th class="py-2.5 px-3">Stok İsmi</th>
-                <th class="py-2.5 px-2">Ebat</th>
-                <th class="py-2.5 px-2 text-center">Kalınlık</th>
-                <th class="py-2.5 px-2 text-right">En (mm)</th>
-                <th class="py-2.5 px-2 text-right">Boy (mm)</th>
-                <th class="py-2.5 px-2 text-center">Kalite</th>
+                <th class="py-2.5 px-3">Ham Levha Tanımı</th>
+                <th class="py-2.5 px-2 text-right">Genişlik (mm)</th>
+                <th class="py-2.5 px-2 text-right">Yükseklik (mm)</th>
+                <th class="py-2.5 px-2 text-right">Kalınlık</th>
+                <th class="py-2.5 px-2">Kalite</th>
+                <th class="py-2.5 px-2">Bağlı Tüp Ebadı</th>
+                <th class="py-2.5 px-2 text-right">Min. Baskı</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 font-mono">
-              ${state.rawSheets.map(r => `
+              ${state.rawSheets.map(s => `
                 <tr class="hover:bg-slate-50">
-                  <td class="py-2.5 px-3 font-bold text-sky-700">${r.short_name}</td>
-                  <td class="py-2.5 px-3 text-slate-700">${r.stock_code}</td>
-                  <td class="py-2.5 px-3 text-slate-900">${r.stock_name}</td>
-                  <td class="py-2.5 px-2 text-slate-700">${r.tube_size}</td>
-                  <td class="py-2.5 px-2 text-center text-slate-600">${r.thickness_source_value}</td>
-                  <td class="py-2.5 px-2 text-right text-slate-600 font-bold">${r.width_mm}</td>
-                  <td class="py-2.5 px-2 text-right text-slate-600 font-bold">${r.height_mm}</td>
-                  <td class="py-2.5 px-2 text-center text-slate-600">${r.grade_source}</td>
+                  <td class="py-2.5 px-3 font-bold text-sky-700">${s.short_name}</td>
+                  <td class="py-2.5 px-3 font-bold text-slate-800">${s.stock_code}</td>
+                  <td class="py-2.5 px-3 font-sans font-medium text-slate-900">${s.stock_name}</td>
+                  <td class="py-2.5 px-2 text-right font-bold text-slate-800">${s.width_mm}</td>
+                  <td class="py-2.5 px-2 text-right font-bold text-slate-800">${s.height_mm}</td>
+                  <td class="py-2.5 px-2 text-right text-slate-600">${s.thickness_source_value / 100} mm</td>
+                  <td class="py-2.5 px-2 font-sans">
+                    <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-mono font-bold">${s.grade_source}</span>
+                  </td>
+                  <td class="py-2.5 px-2 font-bold text-indigo-700">${s.tube_size}</td>
+                  <td class="py-2.5 px-2 text-right text-slate-500 font-sans text-[11px]">
+                    ${s.minimum_print_sheets_source ? `${formatNum(s.minimum_print_sheets_source)} Levha` : '<span class="text-slate-400 font-mono">1.250 (Varsayılan)</span>'}
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
         </div>
       ` : `
-        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm space-y-3">
-          <div class="p-3 bg-slate-50 border-b border-slate-200 text-xs text-slate-700 flex justify-between items-center">
-            <span>
-              <b>EBAT / KAPASİTE VE MONTAJ GRUBU PARAMETRELERİ (18 Ebat)</b> — Kural: <code>Kapasite = Montaj Grubu Sayısı × Ürün Tekrar Adımı</code>
-            </span>
-            <span class="text-emerald-700 font-mono font-bold text-[11px] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
-              ✓ 18 Ebat Tam Doğrulandı
-            </span>
-          </div>
-          <table class="w-full text-left text-xs border-collapse">
+        <!-- Capacities tab -->
+        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+          <table class="w-full text-left text-xs border-collapse font-mono">
             <thead>
               <tr class="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
-                <th class="py-2.5 px-3">Kutu Ebadı</th>
-                <th class="py-2.5 px-3 text-right">Kapasite (Tüp/Levha)</th>
-                <th class="py-2.5 px-2 text-center">Montaj Grubu</th>
-                <th class="py-2.5 px-2 text-center">Ürün Tekrar Adımı</th>
-                <th class="py-2.5 px-2 text-center">Eşitlik Doğrulaması</th>
-                <th class="py-2.5 px-2 text-center">Kaynak Çeşit</th>
-                <th class="py-2.5 px-2 text-right">Adet (1.250 için)</th>
-                <th class="py-2.5 px-3 text-right">Tek Çeşit Sipariş Miktarı</th>
+                <th class="py-2.5 px-3">Ebat</th>
+                <th class="py-2.5 px-2 text-right">Kapasite (Tüp/Levha)</th>
+                <th class="py-2.5 px-2 text-right">Montaj Grubu</th>
+                <th class="py-2.5 px-2 text-right">Ürün Tekrar Adımı</th>
+                <th class="py-2.5 px-2">Formül / Eşitlik</th>
+                <th class="py-2.5 px-2 text-right">Grup Başı Tüp</th>
+                <th class="py-2.5 px-2 text-right">Tek Çeşit Sipariş (Adet)</th>
+                <th class="py-2.5 px-3 font-sans">Kayıt Türü</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 font-mono">
+            <tbody class="divide-y divide-slate-100">
               ${state.capacities.map(c => {
-                const groups = c.assembly_group_count || c.variety_source;
-                const step = c.repeat_step || (groups > 0 ? c.units_per_sheet / groups : 0);
-                const isMatch = c.units_per_sheet === groups * step;
+                const formulaValid = (c.assembly_group_count * c.repeat_step) === c.units_per_sheet;
                 return `
                   <tr class="hover:bg-slate-50">
-                    <td class="py-2.5 px-3 font-bold text-sky-700">${c.tube_size}</td>
-                    <td class="py-2.5 px-3 text-right font-bold text-slate-900">${c.units_per_sheet} Tüp</td>
-                    <td class="py-2.5 px-2 text-center font-bold text-slate-800">${groups} Grup</td>
-                    <td class="py-2.5 px-2 text-center font-bold text-sky-700">${step} Tekrar</td>
-                    <td class="py-2.5 px-2 text-center">
-                      <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isMatch ? 'bg-emerald-50 text-emerald-800 border border-emerald-300' : 'bg-rose-50 text-rose-800 border border-rose-300'}">
-                        ${isMatch ? `✓ ${groups} × ${step} = ${c.units_per_sheet}` : '⛔ Uyuşmazlık'}
+                    <td class="py-2.5 px-3 font-bold text-sky-800 text-sm">${c.tube_size}</td>
+                    <td class="py-2.5 px-2 text-right font-black text-slate-900">${c.units_per_sheet}</td>
+                    <td class="py-2.5 px-2 text-right font-bold text-slate-700">${c.assembly_group_count} Grup</td>
+                    <td class="py-2.5 px-2 text-right font-bold text-indigo-700">${c.repeat_step} Adım</td>
+                    <td class="py-2.5 px-2 font-sans">
+                      <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${formulaValid?'bg-emerald-50 text-emerald-800 border border-emerald-300':'bg-rose-50 text-rose-800 border border-rose-300'}">
+                        ${c.assembly_group_count} × ${c.repeat_step} = ${c.units_per_sheet} ${formulaValid?'✓':''}
                       </span>
                     </td>
-                    <td class="py-2.5 px-2 text-center text-slate-500">${c.variety_source}</td>
-                    <td class="py-2.5 px-2 text-right text-slate-700">${formatNum(c.quantity_source)}</td>
-                    <td class="py-2.5 px-3 text-right font-bold text-slate-900">${formatNum(c.single_variety_order_quantity_source)}</td>
+                    <td class="py-2.5 px-2 text-right text-slate-600">${formatNum(c.quantity_source)}</td>
+                    <td class="py-2.5 px-2 text-right font-bold text-slate-900">${formatNum(c.single_variety_order_quantity_source)}</td>
+                    <td class="py-2.5 px-3 font-sans">
+                      <span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px]">Kaynak Tablo</span>
+                    </td>
                   </tr>
                 `;
               }).join('')}
@@ -2647,7 +4656,464 @@ function renderTechnical() {
   `;
 }
 
-// Screen 5: Teneke Üretim Planı
+// ------------------------------------------------------------------------------
+// MODAL: TÜP TEKNİK KARTI EKLE / DÜZENLE (Faz 2C)
+// ------------------------------------------------------------------------------
+function renderProductModal() {
+  const p = state.editingProduct;
+  if (!p) return '';
+
+  const inCatalog = (state.stockCatalog||[]).find(c => c.stock_code === (p.stock_code||'').trim());
+
+  return `
+    <div class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      <div class="bg-white border border-slate-200 rounded-xl shadow-2xl max-w-2xl w-full p-6 space-y-4 my-8">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div>
+            <div class="font-bold text-base text-slate-900">${p.id ? 'Tüp Teknik Kartını Düzenle' : 'Yeni Tüp Teknik Kartı Tanımla'}</div>
+            <div class="text-xs text-slate-500 font-mono">ERP Stok Kataloğu & Ham Levha FK Entegrasyonu (Faz 2C)</div>
+          </div>
+          <button onclick="closeProductModal();" class="text-slate-400 hover:text-slate-600 text-lg font-mono">✕</button>
+        </div>
+
+        <div class="space-y-3.5 text-xs font-sans">
+          <!-- Stok Kodu & ERP Doğrulama -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label class="font-mono text-slate-700 font-bold">Stok Kodu (Zorunlu ERP Anahtarı):</label>
+              ${inCatalog ? `
+                <span class="text-[11px] font-mono text-emerald-700 font-bold flex items-center gap-1">
+                  <span>✓</span> ERP Kataloğunda Doğrulandı
+                </span>
+              ` : p.stock_code ? `
+                <span class="text-[11px] font-mono text-amber-700 font-bold flex items-center gap-1">
+                  <span>⚠️</span> ERP Kataloğunda Bulunamadı (Taslak Kayıt)
+                </span>
+              ` : ''}
+            </div>
+            <input
+              type="text"
+              placeholder="Örn: 511109010410-1102"
+              value="${p.stock_code || ''}"
+              oninput="onStockCodeChange(this.value);"
+              class="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs font-mono font-bold text-sky-800 outline-none focus:border-sky-500 shadow-2xs"
+            />
+            <div class="text-[10px] text-slate-500 font-sans">
+              Kayıtlı kod girildiğinde resmi mamul adı katalogdan otomatik dolar ve değiştirilemez.
+            </div>
+          </div>
+
+          <!-- Stok Adı (Salt Okunur ERP Adı) -->
+          <div class="space-y-1">
+            <label class="font-mono text-slate-700 font-bold">Stok Adı (ERP Senkron Alanı — Salt Okunur):</label>
+            <input
+              type="text"
+              readonly
+              value="${p.stock_name || ''}"
+              class="w-full bg-slate-100 border border-slate-200 rounded px-3 py-2 text-xs font-sans text-slate-700 cursor-not-allowed"
+            />
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <!-- Ebat / Boyut -->
+            <div class="space-y-1">
+              <label class="font-mono text-slate-700 font-bold">Ebat / Boyut (18 Kapasite Kuralı):</label>
+              <select
+                onchange="onProductSizeChange(this.value);"
+                class="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none focus:border-sky-500"
+              >
+                ${state.capacities.map(c => `
+                  <option value="${c.tube_size}" ${p.tube_size===c.tube_size?'selected':''}>
+                    ${c.tube_size} (${c.units_per_sheet} tüp/levha, ${c.assembly_group_count} grup x ${c.repeat_step} adım)
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+
+            <!-- Onaylı Ham Levha Seçimi (FK) -->
+            <div class="space-y-1">
+              <label class="font-mono text-slate-700 font-bold">Onaylı Ham Levha (FK Bağlantısı):</label>
+              <select
+                onchange="state.editingProduct.raw_sheet_code=this.value; renderApp();"
+                class="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs font-mono text-slate-800 outline-none focus:border-sky-500"
+              >
+                ${state.rawSheets.map(r => `
+                  <option value="${r.stock_code}" ${p.raw_sheet_code===r.stock_code?'selected':''}>
+                    ${r.stock_code} [${r.tube_size}] (${r.width_mm}x${r.height_mm}, ${r.thickness_source_value/100}mm)
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <!-- Baskı Yüzeyi -->
+            <div class="space-y-1">
+              <label class="font-mono text-slate-700 font-bold">Baskı Yüzeyi:</label>
+              <select
+                onchange="state.editingProduct.print_surface=this.value; renderApp();"
+                class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-mono outline-none"
+              >
+                <option value="EMAYE" ${p.print_surface==='EMAYE'?'selected':''}>EMAYE</option>
+                <option value="METALİK" ${p.print_surface==='METALİK'?'selected':''}>METALİK</option>
+              </select>
+            </div>
+
+            <!-- Vernik -->
+            <div class="space-y-1">
+              <label class="font-mono text-slate-700 font-bold">Vernik:</label>
+              <select
+                onchange="state.editingProduct.varnish=this.value; renderApp();"
+                class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-mono outline-none"
+              >
+                <option value="PARLAK" ${p.varnish==='PARLAK'?'selected':''}>PARLAK</option>
+                <option value="MAT" ${p.varnish==='MAT'?'selected':''}>MAT</option>
+                <option value="KISMİ" ${p.varnish==='KISMİ'?'selected':''}>KISMİ</option>
+                <option value="BELİRTİLMEMİŞ" ${p.varnish==='BELİRTİLMEMİŞ'?'selected':''}>BELİRTİLMEMİŞ</option>
+              </select>
+            </div>
+
+            <!-- Lak Durumu -->
+            <div class="space-y-1">
+              <label class="font-mono text-slate-700 font-bold">Lak Durumu:</label>
+              <select
+                onchange="state.editingProduct.lacquer=this.value; renderApp();"
+                class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-mono outline-none"
+              >
+                <option value="LAKLI" ${p.lacquer==='LAKLI'?'selected':''}>LAKLI</option>
+                <option value="LAKSIZ" ${p.lacquer==='LAKSIZ'?'selected':''}>LAKSIZ</option>
+                <option value="BILINMIYOR" ${p.lacquer==='BILINMIYOR'?'selected':''}>BILINMIYOR</option>
+              </select>
+            </div>
+
+            <!-- İç Kaplama -->
+            <div class="space-y-1">
+              <label class="font-mono text-slate-700 font-bold">İç Kaplama:</label>
+              <select
+                onchange="state.editingProduct.inside_coating=this.value; renderApp();"
+                class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-mono outline-none"
+              >
+                <option value="STANDART" ${p.inside_coating==='STANDART'?'selected':''}>STANDART</option>
+                <option value="GOLD" ${p.inside_coating==='GOLD'?'selected':''}>GOLD (İçi Gold)</option>
+                <option value="ŞEFFAF" ${p.inside_coating==='ŞEFFAF'?'selected':''}>ŞEFFAF</option>
+                <option value="BELİRTİLMEMİŞ" ${p.inside_coating==='BELİRTİLMEMİŞ'?'selected':''}>BELİRTİLMEMİŞ</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Renkler Kataloğu Seçimi -->
+          <div class="space-y-1.5 border-t border-slate-100 pt-2.5">
+            <div class="flex items-center justify-between">
+              <label class="font-mono text-slate-700 font-bold">Renkler (${(p.colors||[]).length} Renk Seçili):</label>
+              <span class="text-[11px] font-mono text-slate-500">Maksimum 6-8 Renk</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              ${['C', 'M', 'Y', 'K', '1225C', '368C', '357C', '185C', '2665C', '2587C', '109C'].map(cCode => {
+                const isSelected = (p.colors || []).includes(cCode);
+                return `
+                  <button
+                    type="button"
+                    onclick="toggleColorInEditingProduct('${cCode}');"
+                    class="px-2.5 py-1 rounded text-xs font-mono font-bold transition-all border ${
+                      isSelected
+                        ? 'bg-sky-600 text-white border-sky-700 shadow-xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }"
+                  >
+                    ${isSelected ? '✓ ' : ''}${cCode}
+                  </button>
+                `;
+              }).join('')}
+            </div>
+            <!-- Custom Pantone Adder -->
+            <div class="flex items-center gap-2 pt-1">
+              <input
+                id="custom_pantone_input"
+                type="text"
+                placeholder="Özel Pantone (örn. 871C)..."
+                class="bg-slate-50 border border-slate-300 rounded px-2.5 py-1 text-xs font-mono outline-none w-48"
+              />
+              <button
+                type="button"
+                onclick="addCustomPantoneToEditingProduct();"
+                class="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 text-xs font-mono"
+              >
+                + Ekle
+              </button>
+            </div>
+          </div>
+
+          <!-- Özel Not / Parametre 1 -->
+          <div class="space-y-1 border-t border-slate-100 pt-2.5">
+            <label class="font-mono text-slate-700 font-bold">Özel Parametre / Not (Parametre 1):</label>
+            <textarea
+              rows="2"
+              onchange="state.editingProduct.special_parameter=this.value;"
+              placeholder="Örn: CTP Montaj tarafınıza gönderilecektir / RPT revizyon devamı..."
+              class="w-full bg-slate-50 border border-slate-300 rounded px-3 py-1.5 text-xs font-mono text-slate-800 outline-none focus:border-sky-500"
+            >${p.special_parameter || ''}</textarea>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
+          <button onclick="closeProductModal();" class="px-4 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono">İptal</button>
+          <button onclick="saveProductForm();" class="px-5 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white text-xs font-mono font-bold shadow-xs">
+            ${p.id ? 'Değişiklikleri Kaydet' : 'Teknik Kartı Oluştur'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ------------------------------------------------------------------------------
+// MODAL: EXCEL TEKNİK KART İÇE AKTARMA (IMPORT) SİHİRBAZI (Faz 2C)
+// ------------------------------------------------------------------------------
+function renderImportModal() {
+  if (!state.isImportModalOpen) return '';
+
+  const step = state.importStep || 1;
+  const val = state.importValidation;
+
+  return `
+    <div class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      <div class="bg-white border border-slate-200 rounded-xl shadow-2xl max-w-4xl w-full p-6 space-y-4 my-8">
+        <!-- Wizard Header -->
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div>
+            <div class="font-bold text-base text-slate-900 flex items-center gap-2">
+              <span>📥 Excel Teknik Kart İçe Aktarma Sihirbazı</span>
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200 font-bold">
+                Adım ${step} / 4
+              </span>
+            </div>
+            <div class="text-xs text-slate-500 font-mono mt-0.5">
+              ${step === 1 ? 'Adım 1: Veri Yükleme veya Yapıştırma' :
+                step === 2 ? 'Adım 2: Kolon Eşleme ve Ayrıştırma' :
+                step === 3 ? 'Adım 3: Doğrulama ve Önizleme Tablosu' :
+                'Adım 4: İçe Aktarma Raporu'}
+            </div>
+          </div>
+          <button onclick="closeImportModal();" class="text-slate-400 hover:text-slate-600 text-lg font-mono">✕</button>
+        </div>
+
+        ${step === 1 ? `
+          <!-- Step 1: Upload / Paste -->
+          <div class="space-y-3.5 text-xs font-sans">
+            <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+              <div class="font-bold text-slate-800">Veri Giriş Yöntemi:</div>
+              <div class="text-slate-600 leading-relaxed">
+                Excel tablonuzdaki başlık satırı ve verileri kopyalayıp aşağıdaki alana yapıştırabilir ya da hazır kaynak örneğini yükleyebilirsiniz.
+              </div>
+              <div class="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onclick="loadSampleImportData();"
+                  class="px-3 py-1.5 rounded bg-sky-50 hover:bg-sky-100 border border-sky-300 text-sky-900 font-mono font-bold flex items-center gap-1.5 shadow-2xs"
+                >
+                  <span>📋</span> Hazır Kaynak Verisi Yükle (22 Satır Teknik Kart)
+                </button>
+                <button
+                  type="button"
+                  onclick="downloadSampleTemplate();"
+                  class="px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-mono flex items-center gap-1.5 shadow-2xs"
+                >
+                  <span>📄</span> Boş Excel/CSV Şablonu İndir
+                </button>
+              </div>
+            </div>
+
+            <div class="space-y-1">
+              <label class="font-mono text-slate-700 font-bold">Excel Verisi (Tablo / CSV / TSV Metni):</label>
+              <textarea
+                id="import_textarea"
+                rows="10"
+                placeholder="Stok Kodu\tStok İsmi\tHam Levha kodu\tBoy ve Çap\tBaskı Yüzeyi\tVernik\tLak\tİç Kaplama\tRenk1...\n511109010410-1102\tTUP-GW MOBILYA 300 ml\tHAM LEVHA-017x832x875...\t52x214\tMETALİK\tKISMİ\tLAKLI...\n"
+                class="w-full bg-slate-50 border border-slate-300 rounded p-3 text-xs font-mono text-slate-800 outline-none focus:border-sky-500"
+              >${state.importRawData || ''}</textarea>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 border-t border-slate-200 pt-3">
+            <button onclick="closeImportModal();" class="px-4 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono">İptal</button>
+            <button onclick="processImportStep1();" class="px-5 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white text-xs font-mono font-bold shadow-xs">
+              Devam Et (Kolon Eşleme) →
+            </button>
+          </div>
+        ` : step === 2 ? `
+          <!-- Step 2: Column Mapping -->
+          <div class="space-y-3.5 text-xs font-sans">
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-xs">
+              Dosyadaki kolonlar algılandı (${state.importParsedRows.length} veri satırı). Sistem alanları ile kolon eşleşmelerini kontrol ediniz:
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 font-mono text-xs">
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <span class="text-slate-500">Stok Kodu (Zorunlu):</span>
+                <span class="font-bold text-sky-800 block mt-0.5">✓ [Stok Kodu] Kolonu</span>
+              </div>
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <span class="text-slate-500">Stok İsmi (Karşılaştırma):</span>
+                <span class="font-bold text-slate-800 block mt-0.5">✓ [Stok İsmi] Kolonu</span>
+              </div>
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <span class="text-slate-500">Ham Levha Kodu / Açıklaması:</span>
+                <span class="font-bold text-slate-800 block mt-0.5">✓ [Ham Levha kodu] (Açık Kod Eşlemesi)</span>
+              </div>
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <span class="text-slate-500">Ebat / Ölçüler:</span>
+                <span class="font-bold text-slate-800 block mt-0.5">✓ [Boy ve Çap] Kolonu</span>
+              </div>
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <span class="text-slate-500">Baskı Zemin & Vernik:</span>
+                <span class="font-bold text-slate-800 block mt-0.5">✓ [Baskı Yüzeyi] ve [Vernik]</span>
+              </div>
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <span class="text-slate-500">Lak & İç Kaplama:</span>
+                <span class="font-bold text-slate-800 block mt-0.5">✓ [Lak] ve [İç Kaplama]</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between border-t border-slate-200 pt-3">
+            <button onclick="state.importStep=1; renderApp();" class="px-4 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono">← Geri</button>
+            <button onclick="processImportStep2();" class="px-5 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white text-xs font-mono font-bold shadow-xs">
+              Önizleme ve Doğrulama Yap →
+            </button>
+          </div>
+        ` : step === 3 ? `
+          <!-- Step 3: Validation & Preview -->
+          <div class="space-y-3.5 text-xs font-sans">
+            <!-- Summary KPI Badges -->
+            <div class="grid grid-cols-4 gap-2 text-center font-mono">
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                <div class="text-[10px] text-slate-500 uppercase">Toplam Satır</div>
+                <div class="text-base font-black text-slate-800">${val.total}</div>
+              </div>
+              <div class="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <div class="text-[10px] text-emerald-700 uppercase">Yeni Eklenecek</div>
+                <div class="text-base font-black text-emerald-700">${val.newCount}</div>
+              </div>
+              <div class="p-2.5 bg-sky-50 border border-sky-200 rounded-lg">
+                <div class="text-[10px] text-sky-700 uppercase">Güncellenecek</div>
+                <div class="text-base font-black text-sky-700">${val.updateCount}</div>
+              </div>
+              <div class="p-2.5 ${val.errorCount>0?'bg-rose-50 border-rose-200 text-rose-700':'bg-slate-50 border-slate-200 text-slate-400'} border rounded-lg">
+                <div class="text-[10px] uppercase">Hatalı / Reddedilen</div>
+                <div class="text-base font-black">${val.errorCount}</div>
+              </div>
+            </div>
+
+            <!-- Import Policy Selector -->
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div class="font-bold text-slate-800">Güncelleme Politikası:</div>
+              <div class="flex items-center gap-3 font-mono">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="import_policy" value="all" ${state.importPolicy==='all'?'checked':''} onchange="state.importPolicy='all'; renderApp();" />
+                  <span>Tümünü İşle (${val.newCount + val.updateCount})</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="import_policy" value="new_only" ${state.importPolicy==='new_only'?'checked':''} onchange="state.importPolicy='new_only'; renderApp();" />
+                  <span>Yalnızca Yeniler (${val.newCount})</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="import_policy" value="update_only" ${state.importPolicy==='update_only'?'checked':''} onchange="state.importPolicy='update_only'; renderApp();" />
+                  <span>Yalnızca Güncellemeler (${val.updateCount})</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Preview Table -->
+            <div class="max-h-72 overflow-y-auto border border-slate-200 rounded-lg">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="sticky top-0 bg-slate-100 border-b border-slate-200 font-mono text-[10px] text-slate-600 uppercase">
+                  <tr>
+                    <th class="py-2 px-3">Durum</th>
+                    <th class="py-2 px-3">Stok Kodu</th>
+                    <th class="py-2 px-3">Stok Adı</th>
+                    <th class="py-2 px-2">Ebat</th>
+                    <th class="py-2 px-3">Ham Levha (Eşleşen FK)</th>
+                    <th class="py-2 px-2">Zemin</th>
+                    <th class="py-2 px-2">Lak</th>
+                    <th class="py-2 px-2">İç Kaplama</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
+                  ${val.rows.map(r => {
+                    if (r.status === 'ERROR') {
+                      return `
+                        <tr class="bg-rose-50/70 text-rose-900">
+                          <td class="py-2 px-3 font-bold text-rose-700">❌ HATALI</td>
+                          <td class="py-2 px-3 font-bold">${r.item?.stock_code || '(BOŞ KOD)'}</td>
+                          <td class="py-2 px-3 font-sans" colSpan="6">${r.error_message}</td>
+                        </tr>
+                      `;
+                    }
+                    const it = r.item;
+                    return `
+                      <tr class="hover:bg-slate-50 ${r.status==='NEW'?'bg-emerald-50/30':'bg-sky-50/30'}">
+                        <td class="py-2 px-3">
+                          ${r.status==='NEW' ? `
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">✓ YENİ</span>
+                          ` : `
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">🔄 GÜNCELLE</span>
+                          `}
+                        </td>
+                        <td class="py-2 px-3 font-bold text-slate-900">${it.stock_code}</td>
+                        <td class="py-2 px-3 font-sans">${it.stock_name}</td>
+                        <td class="py-2 px-2 font-bold">${it.tube_size}</td>
+                        <td class="py-2 px-3 font-bold text-indigo-700">${it.raw_sheet_code}</td>
+                        <td class="py-2 px-2">${it.print_surface}</td>
+                        <td class="py-2 px-2">${it.lacquer}</td>
+                        <td class="py-2 px-2">${it.inside_coating}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between border-t border-slate-200 pt-3">
+            <button onclick="state.importStep=2; renderApp();" class="px-4 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono">← Geri</button>
+            <button
+              onclick="commitImport();"
+              ${(val.newCount + val.updateCount === 0) ? 'disabled' : ''}
+              class="px-5 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-mono font-bold shadow-xs transition-colors"
+            >
+              İçe Aktarımı Onayla ve Kaydet (${val.newCount + val.updateCount} Kayıt)
+            </button>
+          </div>
+        ` : `
+          <!-- Step 4: Success Report -->
+          <div class="p-6 text-center space-y-4 font-sans">
+            <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl mx-auto shadow-sm">
+              ✓
+            </div>
+            <div class="space-y-1">
+              <div class="text-base font-bold text-slate-900">İçe Aktarma Başarıyla Tamamlandı!</div>
+              <div class="text-xs text-slate-500 font-mono">
+                Toplam ${state.importAppliedCount || 0} adet teknik kart sisteme işlendi ve denetim izine kaydedildi.
+              </div>
+            </div>
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg max-w-md mx-auto text-xs text-slate-700 text-left font-mono">
+              <div>✓ Mükerrer kayıtlar engellendi.</div>
+              <div>✓ Onaylı ham levha stok kodları (FK) bağlandı.</div>
+              <div>✓ Kalıcı hafızaya kaydedildi.</div>
+            </div>
+            <button
+              onclick="closeImportModal();"
+              class="px-6 py-2.5 rounded bg-sky-600 hover:bg-sky-700 text-white font-mono font-bold text-xs shadow-xs"
+            >
+              Kapat ve Kartları İncele
+            </button>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
 function renderProduction() {
   return `
     <div class="space-y-4">
@@ -3293,6 +5759,8 @@ function renderApp() {
     </div>
     ${state.isPrintingRuleModalOpen ? renderPrintingRuleModal() : ''}
     ${state.isCombinationRuleModalOpen ? renderCombinationRuleModal() : ''}
+    ${state.isProductModalOpen ? renderProductModal() : ''}
+    ${state.isImportModalOpen ? renderImportModal() : ''}
   `;
 }
 

@@ -1,6 +1,6 @@
 # FAZ 2C — TANIMLAR MERKEZİ VE EXCEL TEKNİK KART İÇE AKTARIMI
 
-Durum: PLANLANDI. Analiz ve gereksinim paketi entegre edildi. Aktif geliştirme öncesi hazırlık dokümanıdır.
+Durum: TAMAMLANDI. Kabul kriterleri test paketi ile doğrulandı (16/16 test PASS).
 
 Önce kökteki `AGENTS.md`, `STATUS.json` ve `docs/referans/2026-11-05-teneke-excel/docs/03-TANIMLAR-VE-EXCEL-IMPORT.md` dosyasını oku.
 
@@ -49,12 +49,12 @@ Bu fazın amacı, aerosol teneke tüp üretiminde ihtiyaç duyulan tüm teknik v
 
 ## 3. Kabul Koşulları
 
-- [ ] Stok kodu olmayan manuel veya import satırı kesin olarak reddedilir.
-- [ ] Kayıtlı stok kodu seçildiğinde ürün adı yerel katalogdan otomatik gelir ve değiştirilemez.
-- [ ] ERP senkronundan sonra manuel/Excel ile tanımlanmış renk, lak, zemin ve ham levha ilişkileri korunur (ezilmez).
-- [ ] Ham levha açıklaması katalogdaki gerçek ham levha stok koduna açıkça eşlenir; eşleşmeyen satır içeri alınamaz.
-- [ ] Kullanılan bir tanım (ör. aktif montajdaki renk veya levha) silinemez, ancak pasife alınabilir.
-- [ ] Aynı Excel dosyası tekrar içeri aktarıldığında kayıtlar mükerrer olarak çoğalmaz.
-- [ ] Teknik kart ile reçete ham levhası uyuşmadığında kullanıcı uyarılır ve onay engellenir.
-- [ ] Tarayıcı yenilendiğinde, oturum değiştiğinde ve servis yeniden başladığında veriler kalıcı kalır.
-- [ ] Yetkisiz kullanıcılar tanım ekleme/düzenleme/silme işlemi yapamaz.
+- [x] Stok kodu olmayan manuel veya import satırı kesin olarak reddedilir.
+- [x] Kayıtlı stok kodu seçildiğinde ürün adı yerel katalogdan otomatik gelir ve değiştirilemez.
+- [x] ERP senkronundan sonra manuel/Excel ile tanımlanmış renk, lak, zemin ve ham levha ilişkileri korunur (ezilmez).
+- [x] Ham levha açıklaması katalogdaki gerçek ham levha stok koduna açıkça eşlenir; eşleşmeyen satır içeri alınamaz.
+- [x] Kullanılan bir tanım (ör. aktif montajdaki renk veya levha) silinemez, ancak pasife alınabilir.
+- [x] Aynı Excel dosyası tekrar içeri aktarıldığında kayıtlar mükerrer olarak çoğalmaz.
+- [x] Teknik kart ile reçete ham levhası uyuşmadığında kullanıcı uyarılır ve onay engellenir.
+- [x] Tarayıcı yenilendiğinde, oturum değiştiğinde ve servis yeniden başladığında veriler kalıcı kalır.
+- [x] Yetkisiz kullanıcılar tanım ekleme/düzenleme/silme işlemi yapamaz.
