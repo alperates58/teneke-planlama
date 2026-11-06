@@ -590,6 +590,7 @@ async function getSnapshotDetails(snapshotId) {
 }
 
 module.exports = {
+  executeSqlReadOnly,
   fetchSourcePlanPreview,
   commitSourcePlanSnapshot,
   getActiveDraft,

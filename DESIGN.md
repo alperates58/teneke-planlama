@@ -72,12 +72,12 @@ Kurumsal açık tema (Light Theme) esastır:
 2. **Sabit Ürün Kimliği (Sticky Column):** Yatay kaydırmada `Sipariş No` ve `Ürün / Stok Kodu` sabit kalır, kaybolmaz.
 3. **Miktar Hiyerarşisi Ayrımı:**
    - **Brüt İhtiyaç:** Satış veya dolum siparişinden gelen brüt talep.
-   - **Kullanılabilir Ambar Stok:** Tüp deposundaki fiziksel kullanılabilir miktar (varsa `-` ile gösterilir).
+   - **Kullanılabilir Ambar Stok:** Tüp deposundaki fiziksel kullanılabilir pozitif miktar (örn: `1.200 adet`). Siparişe tahsis edilen stok ayrı alandır. Tahsis motoru (Faz 3B) olmadan aynı ürün stoğu her siparişte mükerrer toplanıp yapay stok KPI'ı üretilmez; tekil ürün ambar stoğu esas alınır.
    - **Net Tüp Üretim:** Brüt - Stok farkı (Tüp üretim hattına gidecek miktar).
    - **Kesik Levha / Baskı İhtiyacı:** Faz 3B çok seviyeli netleme ile hesaplanacak alan ("Henüz Hesaplanmadı — Faz 3B").
 4. **Çoklu Seçim ve Aksiyon Çubuğu:**
    - Seçilen satır sayısı anlık sayılır (`X satır seçildi`).
-   - "Kombinasyona Aktar (X)" butonu yalnız seçim > 0 iken aktiftir.
+   - **Kombinasyona Aktar Koruması:** Gerçek ERP taleplerinin kombinasyon masasına aktarımı Faz 3B çok seviyeli baskı levhası netlemesine kadar engellenir. `net_quantity` "Net Tüp Üretimi" olup "Yeni Baskı İhtiyacı" değildir. Yalnızca demo/temsili kalemler deneme amaçlı aktarılabilir ve açıkça "Temsili Demo Denemesi - Üretim Onayı Oluşturmaz" olarak etiketlenir.
    - "Tüp Planına Aktar" butonu henüz uygulanmayan bir fonksiyon olduğu için kafa karıştırmaz; açıkça "Faz 5A — Tek Makine Çizelgeleme (Yakında)" ibaresiyle pasif sunulur.
 5. **Arama ve Hızlı Filtreler:**
    - Stok kodu, ürün adı ve sipariş no üzerinde canlı arama kutusu.

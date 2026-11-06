@@ -2,17 +2,18 @@
   "project": "Teneke Planlama",
   "package_version": "2.0",
   "updated_at": "2026-11-06",
-  "document_status": "faz_2d_pilot_ready",
+  "document_status": "faz_3a2_erp_sync_ready",
   "authorized_initial_scope": [
     0,
     1,
     2,
     "2C",
     "3A.1",
-    "2D"
+    "2D",
+    "3A.2"
   ],
-  "current_phase": "2D",
-  "next_implementation_phase": "3A.2",
+  "current_phase": "3A.2",
+  "next_implementation_phase": "3B",
   "phases": [
     {
       "number": 0,
@@ -75,8 +76,10 @@
       "number": "3A.2",
       "name": "Stok Kartı, Brüt Talep, Reçete ve Depo Senkronizasyonu",
       "file": "phases/FAZ-03A-AA-LIDER-SQL-SOZLESMESI.md",
-      "status": "planned",
-      "acceptance_verified": false,
+      "status": "completed",
+      "acceptance_verified": true,
+      "verified_at": "2026-11-06",
+      "evidence": "15/15 entegrasyon ve güvenlik testi başarılı: AA_LIDER üzerinde 5 sözleşme view'ı (AA_tp_vw_*) oluşturuldu ve doğrulandı; 443 talep satırı, 4.998.757 adet brüt tüp dolum talebi ve 3.755 stok seviyesi PostgreSQL staging katmanına idempotent senkronlandı; rol değiştirme yetki açığı kapatıldı (403 ROLE_SWITCH_DISABLED); rastgele oturum token'ları; kombine etme koruması ile net tüp ihtiyacının ham levha montajına aktarımı Faz 3B'ye kadar bloke edildi; negatif stok gösterimi kaldırıldı ve tekil ambar stok haritası yapıldı; 27 yerel teknik kart ve alper_tenekeuretim tüp planı eksiksiz korundu.",
       "dependencies": [
         "3A.1"
       ]

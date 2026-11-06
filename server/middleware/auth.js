@@ -67,7 +67,7 @@ async function authenticateRequest(req) {
     }
   }
 
-  // 3. Fallback: Viewer (Salt Okunur) rolü
+  // 3. Fallback: Kimliği doğrulanmamış misafir (Salt Okunur) rolü
   return {
     isAuthenticated: false,
     token: null,
@@ -83,9 +83,35 @@ async function authenticateRequest(req) {
   };
 }
 
+function requireAuth() {
+  return (req, res, next) => {
+    if (!req.user || !req.user.isAuthenticated) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({
+        success: false,
+        error: {
+          code: 'OTURUM_GEREKLI',
+          message: 'Bu işlem için oturum açmanız gerekmektedir.'
+        }
+      }));
+    }
+    next();
+  };
+}
+
 function requireRole(allowedRoles) {
   return (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
+    if (!req.user || !req.user.isAuthenticated) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({
+        success: false,
+        error: {
+          code: 'OTURUM_GEREKLI',
+          message: 'Bu işlem için oturum açmanız gerekmektedir.'
+        }
+      }));
+    }
+    if (!allowedRoles.includes(req.user.role)) {
       res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
       return res.end(JSON.stringify({
         success: false,
@@ -101,5 +127,6 @@ function requireRole(allowedRoles) {
 
 module.exports = {
   authenticateRequest,
+  requireAuth,
   requireRole,
 };

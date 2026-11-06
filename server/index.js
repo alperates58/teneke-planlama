@@ -28,6 +28,7 @@ const { handleRawSheetRoutes, handleCapacityRoutes } = require('./routes/raw-she
 const { handleImportRoutes } = require('./routes/import');
 const { handleMigrationRoutes, handleAuditRoutes } = require('./routes/migration');
 const { handlePlanSyncRoutes } = require('./routes/plan-sync');
+const { handleErpRoutes } = require('./routes/erp');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -107,6 +108,7 @@ async function startServer() {
         if (!handled) handled = await handleMigrationRoutes(req, res, pathname);
         if (!handled) handled = await handleAuditRoutes(req, res, pathname, queryParams);
         if (!handled) handled = await handlePlanSyncRoutes(req, res, pathname);
+        if (!handled) handled = await handleErpRoutes(req, res, pathname);
 
         if (!handled) {
           res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
