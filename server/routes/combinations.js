@@ -1,6 +1,7 @@
 const { requireAuth, requireRole } = require('../middleware/auth');
 const printedDemandService = require('../services/printedDemandService');
 const combinationService = require('../services/combinationService');
+const combinationProposalService = require('../services/combinationProposalService');
 
 async function handleCombinationRoutes(req, res, pathname, queryParams = {}) {
   // 1. Baskılı İhtiyaç Havuzunu Getir
@@ -154,6 +155,83 @@ async function handleCombinationRoutes(req, res, pathname, queryParams = {}) {
         }
       });
     });
+  }
+
+  // 9. Faz 4B: Otomatik Kombinasyon Önerileri Üret
+  if (req.method === 'POST' && pathname === '/api/combinations/proposals/generate') {
+    return new Promise((resolve) => {
+      requireRole(['admin', 'planner'])(req, res, async () => {
+        try {
+          const result = await combinationProposalService.generateCombinationProposals({
+            ...(req.body || {}),
+            user: req.user
+          });
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify(result));
+          resolve(true);
+        } catch (err) {
+          console.error('[API] /api/combinations/proposals/generate hatası:', err);
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  // 10. Faz 4B: Seçilen Öneriyi Taslağa Al ve Rezerve Et
+  if (req.method === 'POST' && pathname === '/api/combinations/proposals/apply') {
+    return new Promise((resolve) => {
+      requireRole(['admin', 'planner'])(req, res, async () => {
+        try {
+          const result = await combinationProposalService.applyProposalToDraft({
+            ...(req.body || {}),
+            user: req.user
+          });
+          res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify(result));
+          resolve(true);
+        } catch (err) {
+          console.error('[API] /api/combinations/proposals/apply hatası:', err);
+          const isConflict = err.message && err.message.includes('CONFLICT_DEMAND_CHANGED');
+          const statusCode = isConflict ? 409 : 400;
+          res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: { message: err.message, isConflict } }));
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  // 11. Faz 4B: Öneri Koşularını Listele
+  if (req.method === 'GET' && pathname === '/api/combinations/proposals') {
+    try {
+      const limit = parseInt(queryParams.limit, 10) || 10;
+      const runs = await combinationProposalService.getProposalRuns({ limit });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ success: true, data: runs }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+    }
+  }
+
+  // 12. Faz 4B: Tek Bir Öneriyi Getir
+  const matchProposal = pathname.match(/^\/api\/combinations\/proposals\/([^\/]+)$/);
+  if (req.method === 'GET' && matchProposal) {
+    try {
+      const propId = matchProposal[1];
+      const prop = await combinationProposalService.getProposalById(propId);
+      if (!prop) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({ success: false, error: { message: 'Öneri bulunamadı.' } }));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ success: true, data: prop }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+    }
   }
 
   return false;

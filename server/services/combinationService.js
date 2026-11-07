@@ -3,6 +3,7 @@ const { query, getClient } = require('../db');
 /**
  * Montaj Tekrar Kuralı Tablosu (18 Ebat - AGENTS.md ve capacities.json ile kilitli)
  * Kapasite = Montaj Grubu Sayısı × Ürün Tekrar Adımı
+ * Fallback referans sözlüğü (DB erişilemezse veya test başlangıcında kullanılır)
  */
 const CAPACITY_RULES = {
   '45x100': { capacity: 48, repeatStep: 6, groupCount: 8 },
@@ -26,6 +27,115 @@ const CAPACITY_RULES = {
   '65x300': { capacity: 8,  repeatStep: 2, groupCount: 4 }
 };
 
+let cachedRuleContext = null;
+let cachedRuleTimestamp = 0;
+const RULE_CACHE_TTL_MS = 15000; // 15 saniye önbellek
+
+/**
+ * Dinamik Kural ve Parametre Bağlamını Veritabanından Oku
+ */
+async function getRuleContext(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedRuleContext && (now - cachedRuleTimestamp) < RULE_CACHE_TTL_MS) {
+    return cachedRuleContext;
+  }
+
+  try {
+    // 1. Ebat Kapasiteleri (tube_capacities)
+    const capRes = await query(`
+      SELECT tube_size, units_per_sheet, assembly_group_count, repeat_step, reference_sheet_count
+      FROM tube_capacities
+    `);
+    const capacities = { ...CAPACITY_RULES };
+    for (const r of capRes.rows) {
+      capacities[r.tube_size] = {
+        capacity: parseInt(r.units_per_sheet, 10),
+        groupCount: parseInt(r.assembly_group_count, 10),
+        repeatStep: parseInt(r.repeat_step, 10),
+        minSheets: parseInt(r.reference_sheet_count, 10) || 1250
+      };
+    }
+
+    // 2. İş Kuralları (business_rules)
+    const bizRes = await query(`
+      SELECT code, condition_field, operator, parameter_value, is_active
+      FROM business_rules
+      WHERE is_active = true
+    `);
+    let maxColors = 6;
+    let minSheets = 1250;
+    for (const b of bizRes.rows) {
+      if (b.condition_field === 'colors' && b.operator === 'max_count') {
+        const val = parseInt(b.parameter_value, 10);
+        if (!isNaN(val) && val > 0) maxColors = val;
+      }
+      if (b.condition_field === 'sheet_count' && b.operator === 'min_threshold') {
+        const val = parseInt(b.parameter_value, 10);
+        if (!isNaN(val) && val > 0) minSheets = val;
+      }
+    }
+
+    // 3. Ürün Kombinasyon ve Lak Kuralları (product_combination_rules)
+    const comboRes = await query(`
+      SELECT code, name, rule_type, target_type, is_active, priority
+      FROM product_combination_rules
+      WHERE is_active = true
+      ORDER BY priority ASC
+    `);
+
+    // 4. Matbaa Yerleşim Kuralları (printing_press_rules)
+    const pressRes = await query(`
+      SELECT code, name, rule_type, applies_to_diameter, applies_to_height, applies_to_tube_size, priority
+      FROM printing_press_rules
+      WHERE is_active = true
+      ORDER BY priority ASC
+    `);
+
+    // 5. Montaj Görünümü ve Şablon Doğrulamaları (sheet_layouts)
+    const layoutRes = await query(`
+      SELECT tube_size, raw_sheet_code, rows, cols, orientation, cell_order, verification_status
+      FROM sheet_layouts
+    `);
+    const layouts = new Map();
+    for (const l of layoutRes.rows) {
+      const key = `${l.tube_size}__${l.raw_sheet_code || 'DEFAULT'}`;
+      layouts.set(key, l);
+      if (!layouts.has(l.tube_size)) {
+        layouts.set(l.tube_size, l);
+      }
+    }
+
+    cachedRuleContext = {
+      capacities,
+      maxColors,
+      minSheets,
+      combinationRules: comboRes.rows,
+      hasForbidMixedLacquer: comboRes.rows.some(r => r.rule_type === 'FORBID_MIXED_LACQUER'),
+      hasOnlyWithUnlacquered: comboRes.rows.some(r => r.rule_type === 'ONLY_WITH_UNLACQUERED'),
+      hasOnlyWithLacquered: comboRes.rows.some(r => r.rule_type === 'ONLY_WITH_LACQUERED'),
+      pressRules: pressRes.rows,
+      layouts,
+      versionTimestamp: now
+    };
+    cachedRuleTimestamp = now;
+    return cachedRuleContext;
+  } catch (err) {
+    console.warn('[combinationService] Dinamik DB kural okuma uyarısı, varsayılan kurallar kullanılıyor:', err.message);
+    return {
+      capacities: CAPACITY_RULES,
+      maxColors: 6,
+      minSheets: 1250,
+      combinationRules: [],
+      hasForbidMixedLacquer: true,
+      hasOnlyWithUnlacquered: true,
+      hasOnlyWithLacquered: true,
+      pressRules: [],
+      layouts: new Map(),
+      versionTimestamp: now
+    };
+  }
+}
+
 /**
  * 1. Kombinasyon Kurallarını ve Geçerliliğini Doğrula (Backend Validasyonu)
  */
@@ -42,17 +152,20 @@ async function validateCombination({
   if (!raw_sheet_code) errors.push('Ham levha kodu belirtilmelidir.');
   if (!items || items.length === 0) errors.push('Kombinasyona en az bir ürün eklenmelidir.');
 
-  const capRule = CAPACITY_RULES[tube_size];
+  // Dinamik Kural Bağlamını Yükle
+  const ruleContext = await getRuleContext();
+  const capRule = ruleContext.capacities[tube_size];
   if (!capRule) {
     errors.push(`Tanımsız veya geçersiz ebat: ${tube_size}`);
   }
 
   const capacity = capRule ? capRule.capacity : 20;
   const repeatStep = capRule ? capRule.repeatStep : 1;
-  const minSheets = 1250;
+  const minSheets = ruleContext.minSheets || 1250;
+  const maxColors = ruleContext.maxColors || 6;
 
   if (sheets_to_print < minSheets) {
-    warnings.push(`Minimum baskı kuralı 1.250 levhadır. Belirtilen miktar (${sheets_to_print}) minimumun altındadır.`);
+    warnings.push(`Minimum baskı kuralı ${minSheets.toLocaleString('tr-TR')} levhadır. Belirtilen miktar (${sheets_to_print}) minimumun altındadır.`);
   }
 
   // Ebat ve Ham Levha Doğrulaması
@@ -69,7 +182,7 @@ async function validateCombination({
       errors.push(`Satır ${i + 1} (${item.tube_stock_code}): Ebat uyuşmazlığı (${itemSize} !== ${tube_size}). Aynı montajda farklı çap/boy birleştirilemez.`);
     }
 
-    const repeats = parseInt(item.repeats_count) || 0;
+    const repeats = parseInt(item.repeats_count, 10) || 0;
     if (repeats <= 0) {
       errors.push(`Satır ${i + 1} (${item.tube_stock_code}): Tekrar sayısı pozitif tam sayı olmalıdır.`);
     } else if (repeats % repeatStep !== 0) {
@@ -82,9 +195,9 @@ async function validateCombination({
     const colors = Array.isArray(item.colors) ? item.colors : [];
     colors.forEach(c => colorSet.add(c.trim().toUpperCase()));
 
-    if (item.print_surface) surfaces.add(item.print_surface);
-    if (item.varnish) varnishes.add(item.varnish);
-    if (item.lacquer) lacquers.add(item.lacquer);
+    if (item.print_surface && item.print_surface !== 'BELİRTİLMEMİŞ') surfaces.add(item.print_surface);
+    if (item.varnish && item.varnish !== 'BELİRTİLMEMİŞ') varnishes.add(item.varnish);
+    if (item.lacquer && item.lacquer !== 'BELİRTİLMEMİŞ') lacquers.add(item.lacquer);
   }
 
   // Toplam Kapasite Kontrolü
@@ -94,18 +207,39 @@ async function validateCombination({
     warnings.push(`Eksik kapasite: Montajda ${capacity - totalRepeats} göz boş kalmıştır (Dolu: ${totalRepeats}/${capacity}).`);
   }
 
-  // Renk Sınırı Kontrolü (Varsayılan max 6 benzersiz renk)
+  // Renk Sınırı Kontrolü (Dinamik Business Rule: maxColors)
   const uniqueColors = Array.from(colorSet);
-  if (uniqueColors.length > 6) {
-    errors.push(`Renk sınırı aşıldı: Montajda ${uniqueColors.length} benzersiz renk bulunmaktadır (${uniqueColors.join(', ')}). Matbaa kuralı gereği en fazla 6 renk izin verilir.`);
+  if (uniqueColors.length > maxColors) {
+    errors.push(`Renk sınırı aşıldı: Montajda ${uniqueColors.length} benzersiz renk bulunmaktadır (${uniqueColors.join(', ')}). Matbaa kuralı gereği en fazla ${maxColors} renk izin verilir.`);
   }
 
-  // Yüzey ve Lak Uyum Kontrolleri
+  // Yüzey ve Lak Uyum Kontrolleri (Parametrik product_combination_rules)
   if (surfaces.size > 1) {
-    warnings.push(`Farklı zemin/yüzey türleri birleştirildi: ${Array.from(surfaces).join(', ')}`);
+    errors.push(`Farklı zemin/yüzey türleri aynı montajda birleştirilemez: ${Array.from(surfaces).join(', ')}`);
   }
+
   if (lacquers.has('LAKLI') && lacquers.has('LAKSIZ')) {
-    warnings.push('Laklı ve laksız ürünler aynı montajda birleştirilmiştir.');
+    if (ruleContext.hasForbidMixedLacquer) {
+      errors.push('Laklı ve laksız ürünlerin aynı montajda birleştirilmesi kural gereği yasaktır (KRL-LAK-YASAK).');
+    } else {
+      warnings.push('Laklı ve laksız ürünler aynı montajda birleştirilmiştir.');
+    }
+  }
+
+  // Fiziksel Şablon ve Yerleşim Kuralı Kontrolü (sheet_layouts & printing_press_rules)
+  const layoutKey = `${tube_size}__${raw_sheet_code}`;
+  const layout = ruleContext.layouts.get(layoutKey) || ruleContext.layouts.get(tube_size);
+  let templateVerificationStatus = 'unverified';
+
+  if (layout) {
+    templateVerificationStatus = layout.verification_status || 'unverified';
+    if (templateVerificationStatus === 'provisional') {
+      warnings.push(`Fiziksel montaj şablonu geçicidir (provisional). Gerçek baskı öncesi kalıp onayı gerekir.`);
+    } else if (templateVerificationStatus === 'unverified') {
+      warnings.push(`Fiziksel montaj şablonu henüz doğrulanmamıştır (unverified).`);
+    }
+  } else {
+    warnings.push(`Bu ebat (${tube_size}) için kayıtlı fiziksel montaj şablonu bulunamadı; yalnız manuel taslak olarak izlenebilir.`);
   }
 
   return {
@@ -117,12 +251,15 @@ async function validateCombination({
       raw_sheet_code,
       capacity,
       repeatStep,
+      groupCount: capRule ? capRule.groupCount : 1,
       usedSlots: totalRepeats,
       emptySlots: Math.max(0, capacity - totalRepeats),
       uniqueColorsCount: uniqueColors.length,
       uniqueColors,
       sheetsToPrint: sheets_to_print,
-      totalOutputTubes: totalRepeats * sheets_to_print
+      totalOutputTubes: totalRepeats * sheets_to_print,
+      templateVerificationStatus,
+      ruleVersionTimestamp: ruleContext.versionTimestamp
     }
   };
 }
@@ -137,11 +274,13 @@ async function createDraftCombination({
   sheets_to_print = 1250,
   items = [],
   notes = null,
-  user = null
+  user = null,
+  client: passedClient = null
 }) {
-  const client = await getClient();
+  const client = passedClient || await getClient();
+  const shouldManageTransaction = !passedClient;
   try {
-    await client.query('BEGIN');
+    if (shouldManageTransaction) await client.query('BEGIN');
 
     // 1. Backend Validasyonu
     const validation = await validateCombination({
@@ -322,7 +461,9 @@ async function createDraftCombination({
       }
     }
 
-    await client.query('COMMIT');
+    if (shouldManageTransaction) {
+      await client.query('COMMIT');
+    }
 
     return {
       success: true,
@@ -335,11 +476,15 @@ async function createDraftCombination({
       itemCount: itemPlans.length
     };
   } catch (err) {
-    await client.query('ROLLBACK');
+    if (shouldManageTransaction) {
+      await client.query('ROLLBACK');
+    }
     console.error('[combinationService] createDraftCombination hatası:', err);
     throw err;
   } finally {
-    client.release();
+    if (shouldManageTransaction) {
+      client.release();
+    }
   }
 }
 
@@ -645,6 +790,7 @@ async function getCombinationById(combinationId) {
 
 module.exports = {
   CAPACITY_RULES,
+  getRuleContext,
   validateCombination,
   createDraftCombination,
   confirmCombination,

@@ -263,16 +263,19 @@ Sunucu, port, veritabanı, kullanıcı, view tanımları, kolon eşleme önizlem
 - 4A.6 Backend kural denetimi: 18 ebat için kapasite, montaj grubu sayısı ve ürün tekrar adımı kuralları (`CAPACITY_RULES`), maksimum 6 renk, zemin ve lak kuralları.
 - 4A.7 10 senaryoda 40/40 test (`tests/test-faz4a.js`) %100 başarılı; Faz 3B (65/65) ve Faz 5A (21/21) regresyon testleri tam uyumlu.
 
-### Faz 4B — Otomatik Kombinasyon ve Optimizasyon Motoru (Planlanan)
+### Faz 4B — Otomatik Kombinasyon ve Optimizasyon Motoru (Tamamlandı)
 **Girdi Bağımlılığı:** Faz 4A Baskılı İhtiyaç Havuzu'ndaki açık (`remaining_open_demand > 0`) kalemler.
-- 4B.1 Aynı ebat, onaylı ham levha, zemin ve renk uyumlu açık ihtiyaçları kümeleyen matematiksel/sezgisel gruplama algoritması.
-- 4B.2 18 ebat kuralı doğrultusunda tam kapasite doldurma, tekrar adımı tamsayı katları ve minimum baskı (1.250) fire minimizasyonu.
-- 4B.3 PL (Private Label) onay politikaları ve fabrika markası stok tamamlama stratejileri.
-- 4B.4 Alternatif öneriler sunumu ve planlamacının tek tıkla taslak kombinasyona dönüştürmesi.
+- 4B.1 18 ebat kuralı doğrultusunda tam kapasite doldurma (`Kapasite = Montaj Grubu Sayısı × Adım`), tekrar adımı pozitif tamsayı katları (`Tekrar = Grup × Adım`, 52x195 için 4+8+8 geçerli / 5+7+8 geçersiz) ve minimum baskı (1.250) fire/fazlalık izolasyonu (`combinationProposalService.js`).
+- 4B.2 Dinamik DB Parametreleri (`tube_capacities`, `printing_press_rules`, `sheet_layouts`) 15 sn TTL önbelleği ile entegre edildi; hardcoded kural kaldırıldı.
+- 4B.3 Renk Kısıtı (max 6 benzersiz renk), Zemin/Ebat Uyumu ve Özel Lak Kuralı (`KRL-LAK-YASAK`) denetimleri; montaj şablonu eşleme.
+- 4B.4 Arama uzayı sınırlandırması: Tam kapasite tamsayı bölüntüleme (integer partition), 15 sn zaman aşımı, max 1.000 kombinasyon tavanı (`SEARCH_LIMIT_REACHED`).
+- 4B.5 Öneriyi Taslağa Dönüştürme (`applyProposalToDraft`): `SELECT ... FOR UPDATE` transaksiyonu, HTTP 409 `CONFLICT_DEMAND_CHANGED` ve idempotency koruması.
+- 4B.6 Dürüst Veri Raporlama: Canlı plandaki 130 açık ihtiyaç teknik kart/renk bilgisi eksikliği nedeniyle elenmeyip "Öneriye Alınamayanlar" akordiyonunda gerekçesiyle sunuldu; CMYK simülasyon modu ile anında 3 geçerli montaj üretildi.
+- 4B.7 11 kabul senaryosunda 44/44 test (`tests/test-faz4b.js`) %100 başarılı; genel regresyon (170/170 test) tam uyumlu.
 
 ### Kabul
 - [x] Faz 4A Baskılı İhtiyaç Havuzu ve kalıcı kombinasyon rezervasyon modeli devrede (40/40 test).
-- [ ] Faz 4B Otomatik kombinasyon ve çoklu montaj optimizasyon algoritması.
+- [x] Faz 4B Otomatik kombinasyon ve çoklu montaj optimizasyon algoritması devrede (44/44 test).
 
 ## 9. Faz 5 — Teneke üretim planlama
 

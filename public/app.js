@@ -16,6 +16,22 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+function formatDate(d, includeTime = false) {
+  if (!d) return '—';
+  try {
+    const dateObj = typeof d === 'string' || typeof d === 'number' ? new Date(d) : d;
+    if (isNaN(dateObj.getTime())) return String(d);
+    if (includeTime) {
+      return dateObj.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' });
+    }
+    return dateObj.toLocaleDateString('tr-TR');
+  } catch (e) {
+    return String(d);
+  }
+}
+window.formatDate = formatDate;
+
+
 async function apiRequest(endpoint, options = {}) {
   const token = state?.sessionToken || localStorage.getItem('tp_session_token_v2c') || 'token_admin_session_v2c';
   const headers = {
@@ -3252,6 +3268,15 @@ function renderPrintDemands() {
           </button>
 
           <button
+            onclick="openProposalModal();"
+            class="px-3.5 py-2 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 shadow-xs bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer"
+            title="Açık ihtiyaçlardan 18 ebat kurallarına uygun otomatik montaj kombinasyonları öner"
+          >
+            <span>✨</span>
+            <span>Otomatik Kombinasyon Öner</span>
+          </button>
+
+          <button
             ${selectedCount > 0 ? `onclick="transferSelectedPrintDemandsToWorkbench();"` : 'disabled'}
             class="px-3.5 py-2 text-xs font-semibold rounded transition-colors flex items-center gap-2 shadow-xs ${
               selectedCount > 0
@@ -3637,6 +3662,454 @@ function renderPrintDemandDetailDrawer() {
         <div class="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
           <button onclick="closePrintDemandDetail();" class="px-4 py-2 text-xs font-medium rounded border border-slate-300 hover:bg-slate-100 text-slate-700">Kapat</button>
         </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================================
+// FAZ 4B: OTOMATİK KOMBİNASYON ÖNERİ MODALI VE İŞLEMLERİ
+// ============================================================================
+
+function openProposalModal() {
+  state.isProposalModalOpen = true;
+  state.proposalScope = (state.selectedPrintDemandIds && state.selectedPrintDemandIds.length > 0) ? 'SELECTED' : 'ALL';
+  state.proposalTubeSize = state.printDemandFilterTubeSize !== 'ALL' ? state.printDemandFilterTubeSize : '52x195';
+  state.proposalAllowSimulation = false;
+  state.proposalResults = null;
+  state.isExclusionsExpanded = false;
+  renderApp();
+}
+
+function closeProposalModal() {
+  state.isProposalModalOpen = false;
+  renderApp();
+}
+
+async function generateProposalsFromUI() {
+  state.isLoadingProposals = true;
+  renderApp();
+  try {
+    const payload = {
+      scope: state.printDemandScope || 'ACTIVE_PLAN',
+      allowUnspecifiedColors: !!state.proposalAllowSimulation
+    };
+    if (state.proposalScope === 'SELECTED') {
+      payload.selectedDemandIds = state.selectedPrintDemandIds || [];
+    } else if (state.proposalScope === 'SIZE') {
+      payload.tubeSize = state.proposalTubeSize;
+    }
+
+    const res = await apiRequest('/api/combinations/proposals/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    if (res && res.success) {
+      state.proposalResults = res;
+    } else {
+      alert('Öneri Hatası:\n' + (res?.error?.message || 'Öneriler üretilemedi.'));
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  } finally {
+    state.isLoadingProposals = false;
+    renderApp();
+  }
+}
+
+async function applyProposalFromUI(proposalId) {
+  if (!confirm('Seçilen öneriyi taslak kombinasyona dönüştürmek ve açık miktarları rezerve etmek istiyor musunuz?')) {
+    return;
+  }
+  state.isLoadingProposals = true;
+  renderApp();
+  try {
+    const res = await apiRequest('/api/combinations/proposals/apply', {
+      method: 'POST',
+      body: JSON.stringify({ proposalId })
+    });
+
+    if (res && res.success) {
+      alert(res.message || 'Öneri başarıyla taslağa dönüştürüldü.');
+      state.isProposalModalOpen = false;
+      await fetchPrintDemands();
+      await fetchCombinationsList();
+      renderApp();
+    } else {
+      if (res?.error?.isConflict) {
+        alert('⚠️ ÇAKIŞMA UYARISI:\n\n' + res.error.message);
+      } else {
+        alert('İşlem Başarısız:\n' + (res?.error?.message || 'Bilinmeyen hata'));
+      }
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  } finally {
+    state.isLoadingProposals = false;
+    renderApp();
+  }
+}
+
+function renderProposalModal() {
+  const selectedCount = (state.selectedPrintDemandIds || []).length;
+  const res = state.proposalResults;
+  const proposals = res?.proposals || [];
+  const exclusions = res?.excludedDemands || [];
+  const stats = res?.stats || { totalCandidates: 0, eligibleCandidates: 0, excludedCandidates: 0, proposalsFound: 0 };
+
+  return `
+    <div class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 sm:p-6 backdrop-blur-xs font-sans">
+      <div class="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in duration-150">
+        
+        <!-- Header -->
+        <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-sm">✨</span>
+            <div>
+              <h2 class="text-base font-bold text-slate-900">Otomatik Kombinasyon Öneri Motoru (Faz 4B)</h2>
+              <p class="text-xs text-slate-500">18 Ebat montaj kuralları, tekrar adımı tamsayı katları ve minimum 1.250 levha optimizasyonu</p>
+            </div>
+          </div>
+          <button onclick="closeProposalModal();" class="p-1.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
+            ${getSvgIcon('x', 'w-4 h-4')}
+          </button>
+        </div>
+
+        <!-- Scope & Filters Bar -->
+        <div class="p-4 bg-slate-100/60 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-semibold text-slate-700">Kapsam:</span>
+            
+            <button
+              onclick="state.proposalScope='ALL'; renderApp();"
+              class="px-2.5 py-1 rounded border transition-colors ${
+                state.proposalScope === 'ALL'
+                  ? 'bg-sky-700 text-white border-sky-800 font-semibold'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }"
+            >
+              Tüm Açık İhtiyaçlar
+            </button>
+
+            <button
+              onclick="state.proposalScope='SELECTED'; renderApp();"
+              class="px-2.5 py-1 rounded border transition-colors ${
+                state.proposalScope === 'SELECTED'
+                  ? 'bg-sky-700 text-white border-sky-800 font-semibold'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }"
+            >
+              Seçili İhtiyaçlar (${selectedCount})
+            </button>
+
+            <button
+              onclick="state.proposalScope='SIZE'; renderApp();"
+              class="px-2.5 py-1 rounded border transition-colors ${
+                state.proposalScope === 'SIZE'
+                  ? 'bg-sky-700 text-white border-sky-800 font-semibold'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }"
+            >
+              Belirli Ebat
+            </button>
+
+            ${state.proposalScope === 'SIZE' ? `
+              <select
+                onchange="state.proposalTubeSize=this.value;"
+                class="bg-white border border-slate-300 rounded px-2 py-1 font-mono text-xs font-semibold text-slate-800 outline-none"
+              >
+                ${['52x195', '45x140', '52x165', '65x195', '65x104', '52x234', '52x105', '45x175', '65x165', '52x214'].map(sz => `
+                  <option value="${sz}" ${state.proposalTubeSize === sz ? 'selected' : ''}>${sz}</option>
+                `).join('')}
+              </select>
+            ` : ''}
+          </div>
+
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-1.5 cursor-pointer text-slate-700 select-none" title="Teknik kartı henüz tanımlanmamış ürünleri CMYK (4 renk) simülasyonuyla öneriye dahil et">
+              <input
+                type="checkbox"
+                ${state.proposalAllowSimulation ? 'checked' : ''}
+                onchange="state.proposalAllowSimulation=this.checked;"
+                class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span class="font-medium">Teknik Kart Simülasyonu (CMYK)</span>
+            </label>
+
+            <button
+              onclick="generateProposalsFromUI();"
+              ${state.isLoadingProposals ? 'disabled' : ''}
+              class="px-4 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-semibold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              ${state.isLoadingProposals ? `
+                <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                <span>Taranıyor...</span>
+              ` : `
+                <span>✨ Önerileri Hesapla</span>
+              `}
+            </button>
+          </div>
+        </div>
+
+        <!-- Body Area -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-4">
+          ${state.isLoadingProposals ? `
+            <div class="py-16 text-center space-y-3">
+              <div class="inline-block animate-spin h-8 w-8 border-3 border-emerald-600 border-t-transparent rounded-full"></div>
+              <div class="text-sm font-semibold text-slate-800">Açık ihtiyaçlar ve montaj bölüntüleri taranıyor...</div>
+              <p class="text-xs text-slate-500">18 Ebat tekrar adımları, renk sınırı (max 6) ve minimum 1.250 levha kuralları test ediliyor.</p>
+            </div>
+          ` : (!res ? `
+            <div class="py-12 text-center max-w-md mx-auto space-y-3">
+              <div class="text-3xl">📐</div>
+              <h3 class="text-sm font-bold text-slate-800">Otomatik Montaj Önerileri</h3>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Yukarıdaki filtreden kapsamı seçip <b>"Önerileri Hesapla"</b> butonuna basarak; açık havuzdaki ihtiyaçlardan 18 ebat kurallarına tam uyumlu montaj senaryoları türetebilirsiniz.
+              </p>
+              <div class="p-3 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800 text-left space-y-1">
+                <div class="font-bold flex items-center gap-1"><span>⚠️</span> <span>Öneri & Rezervasyon İlkeleri:</span></div>
+                <div>• Öneri hesaplamak havuzdaki miktarları rezerve etmez; senaryolar alternatif olarak sunulur.</div>
+                <div>• Bir öneri taslağa alındığında açık miktar kilitlenir ve Faz 4A rezervasyon defterine işlenir.</div>
+                <div>• Eksik teknik kartlı ürünler sessizce elenmez, <b>"Öneriye Alınamayanlar"</b> listesinde gösterilir.</div>
+              </div>
+            </div>
+          ` : `
+            <!-- Results Strip -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                <div class="text-[10px] font-mono text-slate-500 uppercase">Arama Durumu</div>
+                <div class="font-bold font-mono text-sm mt-0.5 ${
+                  res.searchStatus === 'VALID_PROPOSAL' ? 'text-emerald-700' :
+                  res.searchStatus === 'DATA_INSUFFICIENT' ? 'text-amber-700' : 'text-slate-800'
+                }">
+                  ${res.searchStatus === 'VALID_PROPOSAL' ? '✓ Geçerli Öneriler' :
+                    res.searchStatus === 'DATA_INSUFFICIENT' ? '⚠️ Veri Eksik' :
+                    res.searchStatus === 'NO_SOLUTION_FOUND' ? 'Çözüm Bulunamadı' : res.searchStatus}
+                </div>
+              </div>
+
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                <div class="text-[10px] font-mono text-slate-500 uppercase">Üretilen Öneri</div>
+                <div class="font-bold font-mono text-sm text-slate-900 mt-0.5">${proposals.length} Senaryo</div>
+              </div>
+
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                <div class="text-[10px] font-mono text-slate-500 uppercase">Uygun / İncelenen</div>
+                <div class="font-bold font-mono text-sm text-slate-900 mt-0.5">${stats.eligibleCandidates} / ${stats.totalCandidates} Kalem</div>
+              </div>
+
+              <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                <div class="text-[10px] font-mono text-slate-500 uppercase">Arama Süresi</div>
+                <div class="font-bold font-mono text-sm text-slate-700 mt-0.5">${res.durationMs} ms</div>
+              </div>
+            </div>
+
+            <!-- Proposals Cards -->
+            <div class="space-y-4">
+              <div class="text-xs font-bold uppercase tracking-wider text-slate-600 font-mono">
+                GEÇERLİ MONTAJ ÖNERİLERİ (${proposals.length})
+              </div>
+
+              ${proposals.length === 0 ? `
+                <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-xs">
+                  Arama kriterlerine uygun geçerli bir montaj kombinasyonu oluşturulamadı. 
+                  ${stats.excludedCandidates > 0 ? `İncelenen ${stats.excludedCandidates} kalem teknik veri eksikliği nedeniyle elenmiştir.` : ''}
+                </div>
+              ` : proposals.map((prop, pIdx) => {
+                const totalOutput = Number(prop.totalOutputTubes) || 0;
+                const totalCovered = Number(prop.totalCoveredDemand) || 0;
+                const totalOverprod = Number(prop.totalOverproduction) || 0;
+                const overprodPct = totalOutput > 0 ? Math.round((totalOverprod / totalOutput) * 100) : 0;
+                const isVerified = prop.templateVerificationStatus === 'verified';
+
+                return `
+                  <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs hover:border-slate-300 transition-colors">
+                    <!-- Proposal Card Header -->
+                    <div class="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                      <div class="flex items-center gap-2.5">
+                        <span class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-sky-100 text-sky-900 border border-sky-300">
+                          ${prop.proposalNo}
+                        </span>
+                        <div>
+                          <h4 class="font-bold text-sm text-slate-900">${prop.title}</h4>
+                          <div class="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                            <span>Ebat: <b>${prop.tubeSize}</b></span>
+                            <span>•</span>
+                            <span>Levha: <b>${prop.rawSheetCode}</b> (${prop.rawSheetCapacity} Göz)</span>
+                            <span>•</span>
+                            <span class="px-1.5 py-0.2 rounded text-[10px] font-semibold ${
+                              isVerified ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }">
+                              ${isVerified ? '✓ Doğrulanmış Şablon' : '⚠️ Taslak Şablon'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="flex items-center gap-3">
+                        <button
+                          onclick="applyProposalFromUI('${prop.id || prop.proposalNo}');"
+                          class="px-3.5 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        >
+                          <span>📥 Taslağa Al & Rezerve Et</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Proposal KPIs -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-slate-50/50 border-b border-slate-200 text-xs">
+                      <div>
+                        <span class="text-slate-500 block text-[10px]">Basılacak Levha:</span>
+                        <b class="text-slate-900 font-mono">${formatNum(prop.sheetsToPrint)} LEVHA</b>
+                      </div>
+                      <div>
+                        <span class="text-slate-500 block text-[10px]">Toplam Tüp Çıktısı:</span>
+                        <b class="text-slate-900 font-mono">${formatNum(totalOutput)} ADET</b>
+                      </div>
+                      <div>
+                        <span class="text-slate-500 block text-[10px]">Karşılanan İhtiyaç:</span>
+                        <b class="text-emerald-700 font-mono">${formatNum(totalCovered)} ADET</b>
+                      </div>
+                      <div>
+                        <span class="text-slate-500 block text-[10px]">Minimum Baskı Fazlası:</span>
+                        <b class="${totalOverprod > 0 ? 'text-amber-700' : 'text-slate-400'} font-mono">
+                          ${formatNum(totalOverprod)} ADET (%${overprodPct})
+                        </b>
+                      </div>
+                    </div>
+
+                    <!-- Items Table -->
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr class="bg-slate-100/60 border-b border-slate-200 text-slate-600 text-[10px] font-mono uppercase">
+                            <th class="p-2 text-center w-8">#</th>
+                            <th class="p-2">Baskılı Stok & Adı</th>
+                            <th class="p-2 text-center">Grup × Adım</th>
+                            <th class="p-2 text-center">Tekrar ($r_i$)</th>
+                            <th class="p-2 text-right">Montaj Çıktısı</th>
+                            <th class="p-2 text-right">Karşılanan</th>
+                            <th class="p-2 text-right">Fazla Üretim</th>
+                            <th class="p-2 text-right">Kalan Açık</th>
+                            <th class="p-2 text-center">Renkler</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 font-mono">
+                          ${(prop.items || []).map((it, idx) => `
+                            <tr class="hover:bg-slate-50 transition-colors">
+                              <td class="p-2 text-center text-slate-400">${idx + 1}</td>
+                              <td class="p-2">
+                                <div class="font-sans font-semibold text-slate-900 truncate max-w-[220px]" title="${it.printStockName}">
+                                  ${it.printStockName || '—'}
+                                </div>
+                                <div class="text-[10px] text-slate-500">${it.printStockCode}</div>
+                              </td>
+                              <td class="p-2 text-center text-slate-600">
+                                ${it.groupMultiplier} × ${prop.repeatStep}
+                              </td>
+                              <td class="p-2 text-center font-bold text-sky-900">
+                                ${it.repeatsCount}
+                              </td>
+                              <td class="p-2 text-right text-slate-700">
+                                ${formatNum(it.totalOutput)}
+                              </td>
+                              <td class="p-2 text-right font-bold text-emerald-700">
+                                ${formatNum(it.allocatedDemand)}
+                              </td>
+                              <td class="p-2 text-right ${Number(it.overproduction) > 0 ? 'text-amber-700' : 'text-slate-400'}">
+                                ${Number(it.overproduction) > 0 ? formatNum(it.overproduction) : '0'}
+                              </td>
+                              <td class="p-2 text-right ${Number(it.remainingOpen) > 0 ? 'text-rose-700 font-bold' : 'text-slate-400'}">
+                                ${formatNum(it.remainingOpen)}
+                              </td>
+                              <td class="p-2 text-center">
+                                <div class="flex items-center justify-center gap-0.5 flex-wrap">
+                                  ${(it.colors || []).map(c => `
+                                    <span class="color-chip text-[9px] bg-slate-100 text-slate-700">${c}</span>
+                                  `).join('')}
+                                </div>
+                              </td>
+                            </tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    ${(prop.validationWarnings || []).length > 0 ? `
+                      <div class="p-2.5 bg-amber-50/60 border-t border-amber-200 text-[11px] text-amber-800 space-y-0.5">
+                        ${prop.validationWarnings.map(w => `<div>⚠️ ${w}</div>`).join('')}
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- Excluded Demands Accordion -->
+            ${exclusions.length > 0 ? `
+              <div class="border border-slate-200 rounded-lg overflow-hidden bg-white mt-6">
+                <button
+                  onclick="state.isExclusionsExpanded = !state.isExclusionsExpanded; renderApp();"
+                  class="w-full px-4 py-2.5 bg-slate-100 hover:bg-slate-200/80 text-left font-semibold text-xs text-slate-700 flex items-center justify-between transition-colors"
+                >
+                  <div class="flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>Öneriye Alınamayan İhtiyaçlar (${exclusions.length} Kalem)</span>
+                    <span class="text-[10px] font-normal text-slate-500 font-mono">(Eksik teknik kart veya kısıt engeli)</span>
+                  </div>
+                  <span class="text-slate-500">${state.isExclusionsExpanded ? '▲ Daralt' : '▼ Genişlet'}</span>
+                </button>
+
+                ${state.isExclusionsExpanded ? `
+                  <div class="max-h-60 overflow-y-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                      <thead class="bg-slate-50 sticky top-0 border-b border-slate-200 text-[10px] font-mono text-slate-600">
+                        <tr>
+                          <th class="p-2">Talep / İş No</th>
+                          <th class="p-2">Ürün & Kod</th>
+                          <th class="p-2">Ebat</th>
+                          <th class="p-2 text-right">Açık Miktar</th>
+                          <th class="p-2">Engel Nedeni</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100 text-[11px]">
+                        ${exclusions.map(ex => `
+                          <tr class="hover:bg-slate-50">
+                            <td class="p-2 font-mono text-slate-600">${ex.printDemandId} ${ex.orderNo ? `(İş:${ex.orderNo})` : ''}</td>
+                            <td class="p-2">
+                              <div class="font-medium text-slate-800">${ex.tubeStockName || ex.printStockCode}</div>
+                              <div class="text-[10px] font-mono text-slate-400">${ex.printStockCode}</div>
+                            </td>
+                            <td class="p-2 font-mono">${ex.tubeSize || '—'}</td>
+                            <td class="p-2 text-right font-mono tabular-nums font-semibold text-slate-700">${formatNum(ex.remainingOpenQuantity)}</td>
+                            <td class="p-2">
+                              <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+                                ${ex.reasonCode}
+                              </span>
+                              <span class="text-[10px] text-slate-500 block mt-0.5">${ex.reasonMessage}</span>
+                            </td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                ` : ''}
+              </div>
+            ` : ''}
+          `)}
+        </div>
+
+        <!-- Footer -->
+        <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+          <div class="text-slate-500 text-[11px]">
+            Tüm montajlar <b>Tekrar = Grup × Adım</b> eşitliği ve <b>Kapasite = Montaj Grubu Sayısı × Adım</b> formülüyle doğrulanır.
+          </div>
+          <button onclick="closeProposalModal();" class="px-4 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-medium">
+            Kapat
+          </button>
+        </div>
+
       </div>
     </div>
   `;
@@ -9529,6 +10002,7 @@ function renderApp() {
     ${state.isProductModalOpen ? renderProductModal() : ''}
     ${state.isImportModalOpen ? renderImportModal() : ''}
     ${state.selectedPrintDemandDetailId ? renderPrintDemandDetailDrawer() : ''}
+    ${state.isProposalModalOpen ? renderProposalModal() : ''}
   `;
 }
 
@@ -9545,6 +10019,12 @@ window.renderPrintingRules = renderPrintingRules;
 window.renderTechnical = renderTechnical;
 window.renderProduction = renderProduction;
 window.renderIntegration = renderIntegration;
+
+// Faz 4B Otomatik Kombinasyon Öneri fonksiyonları
+window.openProposalModal = openProposalModal;
+window.closeProposalModal = closeProposalModal;
+window.generateProposalsFromUI = generateProposalsFromUI;
+window.applyProposalFromUI = applyProposalFromUI;
 
 // Faz 4A Baskılı İhtiyaç Havuzu ve Kombinasyon fonksiyonları
 window.fetchPrintDemands = fetchPrintDemands;

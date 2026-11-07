@@ -2,7 +2,7 @@
   "project": "Teneke Planlama",
   "package_version": "2.0",
   "updated_at": "2026-11-07",
-  "document_status": "faz_4a_printed_demand_and_combinations_completed",
+  "document_status": "faz_4b_combination_proposals_completed",
   "authorized_initial_scope": [
     0,
     1,
@@ -13,10 +13,11 @@
     "3A.2",
     "3B",
     "5A",
-    "4A"
+    "4A",
+    "4B"
   ],
-  "current_phase": "4A",
-  "next_implementation_phase": "4B",
+  "current_phase": "4B",
+  "next_implementation_phase": "5B",
   "phases": [
     {
       "number": 0,
@@ -131,9 +132,11 @@
     {
       "number": "4B",
       "name": "Otomatik Kombinasyon ve Optimizasyon Motoru",
-      "file": "phases/FAZ-04-KOMBINASYON-MOTORU.md",
-      "status": "planned",
-      "acceptance_verified": false,
+      "file": "docs/FAZ-04B-OTOMATIK-KOMBINASYON-KANIT-RAPORU.md",
+      "status": "completed",
+      "acceptance_verified": true,
+      "verified_at": "2026-11-07",
+      "evidence": "44/44 kabul testi başarılı (11 senaryo): Baskılı İhtiyaç Havuzundaki açık miktarlardan 18 ebat kuralına (Tekrar = Grup × Adım, Kapasite = Montaj Grubu Sayısı × Adım, 52x195 için 4+8+8 geçerli / 5+7+8 geçersiz) uygun otomatik montaj öneri motoru kuruldu; dinamik DB parametreleri (tube_capacities, printing_press_rules, sheet_layouts) 15sn TTL ile entegre edildi; renk kısıtı (max 6 benzersiz renk), ebat, zemin ve KRL-LAK-YASAK kural denetimi; minimum 1.250 levha baskı kuralı ve fazla üretim izolasyonu; tam kapasite arama uzayı budama ve 15sn/1.000 kombinasyon tavanı; öneriyi taslağa dönüştürme ve kalıcı rezervasyon (SELECT ... FOR UPDATE transaction); HTTP 409 CONFLICT_DEMAND_CHANGED çakışma ve idempotency koruması; dürüst veri analizi (130 eksik teknik kartlı kalem şeffafça dışlandı; simülasyon modu ile anında 3 geçerli öneri bulundu); 170/170 toplam regresyon testi hatasız geçti.",
       "dependencies": [
         "4A"
       ]
