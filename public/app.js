@@ -189,14 +189,14 @@ async function initBackendSync() {
 
     // 11. SQL Server ERP View Durumları ve Bağlantı Kontrolü (Faz 3A.2)
     try {
-      const [viewRes, connRes, syncHistRes] = await Promise.all([
+      const [viewRes, connRes, syncHistRes] = await Promise.allSettled([
         apiRequest('/api/erp/views/status'),
         apiRequest('/api/erp/test-connection'),
         apiRequest('/api/erp/sync-history')
       ]);
-      if (viewRes && viewRes.data) state.erpViewsStatus = viewRes.data;
-      if (connRes) state.erpConnection = connRes;
-      if (syncHistRes && syncHistRes.data) state.erpSyncHistory = syncHistRes.data;
+      if (viewRes.status === 'fulfilled' && viewRes.value?.data) state.erpViewsStatus = viewRes.value.data;
+      if (connRes.status === 'fulfilled' && connRes.value) state.erpConnection = connRes.value;
+      if (syncHistRes.status === 'fulfilled' && syncHistRes.value?.data) state.erpSyncHistory = syncHistRes.value.data;
     } catch (e) {
       console.warn('[Sync] ERP durumları alınamadı:', e.message);
     }
@@ -2045,10 +2045,10 @@ function renderOverview() {
 
   // Faz 3B Kademeli İhtiyaç Motoru Sonuçları
   const calc = state.latestCalculation;
-  const isCalculated = Boolean(calc && calc.status === 'success');
-  const netTube = isCalculated ? Number(calc.total_net_tube) : null;
-  const netCutting = isCalculated ? Number(calc.total_net_cutting) : null;
-  const netPrint = isCalculated ? Number(calc.total_net_print) : null;
+  const isCalculated = Boolean(calc && (calc.status === 'success' || calc.success === true));
+  const netTube = isCalculated ? (calc.total_net_tube !== undefined ? Number(calc.total_net_tube) : (calc.totals?.totalNetTube !== undefined ? Number(calc.totals.totalNetTube) : null)) : null;
+  const netCutting = isCalculated ? (calc.total_net_cutting !== undefined ? Number(calc.total_net_cutting) : (calc.totals?.totalNetCutting !== undefined ? Number(calc.totals.totalNetCutting) : null)) : null;
+  const netPrint = isCalculated ? (calc.total_net_print !== undefined ? Number(calc.total_net_print) : (calc.totals?.totalNetPrint !== undefined ? Number(calc.totals.totalNetPrint) : null)) : null;
 
   return `
     <div class="space-y-6">
@@ -6134,7 +6134,14 @@ async function triggerCalculateAllocations() {
   try {
     const res = await apiRequest('/api/erp/calculate-allocations', { method: 'POST' });
     if (res && res.success) {
-      state.latestCalculation = res.data;
+      // Latest calculation'ı doğrudan en güncel kayıttan da al
+      const latestRes = await apiRequest('/api/erp/latest-calculation');
+      if (latestRes && latestRes.success && latestRes.data) {
+        state.latestCalculation = latestRes.data;
+      } else {
+        state.latestCalculation = res.data;
+      }
+
       // Talepleri yeniden çek
       const demRes = await apiRequest('/api/erp/demands');
       if (demRes && demRes.success && Array.isArray(demRes.data)) {
@@ -6143,14 +6150,23 @@ async function triggerCalculateAllocations() {
           state.demands = demRes.data;
         }
       }
+
+      const c = state.latestCalculation || {};
+      const totalDemands = c.total_demands ?? res.data?.totalDemands ?? state.demands.length;
+      const calculatedCount = c.calculated_count ?? res.data?.calculatedCount ?? totalDemands;
+      const grossTube = c.total_gross_tube ?? res.data?.totals?.totalGrossTube ?? 0;
+      const netTube = c.total_net_tube ?? res.data?.totals?.totalNetTube ?? 0;
+      const netCut = c.total_net_cutting ?? res.data?.totals?.totalNetCutting ?? 0;
+      const netPrint = c.total_net_print ?? res.data?.totals?.totalNetPrint ?? 0;
+
       alert(
         'KADEMELİ TAHSİS MOTORU HESAPLANDI (FAZ 3B):\n\n' +
-        'Toplam Talep: ' + res.data.total_demands + ' satır\n' +
-        'Başarılı Hesaplanan: ' + res.data.calculated_count + ' satır\n' +
-        'Brüt Dolum Talebi: ' + formatNum(res.data.total_gross_tube) + ' adet\n' +
-        'Net Tüp İhtiyacı: ' + formatNum(res.data.total_net_tube) + ' adet\n' +
-        'Net Kesim İhtiyacı: ' + formatNum(res.data.total_net_cutting) + ' adet\n' +
-        'Net Yeni Baskı İhtiyacı: ' + formatNum(res.data.total_net_print) + ' adet\n\n' +
+        'Toplam Talep: ' + totalDemands + ' satır\n' +
+        'Başarılı Hesaplanan: ' + calculatedCount + ' satır\n' +
+        'Brüt Dolum Talebi: ' + formatNum(grossTube) + ' adet\n' +
+        'Net Tüp İhtiyacı: ' + formatNum(netTube) + ' adet\n' +
+        'Net Kesim İhtiyacı: ' + formatNum(netCut) + ' adet\n' +
+        'Net Yeni Baskı İhtiyacı: ' + formatNum(netPrint) + ' adet\n\n' +
         'İhtiyaç Havuzu ve detay matrisleri güncellendi.'
       );
     }

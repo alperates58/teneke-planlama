@@ -6,8 +6,8 @@ async function handleErpRoutes(req, res, pathname) {
   // 1. SQL Server Bağlantı Testi
   if (req.method === 'GET' && pathname === '/api/erp/test-connection') {
     const result = await erpSyncService.testConnection();
-    res.writeHead(result.connected ? 200 : 503, { 'Content-Type': 'application/json; charset=utf-8' });
-    return res.end(JSON.stringify(result));
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    return res.end(JSON.stringify({ ...result, success: true }));
   }
 
   // 2. Sözleşme View'ları Durumu
@@ -66,9 +66,10 @@ async function handleErpRoutes(req, res, pathname) {
       requireRole(['admin', 'planner'])(req, res, async () => {
         try {
           const syncRunId = req.body?.syncRunId || null;
-          const result = await demandAllocationService.runAllocationCalculation({ user: req.user, syncRunId });
+          await demandAllocationService.runAllocationCalculation({ user: req.user, syncRunId });
+          const latest = await demandAllocationService.getLatestCalculation();
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ success: true, data: result }));
+          res.end(JSON.stringify({ success: true, data: latest }));
           resolve(true);
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
