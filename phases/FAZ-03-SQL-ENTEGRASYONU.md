@@ -8,7 +8,7 @@ Durum: PLANLANDI. Uygulama ve kabul kanıtı henüz yok.
 
 ### İşler
 
-- 3.1 IT ile bağlantı bilgileri ve yalnız gerekli view'lara okuma yetkisi. Gerçek bağlantı bilgileri henüz verilmedi; uydurulmaz. Kaynak IP kısıtı, şifreli bağlantı ve erişim politikası IT ile belirlenir.
+- 3.1 IT ile bağlantı bilgileri ve yalnız gerekli view'lara okuma yetkisi. (06.11.2026 Doğrulandı: Sunucu `172.17.0.6:1433`, kullanıcı `planlama`, veritabanı `AA_LIDER` ve `MikroDesktop_LIDER26`, hedef uygulama hostu `lider-server2`).
 - 3.2 Sunucu/port/veritabanı ve view/kolon eşlemeleri yönetimi. Kimlik bilgileri sunucu tarafında korunur; tarayıcıya veya loglara açık verilmez.
 - 3.3 Stok kartı, ihtiyaç, depo/lot/revizyon stokları, reçete ilişkileri ve varsa açık tedarik/iş emirleri için veri sözleşmeleri.
 - 3.4 Sipariş satırı anahtarı, tarih, birim, miktar, stok kodu ve veri sahibi doğrulanır. İhtiyaç view'ının hangi stok ve planları zaten düşürdüğü belgelenir.

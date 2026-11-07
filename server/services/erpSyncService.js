@@ -1,6 +1,7 @@
 const { executeSqlReadOnly } = require('./plan-sync-service');
 const { query, getClient } = require('../db');
 const config = require('../config');
+const { runAllocationCalculation, getAllocatedDemands, getLatestCalculation } = require('./demandAllocationService');
 
 /**
  * 1. SQL Server Bağlantı Testi
@@ -86,10 +87,11 @@ async function fetchPreview() {
   // Örnek 5 talep satırı
   const sampleDemands = await executeSqlReadOnly(`
     SELECT TOP 5
-      is_no, siparis_no, dolum_mamul_kodu, dolum_mamul_adi,
-      dolum_plan_miktar, ihtiyac_tarihi, bitis_tarihi,
+      demand_key, is_no, siparis_no, dolum_mamul_kodu, dolum_mamul_adi,
+      dolum_plan_miktar, dolum_gerceklesen_miktar, dolum_kalan_miktar,
+      ihtiyac_tarihi, bitis_tarihi,
       dolum_makine, dolum_sira, tup_stok_kodu, tup_stok_adi,
-      brut_tup_ihtiyac
+      brut_tup_ihtiyac, has_recipe_error
     FROM [AA_LIDER].[dbo].[AA_tp_vw_TupBrutIhtiyac]
     ORDER BY ihtiyac_tarihi ASC
   `, 'AA_LIDER');
@@ -106,33 +108,33 @@ async function fetchPreview() {
   const stockSummary = await executeSqlReadOnly(`
     SELECT 
       kategori_kodu,
-      COUNT(*) as total_items,
-      SUM(CASE WHEN net_kullanilabilir_stok > 0 THEN 1 ELSE 0 END) as items_with_stock,
-      SUM(net_kullanilabilir_stok) as total_usable_stock,
-      SUM(haric_bloke_stok) as total_quarantine_stock
+      COUNT(*) as stock_count,
+      SUM(toplam_fiziksel_stok) as sum_physical,
+      SUM(haric_bloke_stok) as sum_quarantine,
+      SUM(net_kullanilabilir_stok) as sum_usable,
+      SUM(CASE WHEN is_negative_stock = 1 THEN 1 ELSE 0 END) as negative_stock_count
     FROM [AA_LIDER].[dbo].[AA_tp_vw_StokDepo]
     GROUP BY kategori_kodu
+    ORDER BY sum_usable DESC
   `, 'AA_LIDER');
 
-  // D) Planlı Tüp Arzı (alper_tenekeuretim) Özeti
-  const planSummary = await executeSqlReadOnly(`
+  // D) Reçete Özeti
+  const recipeSummary = await executeSqlReadOnly(`
     SELECT 
-      COUNT(*) as total_plan_rows,
-      COUNT(DISTINCT stok_kodu) as distinct_plan_tubes,
-      SUM(planlanan_adet) as total_planned_tubes,
-      MIN(baslangic_tarihi) as min_plan_date,
-      MAX(bitis_tarihi) as max_plan_date
-    FROM [AA_LIDER].[dbo].[AA_tp_vw_PlanliTupArz]
+      ana_kategori, tuketim_kategori, COUNT(*) as link_count
+    FROM [AA_LIDER].[dbo].[AA_tp_vw_ReceteBaglantilari]
+    GROUP BY ana_kategori, tuketim_kategori
+    ORDER BY ana_kategori, link_count DESC
   `, 'AA_LIDER');
 
   return {
     demands: {
       summary: demandSummaryRes[0] || {},
-      sample: sampleDemands || []
+      sample: sampleDemands
     },
-    catalog: catalogSummary || [],
-    stock: stockSummary || [],
-    productionPlan: planSummary[0] || {}
+    catalog: catalogSummary,
+    stocks: stockSummary,
+    recipes: recipeSummary
   };
 }
 
@@ -140,7 +142,9 @@ async function fetchPreview() {
  * 4. Idempotent ERP Senkronizasyonu (Staging & Catalog)
  * - app_users rol kontrolünden geçen kullanıcı çalıştırır
  * - product_technicals tablosundaki yerel teknik alanları (renk, zemin, lak, ham levha) ASLA ezmez
- * - Aynı satırlar tekrar eklendiğinde patlamaz (ON CONFLICT DO UPDATE)
+ * - Faz 3B: demand_key ve recete_guid tekil anahtarlarıyla UPL satırlarını ve alternatifleri korur
+ * - Tam başarılı senkron sonunda kapsamdan çıkan eski talepleri pasife alır
+ * - Başarılı senkron ardından otomatik kademeli tahsis motorunu çalıştırır
  */
 async function runSync({ user, syncType = 'full' }) {
   const client = await getClient();
@@ -197,7 +201,8 @@ async function runSync({ user, syncType = 'full' }) {
     const erpStocks = await executeSqlReadOnly(`
       SELECT 
         stok_kodu, stok_adi, kategori_kodu, temel_birim,
-        toplam_fiziksel_stok, haric_bloke_stok, net_kullanilabilir_stok
+        toplam_fiziksel_stok, haric_bloke_stok, ham_net_stok,
+        net_kullanilabilir_stok, is_negative_stock, depo_kapsam_modu
       FROM [AA_LIDER].[dbo].[AA_tp_vw_StokDepo]
     `, 'AA_LIDER');
 
@@ -205,16 +210,20 @@ async function runSync({ user, syncType = 'full' }) {
       await client.query(`
         INSERT INTO erp_stock_levels (
           stock_code, stock_name, category_code, unit,
-          physical_stock, excluded_quarantine_stock, usable_stock,
+          physical_stock, excluded_quarantine_stock, raw_net_stock, usable_stock,
+          has_negative_warning, scope_mode,
           source_sync_id, synced_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
         ON CONFLICT (stock_code) DO UPDATE SET
           stock_name = EXCLUDED.stock_name,
           category_code = EXCLUDED.category_code,
           unit = EXCLUDED.unit,
           physical_stock = EXCLUDED.physical_stock,
           excluded_quarantine_stock = EXCLUDED.excluded_quarantine_stock,
+          raw_net_stock = EXCLUDED.raw_net_stock,
           usable_stock = EXCLUDED.usable_stock,
+          has_negative_warning = EXCLUDED.has_negative_warning,
+          scope_mode = EXCLUDED.scope_mode,
           source_sync_id = EXCLUDED.source_sync_id,
           synced_at = CURRENT_TIMESTAMP
       `, [
@@ -224,7 +233,10 @@ async function runSync({ user, syncType = 'full' }) {
         stk.temel_birim || 'ADET',
         stk.toplam_fiziksel_stok || 0,
         stk.haric_bloke_stok || 0,
+        stk.ham_net_stok !== null ? stk.ham_net_stok : 0,
         stk.net_kullanilabilir_stok || 0,
+        Boolean(stk.is_negative_stock),
+        stk.depo_kapsam_modu || 'ONCEDEN_NETLENMIS_KULLANILABILIR_STOK',
         syncRunId
       ]);
       stockCount++;
@@ -234,51 +246,76 @@ async function runSync({ user, syncType = 'full' }) {
     console.log(`[ERP Sync #${syncRunId}] Brüt tüp talepleri çekiliyor...`);
     const erpDemands = await executeSqlReadOnly(`
       SELECT 
-        is_no, siparis_no, dolum_mamul_kodu, dolum_mamul_adi,
-        dolum_plan_miktar, ihtiyac_tarihi, bitis_tarihi,
+        demand_key, is_no, siparis_no, dolum_mamul_kodu, dolum_mamul_adi,
+        dolum_plan_miktar, dolum_gerceklesen_miktar, dolum_kalan_miktar,
+        ihtiyac_tarihi, bitis_tarihi,
         dolum_makine, dolum_sira, dolum_seri,
         tup_stok_kodu, tup_stok_adi, tup_kategori,
         recete_upl_miktar, recete_upl_uret_miktar,
-        brut_tup_ihtiyac, upl_guid
+        brut_tup_ihtiyac, has_recipe_error, error_message,
+        upl_guid, upl_satirno
       FROM [AA_LIDER].[dbo].[AA_tp_vw_TupBrutIhtiyac]
     `, 'AA_LIDER');
 
     for (const d of erpDemands) {
+      const demandKey = d.demand_key || `${d.is_no}_${d.upl_guid || d.tup_stok_kodu}`;
+      const hasError = Boolean(d.has_recipe_error);
+      const grossQty = d.brut_tup_ihtiyac !== null ? parseFloat(d.brut_tup_ihtiyac) : 0;
+
       await client.query(`
         INSERT INTO erp_gross_demands (
-          is_no, siparis_no, dolum_mamul_kodu, dolum_mamul_adi,
-          dolum_plan_miktar, ihtiyac_tarihi, bitis_tarihi,
+          demand_key, is_no, siparis_no, dolum_mamul_kodu, dolum_mamul_adi,
+          dolum_plan_miktar, dolum_gerceklesen_miktar, dolum_kalan_miktar,
+          ihtiyac_tarihi, bitis_tarihi,
           dolum_makine, dolum_sira, dolum_seri,
           tup_stok_kodu, tup_stok_adi, tup_kategori,
           recete_upl_miktar, recete_upl_uret_miktar,
-          brut_tup_ihtiyac, upl_guid, source_sync_id, synced_at, is_active
+          brut_tup_ihtiyac, has_data_error, data_error_message, upl_guid,
+          source_sync_id, synced_at, is_active, status
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-          $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP, TRUE
+          $1, $2, $3, $4, $5,
+          $6, $7, $8,
+          $9, $10,
+          $11, $12, $13,
+          $14, $15, $16,
+          $17, $18,
+          $19, $20, $21, $22,
+          $23, CURRENT_TIMESTAMP, TRUE, 'active'
         )
-        ON CONFLICT (is_no, tup_stok_kodu) DO UPDATE SET
+        ON CONFLICT (demand_key) DO UPDATE SET
           siparis_no = EXCLUDED.siparis_no,
           dolum_mamul_kodu = EXCLUDED.dolum_mamul_kodu,
           dolum_mamul_adi = EXCLUDED.dolum_mamul_adi,
           dolum_plan_miktar = EXCLUDED.dolum_plan_miktar,
+          dolum_gerceklesen_miktar = EXCLUDED.dolum_gerceklesen_miktar,
+          dolum_kalan_miktar = EXCLUDED.dolum_kalan_miktar,
           ihtiyac_tarihi = EXCLUDED.ihtiyac_tarihi,
           bitis_tarihi = EXCLUDED.bitis_tarihi,
           dolum_makine = EXCLUDED.dolum_makine,
           dolum_sira = EXCLUDED.dolum_sira,
           dolum_seri = EXCLUDED.dolum_seri,
+          tup_stok_kodu = EXCLUDED.tup_stok_kodu,
           tup_stok_adi = EXCLUDED.tup_stok_adi,
           recete_upl_miktar = EXCLUDED.recete_upl_miktar,
           recete_upl_uret_miktar = EXCLUDED.recete_upl_uret_miktar,
           brut_tup_ihtiyac = EXCLUDED.brut_tup_ihtiyac,
+          has_data_error = EXCLUDED.has_data_error,
+          data_error_message = EXCLUDED.data_error_message,
+          upl_guid = EXCLUDED.upl_guid,
           source_sync_id = EXCLUDED.source_sync_id,
           synced_at = CURRENT_TIMESTAMP,
-          is_active = TRUE
+          is_active = TRUE,
+          status = 'active',
+          cancelled_at = NULL
       `, [
+        demandKey,
         d.is_no,
         d.siparis_no,
         d.dolum_mamul_kodu,
         d.dolum_mamul_adi,
         d.dolum_plan_miktar,
+        d.dolum_gerceklesen_miktar || 0,
+        d.dolum_kalan_miktar || d.dolum_plan_miktar,
         d.ihtiyac_tarihi,
         d.bitis_tarihi,
         d.dolum_makine,
@@ -289,7 +326,9 @@ async function runSync({ user, syncType = 'full' }) {
         d.tup_kategori || 'TENEKETUP',
         d.recete_upl_miktar,
         d.recete_upl_uret_miktar,
-        d.brut_tup_ihtiyac,
+        grossQty,
+        hasError,
+        d.error_message || null,
         d.upl_guid ? String(d.upl_guid) : null,
         syncRunId
       ]);
@@ -308,6 +347,8 @@ async function runSync({ user, syncType = 'full' }) {
     `, 'AA_LIDER');
 
     for (const r of erpRecipes) {
+      const recGuid = r.recete_guid ? String(r.recete_guid) : `${r.ana_stok_kodu}_${r.tuketim_stok_kodu}`;
+
       await client.query(`
         INSERT INTO erp_recipe_links (
           recete_guid, parent_stock_code, parent_stock_name, parent_category,
@@ -315,10 +356,11 @@ async function runSync({ user, syncType = 'full' }) {
           parent_quantity, child_quantity, consumption_ratio,
           unit_no, source_sync_id, synced_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
-        ON CONFLICT (parent_stock_code, child_stock_code) DO UPDATE SET
-          recete_guid = EXCLUDED.recete_guid,
+        ON CONFLICT (recete_guid) DO UPDATE SET
+          parent_stock_code = EXCLUDED.parent_stock_code,
           parent_stock_name = EXCLUDED.parent_stock_name,
           parent_category = EXCLUDED.parent_category,
+          child_stock_code = EXCLUDED.child_stock_code,
           child_stock_name = EXCLUDED.child_stock_name,
           child_category = EXCLUDED.child_category,
           parent_quantity = EXCLUDED.parent_quantity,
@@ -328,7 +370,7 @@ async function runSync({ user, syncType = 'full' }) {
           source_sync_id = EXCLUDED.source_sync_id,
           synced_at = CURRENT_TIMESTAMP
       `, [
-        r.recete_guid ? String(r.recete_guid) : null,
+        recGuid,
         r.ana_stok_kodu,
         r.ana_stok_adi,
         r.ana_kategori,
@@ -342,6 +384,17 @@ async function runSync({ user, syncType = 'full' }) {
         syncRunId
       ]);
       recipesCount++;
+    }
+
+    // E) Kapsamdan çıkan eski talepleri pasife al (yalnız tam başarılı senkron sonunda!)
+    const cancelRes = await client.query(`
+      UPDATE erp_gross_demands
+      SET is_active = FALSE, status = 'cancelled', cancelled_at = CURRENT_TIMESTAMP
+      WHERE is_active = TRUE AND source_sync_id != $1
+    `, [syncRunId]);
+    const cancelledCount = cancelRes.rowCount || 0;
+    if (cancelledCount > 0) {
+      console.log(`[ERP Sync #${syncRunId}] Kapsamdan çıkan ${cancelledCount} eski talep pasife alındı.`);
     }
 
     // Başarıyla tamamlandı
@@ -369,11 +422,20 @@ async function runSync({ user, syncType = 'full' }) {
         catalogCount,
         stockCount,
         demandsCount,
-        recipesCount
+        recipesCount,
+        cancelledCount
       })
     ]);
 
     await client.query('COMMIT');
+
+    // F) Senkron ardından kademeli ihtiyaç motorunu otomatik çalıştır (Faz 3B)
+    let calcResult = null;
+    try {
+      calcResult = await runAllocationCalculation({ user, syncRunId });
+    } catch (calcErr) {
+      console.warn(`[ERP Sync #${syncRunId}] Otomatik kademeli hesaplama uyarısı:`, calcErr.message);
+    }
 
     return {
       success: true,
@@ -384,8 +446,10 @@ async function runSync({ user, syncType = 'full' }) {
         catalog: catalogCount,
         stock: stockCount,
         demands: demandsCount,
-        recipes: recipesCount
-      }
+        recipes: recipesCount,
+        cancelled: cancelledCount
+      },
+      calculation: calcResult?.summary || null
     };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
@@ -420,64 +484,10 @@ async function getSyncHistory() {
 }
 
 /**
- * 6. İhtiyaç Havuzu İçin Birleştirilmiş Canlı Talep Listesi
- * - erp_gross_demands staging tablosundan brüt talepler
- * - erp_stock_levels tablosundan pozitif eldeki net kullanılabilir stok
- * - product_technicals tablosundan yerel teknik kart özellikleri
+ * 6. İhtiyaç Havuzu İçin Birleştirilmiş Canlı Talep Listesi (Faz 3B Kademeli Tahsisli)
  */
 async function getLiveDemands() {
-  const res = await query(`
-    SELECT 
-      CONCAT('ERP-', d.id) as id,
-      d.id as erp_demand_id,
-      d.is_no,
-      d.siparis_no as reference_no,
-      d.dolum_mamul_kodu,
-      d.dolum_mamul_adi,
-      d.dolum_plan_miktar,
-      d.ihtiyac_tarihi as due_date,
-      d.bitis_tarihi,
-      d.dolum_makine,
-      d.dolum_sira,
-      d.tup_stok_kodu as stock_code,
-      d.tup_stok_adi as stock_name,
-      d.brut_tup_ihtiyac as gross_quantity,
-      COALESCE(stk.usable_stock, 0) as available_stock,
-      d.brut_tup_ihtiyac as net_quantity, -- Faz 3B'de netlenecek
-      COALESCE(pt.tube_size, 'BELİRTİLMEMİŞ') as tube_size,
-      COALESCE(pt.diameter_mm, 0) as diameter_mm,
-      COALESCE(pt.height_mm, 0) as height_mm,
-      COALESCE(pt.raw_sheet_code, '') as raw_sheet_code,
-      COALESCE(rs.stock_name, '') as raw_sheet_desc,
-      COALESCE(pt.print_surface, 'BELİRTİLMEMİŞ') as print_surface,
-      COALESCE(pt.varnish, 'BELİRTİLMEMİŞ') as varnish,
-      COALESCE(pt.lacquer, 'BELİRTİLMEMİŞ') as lacquer,
-      COALESCE(pt.inside_coating, 'BELİRTİLMEMİŞ') as inside_coating,
-      COALESCE(pt.colors, ARRAY[]::VARCHAR[]) as colors,
-      CASE 
-        WHEN pt.stock_code IS NULL THEN 'missing_technical_card'
-        WHEN pt.raw_sheet_code IS NULL OR pt.raw_sheet_code = '' THEN 'missing_raw_sheet'
-        ELSE 'complete'
-      END as definition_status,
-      'RPT' as order_type,
-      'live_erp_sync' as record_kind,
-      d.synced_at
-    FROM erp_gross_demands d
-    LEFT JOIN erp_stock_levels stk ON d.tup_stok_kodu = stk.stock_code
-    LEFT JOIN product_technicals pt ON d.tup_stok_kodu = pt.stock_code
-    LEFT JOIN raw_sheets rs ON pt.raw_sheet_code = rs.stock_code
-    WHERE d.is_active = TRUE
-    ORDER BY d.ihtiyac_tarihi ASC, d.id ASC
-  `);
-  return res.rows.map(row => ({
-    ...row,
-    dolum_plan_miktar: parseFloat(row.dolum_plan_miktar) || 0,
-    gross_quantity: parseFloat(row.gross_quantity) || 0,
-    available_stock: parseFloat(row.available_stock) || 0,
-    net_quantity: parseFloat(row.net_quantity) || 0,
-    diameter_mm: parseFloat(row.diameter_mm) || 0,
-    height_mm: parseFloat(row.height_mm) || 0
-  }));
+  return await getAllocatedDemands();
 }
 
 module.exports = {
@@ -486,5 +496,6 @@ module.exports = {
   fetchPreview,
   runSync,
   getSyncHistory,
-  getLiveDemands
+  getLiveDemands,
+  getLatestCalculation
 };

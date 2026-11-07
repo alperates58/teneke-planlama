@@ -1,8 +1,8 @@
 {
   "project": "Teneke Planlama",
   "package_version": "2.0",
-  "updated_at": "2026-11-06",
-  "document_status": "faz_3a2_erp_sync_ready",
+  "updated_at": "2026-11-07",
+  "document_status": "faz_3b_demand_engine_completed",
   "authorized_initial_scope": [
     0,
     1,
@@ -10,10 +10,11 @@
     "2C",
     "3A.1",
     "2D",
-    "3A.2"
+    "3A.2",
+    "3B"
   ],
-  "current_phase": "3A.2",
-  "next_implementation_phase": "3B",
+  "current_phase": "3B",
+  "next_implementation_phase": "5A",
   "phases": [
     {
       "number": 0,
@@ -88,11 +89,13 @@
       "number": "3B",
       "name": "Çok Seviyeli İhtiyaç Motoru ve Havuz (50-10-5-7=28 Kuralı)",
       "file": "phases/FAZ-03B-COK-SEVIYELI-IHTIYAC-VE-HAVUZ.md",
-      "status": "planned",
-      "acceptance_verified": false,
+      "status": "completed",
+      "acceptance_verified": true,
       "dependencies": [
         "3A.2"
-      ]
+      ],
+      "verified_at": "2026-11-07",
+      "evidence": "38/38 entegrasyon ve mutabakat testi başarılı: 50/10/5/7 -> 40/35/28 kademeli netleme motoru uygulandı; deterministik FIFO sıralama; tekil stok havuzu tahsisi (mükerrer stok engellendi); negatif kaynak stok koruması; demand_key ile çoklu satır garantisi; 443 canlı ERP talebinde 4.970.843 brüt tüpten 1.216.896 tüp stok, 621.362 kesik stok ve 712.960 baskılı stok düşülerek 2.419.625 net yeni baskı ihtiyacı hesaplandı; alper_tenekeuretim tüp planı ve termin gecikme açığı bağlandı; Overview 5 seviyeli KPI ve 4 aşamalı detay çekmecesi tamamlandı."
     },
     {
       "number": "5A",

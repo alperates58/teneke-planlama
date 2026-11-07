@@ -221,10 +221,13 @@ Sunucu, port, veritabanı, kullanıcı, view tanımları, kolon eşleme önizlem
 
 ### 7.1. Faz 3A — AA_LIDER SQL Sözleşmesi ve Salt-Okunur Entegrasyon
 - SQL bağlantı veritabanı: `AA_LIDER`; kaynak ERP veritabanı: `MikroDesktop_LIDER26`.
+- **Doğrulanmış Ağ Topolojisi (06.11.2026):**
+  - Uygulama Dağıtım Sunucusu: `lider-server2` (Yerel IP: `192.168.70.2`, Dış IP: `95.3.44.150:2222`).
+  - SQL Server Host: `172.17.0.6:1433` (TCP erişimi ve kimlik doğrulama `planlama` kullanıcısı ile test edilip onaylandı).
 - ERP'ye hiçbir tabloya (`meltem_teneke`, `alper_tenekeuretim` vb.) yazma veya silme yapılmaz; bağlantı kesinlikle salt-okunurdur (`SELECT`).
 - 5 temel view sözleşmesi ve parametrik kolon eşlemesi: `AA_tp_vw_StokKartlari`, `AA_tp_vw_TupBrutIhtiyac`, `AA_tp_vw_ReceteBaglantilari`, `AA_tp_vw_StokDepo`, `AA_tp_vw_PlanliTupArz`.
 - Staging ve atomik snapshot: Hatalı/yarım sorgu son başarılı veriyi bozmaz.
-- Kimlik bilgileri şifreli olarak sunucuda tutulur; istemciye veya loglara aktarılmaz.
+- Kimlik bilgileri şifreli olarak sunucuda (`.env` -> `DB_PASSWORD`) tutulur; istemciye veya loglara aktarılmaz.
 
 ### 7.2. Faz 3B — Çok Seviyeli İhtiyaç Motoru ve Havuz (50-10-5-7=28 Kuralı)
 - Kademeli stok netleme formülü:

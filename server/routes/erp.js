@@ -1,4 +1,5 @@
 const erpSyncService = require('../services/erpSyncService');
+const demandAllocationService = require('../services/demandAllocationService');
 const { requireRole } = require('../middleware/auth');
 
 async function handleErpRoutes(req, res, pathname) {
@@ -59,7 +60,38 @@ async function handleErpRoutes(req, res, pathname) {
     }
   }
 
-  // 6. Canlı Brüt Talepler (/api/erp/demands ve /api/demands)
+  // 6. Kademeli Stok Tahsis Hesaplamasını Yeniden Çalıştır (Faz 3B Motoru)
+  if (req.method === 'POST' && pathname === '/api/erp/calculate-allocations') {
+    return new Promise((resolve) => {
+      requireRole(['admin', 'planner'])(req, res, async () => {
+        try {
+          const syncRunId = req.body?.syncRunId || null;
+          const result = await demandAllocationService.runAllocationCalculation({ user: req.user, syncRunId });
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: true, data: result }));
+          resolve(true);
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  // 7. En Son Hesaplama Koşusu ve Özeti (Faz 3B)
+  if (req.method === 'GET' && pathname === '/api/erp/latest-calculation') {
+    try {
+      const latest = await demandAllocationService.getLatestCalculation();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ success: true, data: latest }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+    }
+  }
+
+  // 8. Canlı Brüt ve Hesaplanmış Kademeli Talepler (/api/erp/demands ve /api/demands)
   if (req.method === 'GET' && (pathname === '/api/erp/demands' || pathname === '/api/demands')) {
     try {
       const demands = await erpSyncService.getLiveDemands();

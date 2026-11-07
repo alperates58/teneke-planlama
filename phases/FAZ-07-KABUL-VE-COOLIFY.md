@@ -12,7 +12,7 @@ Durum: PLANLANDI. Uygulama ve kabul kanıtı henüz yok.
 - 7.2 Gerçekçi veri hacminde tablo, senkronizasyon ve çözüm süresi ölçümü. Hedefler veri hacmi öğrenildikten sonra belirlenir; kanıtsız süre garantisi verilmez.
 - 7.3 Rol/yetki matrisi, oturum, gizli değerler, dış bağlantılar ve kayıtların son kontrolü.
 - 7.4 PostgreSQL ve dosya ekleri için yedekleme, geri yükleme denemesi, saklama ve izleme.
-- 7.5 Coolify proje/ortamı, container kaynakları, kalıcı diskler, healthcheck, loglar, HTTPS/domain ve SQL Server çıkış erişimi. Hedef sunucu/domain kullanıcı tarafından belirlenir; şirket ve kişisel sunucular karıştırılmaz.
+- 7.5 Coolify proje/ortamı, container kaynakları, kalıcı diskler, healthcheck, loglar, HTTPS/domain ve SQL Server çıkış erişimi. Hedef sunucu: `lider-server2` (İç IP: `192.168.70.2`, Dış IP: `95.3.44.150:2222`, SQL hedefi: `172.17.0.6:1433`). Kullanıcı grubuna `sudo usermod -aG docker alper` tanımlanır.
 - 7.6 Demo verisi ile üretim verisi ayrılır; ilk canlı veri yüklemesi ve uzlaştırması yapılır.
 - 7.7 Sürüm/migration ve geri dönüş planı. Uygulama geri alma işleminin DB migration'ını otomatik geri alacağı varsayılmaz.
 - 7.8 Kullanıcı rehberi, günlük operasyon kontrolü, hata giderme ve sorumlular.

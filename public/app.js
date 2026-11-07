@@ -171,6 +171,16 @@ async function initBackendSync() {
       console.warn('[Sync] ERP durumları alınamadı:', e.message);
     }
 
+    // 12. Son Kademeli İhtiyaç Hesaplama Koşusu (Faz 3B)
+    try {
+      const calcRes = await apiRequest('/api/erp/latest-calculation');
+      if (calcRes && calcRes.success && calcRes.data) {
+        state.latestCalculation = calcRes.data;
+      }
+    } catch (e) {
+      console.warn('[Sync] Son hesaplama bilgisi alınamadı:', e.message);
+    }
+
     state.backendConnected = true;
     state.isSyncing = false;
   } catch (err) {
@@ -1717,7 +1727,12 @@ let state = {
   showSnapshotHistoryModal: false,
   planSnapshots: [],
   planDraft: null,
-  planSearch: ''
+  planSearch: '',
+
+  // Faz 3B: Kademeli İhtiyaç Motoru & Stok Tahsisi
+  latestCalculation: null,
+  isCalculatingAllocations: false,
+  demandCalculationFilter: 'ALL' // 'ALL' | 'CALCULATED' | 'UNRESOLVED' | 'ERROR'
 };
 
 const PRODUCT_PALETTES = [
@@ -1938,49 +1953,105 @@ function renderHeader() {
 // Screen 1: Planlama Özeti
 function renderOverview() {
   const totalGross = state.demands.reduce((a, b) => a + (Number(b.gross_quantity) || 0), 0);
-  const totalNet = state.demands.reduce((a, b) => a + (Number(b.net_quantity) || 0), 0);
 
   // Tekil ürün bazlı ambar stok haritası (aynı ürünün mükerrer toplanması engellenir)
   const uniqueStockMap = new Map();
   state.demands.forEach(d => {
     if (d.stock_code && !uniqueStockMap.has(d.stock_code)) {
-      uniqueStockMap.set(d.stock_code, Number(d.available_stock) || 0);
+      uniqueStockMap.set(d.stock_code, Number(d.available_stock || d.physical_tube_stock) || 0);
     }
   });
   const totalStock = Array.from(uniqueStockMap.values()).reduce((a, b) => a + b, 0);
 
+  // Faz 3B Kademeli İhtiyaç Motoru Sonuçları
+  const calc = state.latestCalculation;
+  const isCalculated = Boolean(calc && calc.status === 'success');
+  const netTube = isCalculated ? Number(calc.total_net_tube) : null;
+  const netCutting = isCalculated ? Number(calc.total_net_cutting) : null;
+  const netPrint = isCalculated ? Number(calc.total_net_print) : null;
+
   return `
     <div class="space-y-6">
-      <!-- İlke Hatırlatması -->
-      <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2.5">
-        <span class="text-base text-amber-600">ℹ</span>
-        <div>
-          <div class="font-bold">Faz 2 İlkesi: Levha kapasitesi hesaplanmaz; gerçek levha oranı ve kullanıcı tarafından tanımlanmış montaj düzeni görselleştirilir.</div>
-          <div class="text-[11px] text-amber-800 mt-0.5">Fiziksel levha düzeni ekran genişliğine göre değişmez; tanımlı satır ve sütunlar sabit kalır.</div>
+      <!-- İlke Hatırlatması & Faz 3B Durumu -->
+      <div class="p-3.5 bg-sky-50 border border-sky-200 rounded-lg text-xs text-sky-950 flex items-start gap-2.5">
+        <span class="text-base text-sky-600">ℹ</span>
+        <div class="flex-1">
+          <div class="font-bold">Faz 3B: Kademeli İhtiyaç ve Tekil Stok Tahsis Motoru Aktif</div>
+          <div class="text-[11px] text-sky-800 mt-0.5">
+            Tüp, kesik levha ve baskılı levha stokları termin sırasına göre tek seferlik tahsis edilerek netlenir. Mükerrer stok kullanımı engellenir.
+            Ham levha stoğu yeni baskı ihtiyacını azaltmaz; satın alma gereksinimini etkiler.
+          </div>
         </div>
+        <button
+          onclick="triggerCalculateAllocations();"
+          ${state.isCalculatingAllocations ? 'disabled' : ''}
+          class="px-3 py-1.5 text-xs font-semibold rounded bg-sky-700 hover:bg-sky-800 text-white shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer flex-shrink-0"
+        >
+          ${state.isCalculatingAllocations ? `
+            <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+            <span>Hesaplanıyor...</span>
+          ` : `
+            <span>Tahsisi Yeniden Çalıştır</span>
+          `}
+        </button>
       </div>
 
-      <!-- KPI Kartları -->
-      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div class="p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
-          <span class="text-[11px] font-mono uppercase text-slate-500">Brüt İhtiyaç Havuzu</span>
-          <div class="text-2xl font-bold font-mono text-slate-900 mt-1">${formatNum(totalGross)}</div>
-          <span class="text-[10px] text-slate-400 font-mono">Tüm dolum siparişleri (${state.demands.length} Talep)</span>
+      <!-- Kademeli 5 Seviyeli KPI Kartları (Faz 3B) -->
+      <div class="grid grid-cols-1 sm:grid-cols-5 gap-3.5">
+        <!-- 1. Brüt İhtiyaç -->
+        <div class="p-3.5 bg-white border border-slate-200 rounded-lg shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase text-slate-500">1. Brüt Talep</span>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-slate-100 text-slate-600">Dolum</span>
+          </div>
+          <div class="text-xl font-bold font-mono text-slate-900 mt-1 tabular-nums">${formatNum(totalGross)}</div>
+          <span class="text-[10px] text-slate-400 font-mono">${state.demands.length} Talep Satırı</span>
         </div>
-        <div class="p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
-          <span class="text-[11px] font-mono uppercase text-slate-500">Tekil Ambar Stok</span>
-          <div class="text-2xl font-bold font-mono text-emerald-700 mt-1">${formatNum(totalStock)}</div>
-          <span class="text-[10px] text-slate-400 font-mono">${uniqueStockMap.size} tekil ürünün eldeki stoğu</span>
+
+        <!-- 2. Tekil Ambar Stok -->
+        <div class="p-3.5 bg-white border border-slate-200 rounded-lg shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase text-slate-500">2. Tekil Tüp Stoğu</span>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-emerald-50 text-emerald-700">Fiziksel</span>
+          </div>
+          <div class="text-xl font-bold font-mono text-emerald-700 mt-1 tabular-nums">${formatNum(totalStock)}</div>
+          <span class="text-[10px] text-slate-400 font-mono">${uniqueStockMap.size} Tekil Ürün Ambarı</span>
         </div>
-        <div class="p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
-          <span class="text-[11px] font-mono uppercase text-slate-500">Net Üretim İhtiyacı</span>
-          <div class="text-2xl font-bold font-mono text-sky-700 mt-1">${formatNum(totalNet)}</div>
-          <span class="text-[10px] text-slate-400 font-mono">Montaja gidecek net tüp</span>
+
+        <!-- 3. Net Tüp Üretim İhtiyacı -->
+        <div class="p-3.5 bg-white border border-slate-200 rounded-lg shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase text-slate-500">3. Net Tüp Üretimi</span>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-blue-50 text-blue-700">Tüp Hattı</span>
+          </div>
+          <div class="text-xl font-bold font-mono text-blue-700 mt-1 tabular-nums">
+            ${netTube !== null ? formatNum(netTube) : '<span class="text-xs text-amber-600 font-normal">Hesaplanıyor...</span>'}
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">Tüp stok sonrası kalan</span>
         </div>
-        <div class="p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
-          <span class="text-[11px] font-mono uppercase text-slate-500">Tanımlı Montaj Düzenleri</span>
-          <div class="text-2xl font-bold font-mono text-purple-700 mt-1">${state.sheetLayouts.length} / 18</div>
-          <span class="text-[10px] text-slate-400 font-mono">Doğrulanmış fiziksel düzenler</span>
+
+        <!-- 4. Net Kesim İhtiyacı -->
+        <div class="p-3.5 bg-white border border-slate-200 rounded-lg shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase text-slate-500">4. Net Kesim</span>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-amber-50 text-amber-700">Makas</span>
+          </div>
+          <div class="text-xl font-bold font-mono text-amber-700 mt-1 tabular-nums">
+            ${netCutting !== null ? formatNum(netCutting) : '<span class="text-xs text-amber-600 font-normal">Hesaplanıyor...</span>'}
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">Kesik stok sonrası kalan</span>
+        </div>
+
+        <!-- 5. Net Yeni Baskı İhtiyacı -->
+        <div class="p-3.5 bg-white border border-sky-300 bg-sky-50/30 rounded-lg shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase text-sky-800 font-semibold">5. Yeni Baskı</span>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-sky-100 text-sky-800 font-bold">Matbaa</span>
+          </div>
+          <div class="text-xl font-bold font-mono text-sky-900 mt-1 tabular-nums">
+            ${netPrint !== null ? formatNum(netPrint) : '<span class="text-xs text-amber-600 font-normal">Hesaplanıyor...</span>'}
+          </div>
+          <span class="text-[10px] text-sky-700 font-mono">Montaja gidecek net</span>
         </div>
       </div>
 
@@ -2025,12 +2096,15 @@ function renderDemands() {
     if (state.demandFilterSurface !== 'ALL' && d.print_surface !== state.demandFilterSurface) return false;
     if (state.demandFilterStatus !== 'ALL' && d.definition_status !== state.demandFilterStatus) return false;
     if (state.demandFilterRecordKind !== 'ALL' && d.record_kind !== state.demandFilterRecordKind) return false;
+    if (state.demandCalculationFilter === 'CALCULATED' && d.calculation_status !== 'CALCULATED') return false;
+    if (state.demandCalculationFilter === 'UNRESOLVED' && d.calculation_status !== 'UNRESOLVED') return false;
+    if (state.demandCalculationFilter === 'ERROR' && (!d.has_data_error && d.calculation_status !== 'ERROR')) return false;
     if (searchQuery) {
       const matchRef = (d.reference_no || '').toLowerCase().includes(searchQuery);
       const matchCode = (d.stock_code || '').toLowerCase().includes(searchQuery);
       const matchName = (d.stock_name || '').toLowerCase().includes(searchQuery);
       const matchSize = (d.tube_size || '').toLowerCase().includes(searchQuery);
-      const matchSheet = (d.raw_sheet_desc || '').toLowerCase().includes(searchQuery);
+      const matchSheet = (d.raw_sheet_desc || d.raw_sheet_name || '').toLowerCase().includes(searchQuery);
       if (!matchRef && !matchCode && !matchName && !matchSize && !matchSheet) return false;
     }
     return true;
@@ -2040,12 +2114,15 @@ function renderDemands() {
   const surfaces = Array.from(new Set(state.demands.map(d => d.print_surface))).filter(Boolean).sort();
 
   const totalGross = filtered.reduce((a, b) => a + (Number(b.gross_quantity) || 0), 0);
-  const totalNet = filtered.reduce((a, b) => a + (Number(b.net_quantity) || 0), 0);
+  const totalNetTube = filtered.reduce((a, b) => a + (Number(b.net_tube_quantity !== undefined ? b.net_tube_quantity : b.net_quantity) || 0), 0);
+  const totalNetCutting = filtered.reduce((a, b) => a + (Number(b.net_cutting_quantity !== undefined ? b.net_cutting_quantity : b.net_quantity) || 0), 0);
+  const totalNetPrint = filtered.reduce((a, b) => a + (Number(b.net_print_quantity !== undefined ? b.net_print_quantity : b.net_quantity) || 0), 0);
+
   // Tekil ürün bazlı ambar stok haritası (aynı ürün birden çok siparişte varsa stoğu mükerrer toplanmaz)
   const uniqueStockMap = new Map();
   filtered.forEach(d => {
     if (d.stock_code && !uniqueStockMap.has(d.stock_code)) {
-      uniqueStockMap.set(d.stock_code, Number(d.available_stock) || 0);
+      uniqueStockMap.set(d.stock_code, Number(d.available_stock || d.physical_tube_stock) || 0);
     }
   });
   const totalUniqueStock = Array.from(uniqueStockMap.values()).reduce((a, b) => a + b, 0);
@@ -2054,7 +2131,7 @@ function renderDemands() {
   const filteredIds = filtered.map(d => d.id);
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => state.selectedDemandIds.includes(d.id));
   const selectedCount = state.selectedDemandIds.length;
-  const isFiltered = Boolean(state.demandSearch || state.demandFilterSize !== 'ALL' || state.demandFilterSurface !== 'ALL' || state.demandFilterRecordKind !== 'ALL');
+  const isFiltered = Boolean(state.demandSearch || state.demandFilterSize !== 'ALL' || state.demandFilterSurface !== 'ALL' || state.demandFilterRecordKind !== 'ALL' || state.demandCalculationFilter !== 'ALL');
 
   return `
     <div class="space-y-4">
@@ -2062,13 +2139,13 @@ function renderDemands() {
       <div class="bg-white border border-slate-200 rounded-lg p-4 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div>
           <div class="flex items-center gap-2">
-            <h2 class="text-sm font-semibold text-slate-900 tracking-tight uppercase">Dolum ve Satış Tüp İhtiyaçları</h2>
+            <h2 class="text-sm font-semibold text-slate-900 tracking-tight uppercase">Dolum ve Satış Tüp İhtiyaçları (Faz 3B)</h2>
             <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 border border-slate-200">
               ${filtered.length} / ${state.demands.length} Talep
             </span>
           </div>
           <p class="text-xs text-slate-500 mt-1">
-            Brüt dolum ihtiyaçları, ambar stokları ve montaja gidecek net tüp miktarları. Zemin, vernik, lak ve iç kaplama 4 bağımsız teknik alandır.
+            Kademeli ihtiyaç motoru: Brüt Talep → Tüp Stok Tahsisi (Net Tüp) → Kesik Stok Tahsisi (Net Kesim) → Baskılı Stok Tahsisi (Net Yeni Baskı).
           </p>
           <div class="flex items-center gap-2 mt-2">
             <button
@@ -2096,13 +2173,27 @@ function renderDemands() {
 
         <div class="flex items-center gap-2.5 flex-shrink-0">
           <button
+            onclick="triggerCalculateAllocations();"
+            ${state.isCalculatingAllocations ? 'disabled' : ''}
+            class="px-3 py-2 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            title="Kademeli stok tahsisini baştan çalıştır"
+          >
+            ${state.isCalculatingAllocations ? `
+              <svg class="animate-spin h-3.5 w-3.5 text-slate-700" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+              <span>Hesaplanıyor...</span>
+            ` : `
+              <span>Tahsisi Yeniden Hesapla</span>
+            `}
+          </button>
+
+          <button
             ${selectedCount > 0 ? `onclick="transferSelectedDemandsToWorkbench();"` : 'disabled'}
             class="px-3.5 py-2 text-xs font-semibold rounded transition-colors flex items-center gap-2 shadow-xs ${
               selectedCount > 0
                 ? 'bg-sky-700 hover:bg-sky-800 text-white cursor-pointer'
                 : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
             }"
-            title="${selectedCount > 0 ? 'Seçili talepleri baskı kombinasyon masasına aktar' : 'Lütfen tablodan en az bir talep seçin'}"
+            title="${selectedCount > 0 ? 'Doğrulanmış net baskı ihtiyacı olan seçili talepleri montaj masasına aktar' : 'Lütfen tablodan en az bir talep seçin'}"
           >
             ${getSvgIcon('arrow-right', 'w-4 h-4')}
             <span>Kombinasyona Aktar</span>
@@ -2173,6 +2264,20 @@ function renderDemands() {
             </select>
           </div>
 
+          <!-- Hesap Durumu Filtresi (Faz 3B) -->
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="text-slate-500 font-medium">Hesap Durumu:</span>
+            <select
+              onchange="state.demandCalculationFilter = this.value; renderApp();"
+              class="bg-slate-50 border border-slate-200 text-slate-800 rounded px-2.5 py-1.5 text-xs font-sans focus:outline-none focus:border-sky-500"
+            >
+              <option value="ALL" ${state.demandCalculationFilter === 'ALL' ? 'selected' : ''}>Tümü (${state.demands.length})</option>
+              <option value="CALCULATED" ${state.demandCalculationFilter === 'CALCULATED' ? 'selected' : ''}>Hesaplandı</option>
+              <option value="UNRESOLVED" ${state.demandCalculationFilter === 'UNRESOLVED' ? 'selected' : ''}>Çözümlenemedi</option>
+              <option value="ERROR" ${state.demandCalculationFilter === 'ERROR' ? 'selected' : ''}>Veri Hatası</option>
+            </select>
+          </div>
+
           <!-- Kayıt Türü Filtresi -->
           <div class="flex items-center gap-1.5 text-xs">
             <span class="text-slate-500 font-medium">Kayıt Türü:</span>
@@ -2181,7 +2286,7 @@ function renderDemands() {
               class="bg-slate-50 border border-slate-200 text-slate-800 rounded px-2.5 py-1.5 text-xs font-sans focus:outline-none focus:border-sky-500"
             >
               <option value="ALL" ${state.demandFilterRecordKind === 'ALL' ? 'selected' : ''}>Tümü</option>
-              <option value="source_transcription" ${state.demandFilterRecordKind === 'source_transcription' ? 'selected' : ''}>Kaynak Veri (ERP)</option>
+              <option value="live_erp_sync" ${state.demandFilterRecordKind === 'live_erp_sync' ? 'selected' : ''}>Kaynak Veri (ERP)</option>
               <option value="synthetic_demo" ${state.demandFilterRecordKind === 'synthetic_demo' ? 'selected' : ''}>Demo Senaryo</option>
             </select>
           </div>
@@ -2223,8 +2328,10 @@ function renderDemands() {
             ` : ''}
             <div class="text-[11px] font-mono text-slate-500 flex items-center gap-2">
               <span>Brüt: <strong class="text-slate-800 tabular-nums">${formatNum(totalGross)}</strong></span>
-              <span>• Tekil Stok: <strong class="text-emerald-700 tabular-nums" title="${uniqueItemsCount} tekil ürünün eldeki kullanılabilir fiziksel ambar stoğu (mükerrer toplanmaz)">${formatNum(totalUniqueStock)}</strong></span>
-              <span>• Net Tüp: <strong class="text-sky-900 tabular-nums">${formatNum(totalNet)}</strong></span>
+              <span>• Tüp Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(totalUniqueStock)}</strong></span>
+              <span>• Net Tüp: <strong class="text-blue-700 tabular-nums">${formatNum(totalNetTube)}</strong></span>
+              <span>• Net Kesim: <strong class="text-amber-700 tabular-nums">${formatNum(totalNetCutting)}</strong></span>
+              <span>• Yeni Baskı: <strong class="text-sky-900 tabular-nums font-bold">${formatNum(totalNetPrint)}</strong></span>
             </div>
           </div>
         </div>
@@ -2244,36 +2351,40 @@ function renderDemands() {
                     class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
                   />
                 </th>
-                <th class="py-2 px-2.5 min-w-[115px]">Sipariş No</th>
-                <th class="py-2 px-2.5 min-w-[240px]">Tüp Adı & Stok Kodu</th>
-                <th class="py-2 px-2 min-w-[65px]">Ebat</th>
-                <th class="py-2 px-2.5 text-right min-w-[85px]">
-                  <div>Brüt İhtiyaç</div>
-                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">dolum talebi</div>
+                <th class="py-2 px-2.5 min-w-[110px]">Sipariş No</th>
+                <th class="py-2 px-2.5 min-w-[220px]">Tüp Adı & Stok Kodu</th>
+                <th class="py-2 px-2 min-w-[60px]">Ebat</th>
+                <th class="py-2 px-2.5 text-right min-w-[80px]">
+                  <div>Brüt Talep</div>
+                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">dolum ihtiyacı</div>
                 </th>
-                <th class="py-2 px-2.5 text-right min-w-[85px]">
-                  <div>Ambar Stok</div>
-                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">kullanılabilir</div>
+                <th class="py-2 px-2.5 text-right min-w-[90px]">
+                  <div>Tüp Stok/Tahsis</div>
+                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">fiziksel / tahsis</div>
                 </th>
-                <th class="py-2 px-2.5 text-right min-w-[85px]">
+                <th class="py-2 px-2.5 text-right min-w-[80px]">
                   <div>Net Tüp</div>
-                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">tüp üretimi</div>
+                  <div class="text-[9px] text-blue-700 font-normal lowercase tracking-normal">tüp üretimi</div>
                 </th>
-                <th class="py-2 px-2 text-center min-w-[105px]">
-                  <div>Kesik / Baskı</div>
-                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">faz 3b netleme</div>
+                <th class="py-2 px-2.5 text-right min-w-[85px]">
+                  <div>Net Kesim</div>
+                  <div class="text-[9px] text-amber-700 font-normal lowercase tracking-normal">kesik stok sonrası</div>
+                </th>
+                <th class="py-2 px-2.5 text-right min-w-[90px]">
+                  <div>Yeni Baskı</div>
+                  <div class="text-[9px] text-sky-800 font-bold lowercase tracking-normal">baskı montajına</div>
                 </th>
                 <th class="py-2 px-2 text-center min-w-[65px]">Zemin</th>
                 <th class="py-2 px-2 text-center min-w-[80px]">İç Kaplama</th>
-                <th class="py-2 px-2.5 min-w-[125px]">Renkler</th>
-                <th class="py-2 px-2 text-center min-w-[70px]">Kayıt Türü</th>
+                <th class="py-2 px-2.5 min-w-[110px]">Renkler</th>
+                <th class="py-2 px-2 text-center min-w-[85px]">Hesap Durumu</th>
                 <th class="py-2 px-2 text-center min-w-[55px]">Detay</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 text-slate-800">
               ${filtered.length === 0 ? `
                 <tr>
-                  <td colspan="13" class="py-12 px-4 text-center">
+                  <td colspan="14" class="py-12 px-4 text-center">
                     <div class="max-w-sm mx-auto space-y-2">
                       <div class="text-slate-400 mx-auto w-8 h-8 flex justify-center">${getSvgIcon('info', 'w-8 h-8')}</div>
                       <div class="font-medium text-slate-900 text-sm">Eşleşen talep bulunamadı</div>
@@ -2291,6 +2402,13 @@ function renderDemands() {
                 </tr>
               ` : filtered.map(d => {
                 const isSelected = state.selectedDemandIds.includes(d.id);
+                const hasAlloc = d.calculation_status === 'CALCULATED';
+                const netTubeVal = d.net_tube_quantity !== undefined ? d.net_tube_quantity : d.net_quantity;
+                const netCutVal = d.net_cutting_quantity !== undefined ? d.net_cutting_quantity : d.net_quantity;
+                const netPrintVal = d.net_print_quantity !== undefined ? d.net_print_quantity : d.net_quantity;
+                const physStock = Number(d.physical_tube_stock || d.available_stock || 0);
+                const allocTube = Number(d.allocated_tube_stock || 0);
+
                 return `
                   <tr class="hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-sky-50/50' : ''}">
                     <td class="py-2 px-2.5 text-center">
@@ -2305,8 +2423,9 @@ function renderDemands() {
                       <button onclick="openDemandDetail('${d.id}');" class="hover:underline text-left cursor-pointer font-semibold">
                         ${d.reference_no}
                       </button>
+                      ${d.is_no && d.is_no !== d.reference_no ? `<div class="text-[9px] text-slate-400 font-mono">${d.is_no}</div>` : ''}
                     </td>
-                    <td class="py-2 px-2.5 min-w-[240px]">
+                    <td class="py-2 px-2.5 min-w-[220px]">
                       <div class="font-medium text-slate-900 line-clamp-1" title="${escapeHtml(d.stock_name)}">
                         ${d.stock_name}
                       </div>
@@ -2316,19 +2435,22 @@ function renderDemands() {
                     <td class="py-2 px-2.5 text-right font-mono tabular-nums text-slate-600 whitespace-nowrap">
                       ${formatNum(d.gross_quantity)}
                     </td>
-                    <td class="py-2 px-2.5 text-right font-mono tabular-nums whitespace-nowrap ${d.available_stock > 0 ? 'text-emerald-700 font-medium' : 'text-slate-400'}">
-                      ${d.available_stock > 0 ? formatNum(d.available_stock) : '0'}
+                    <td class="py-2 px-2.5 text-right font-mono tabular-nums whitespace-nowrap">
+                      ${allocTube > 0 ? `
+                        <span class="text-emerald-700 font-semibold">${formatNum(allocTube)}</span>
+                        <span class="text-[10px] text-slate-400 font-normal"> / ${formatNum(physStock)}</span>
+                      ` : `
+                        <span class="text-slate-400">0 / ${formatNum(physStock)}</span>
+                      `}
                     </td>
-                    <td class="py-2 px-2.5 text-right font-mono tabular-nums font-bold text-slate-900 whitespace-nowrap">
-                      ${formatNum(d.net_quantity)}
+                    <td class="py-2 px-2.5 text-right font-mono tabular-nums font-semibold text-blue-900 whitespace-nowrap">
+                      ${hasAlloc ? formatNum(netTubeVal) : '<span class="text-slate-400 font-normal">-</span>'}
                     </td>
-                    <td class="py-2 px-2 text-center whitespace-nowrap">
-                      <span
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-500 border border-dashed border-slate-300"
-                        title="Faz 3B çok seviyeli stok netleme motoru ile hesaplanacaktır"
-                      >
-                        Hesaplanmadı
-                      </span>
+                    <td class="py-2 px-2.5 text-right font-mono tabular-nums font-semibold text-amber-800 whitespace-nowrap">
+                      ${hasAlloc ? (d.cutting_stock_code ? formatNum(netCutVal) : '<span class="text-slate-400 text-[10px] font-normal italic">Reçetesiz</span>') : '<span class="text-slate-400 font-normal">-</span>'}
+                    </td>
+                    <td class="py-2 px-2.5 text-right font-mono tabular-nums font-bold text-sky-900 whitespace-nowrap bg-sky-50/40">
+                      ${hasAlloc ? (d.print_stock_code ? formatNum(netPrintVal) : '<span class="text-slate-400 text-[10px] font-normal italic">Reçetesiz</span>') : '<span class="text-slate-400 font-normal">-</span>'}
                     </td>
                     <td class="py-2 px-2 text-center whitespace-nowrap">
                       <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${
@@ -2336,7 +2458,7 @@ function renderDemands() {
                           ? 'bg-purple-50 text-purple-800 border border-purple-200'
                           : 'bg-slate-100 text-slate-700 border border-slate-200'
                       }">
-                        ${d.print_surface}
+                        ${d.print_surface || 'BELİRTİLMEMİŞ'}
                       </span>
                     </td>
                     <td class="py-2 px-2 text-center whitespace-nowrap">
@@ -2350,23 +2472,33 @@ function renderDemands() {
                     </td>
                     <td class="py-2 px-2.5">
                       <div class="flex flex-wrap gap-1">
-                        ${d.colors.map(renderColorChip).join('')}
+                        ${(Array.isArray(d.colors) ? d.colors : []).map(renderColorChip).join('')}
                       </div>
                     </td>
                     <td class="py-2 px-2 text-center whitespace-nowrap">
-                      <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-medium ${
-                        d.record_kind === 'source_transcription'
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          : 'bg-amber-50 text-amber-800 border border-amber-200'
-                      }">
-                        ${d.record_kind === 'source_transcription' ? 'KAYNAK' : 'DEMO'}
-                      </span>
+                      ${d.has_data_error ? `
+                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-medium bg-rose-50 text-rose-800 border border-rose-200" title="${escapeHtml(d.data_error_message || 'Veri hatası')}">
+                          VERİ HATASI
+                        </span>
+                      ` : d.calculation_status === 'CALCULATED' ? `
+                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          HESAPLANDI
+                        </span>
+                      ` : d.calculation_status === 'UNRESOLVED' ? `
+                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-800 border border-amber-200" title="${escapeHtml(d.unresolved_reason || '')}">
+                          ÇÖZÜLEMEDİ
+                        </span>
+                      ` : `
+                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-medium bg-slate-100 text-slate-600">
+                          BEKLİYOR
+                        </span>
+                      `}
                     </td>
                     <td class="py-2 px-2 text-center whitespace-nowrap">
                       <button
                         onclick="openDemandDetail('${d.id}');"
                         class="px-2 py-0.5 text-[11px] font-medium text-sky-700 hover:text-sky-900 hover:bg-sky-50 rounded border border-slate-200 transition-colors cursor-pointer"
-                        title="Ürün teknik detaylarını ve reçetesini görüntüle"
+                        title="4 seviyeli kademeli netleme zincirini ve üretim planı açığını görüntüle"
                       >
                         İncele
                       </button>
@@ -2385,26 +2517,49 @@ function renderDemands() {
   `;
 }
 
-// Slide-Over Detay Çekmecesi (Ürün ve İhtiyaç Teknik Kartı)
 function renderDemandDetailDrawer() {
   const d = state.demands.find(item => item.id === state.selectedDemandDetailId);
   if (!d) return '';
 
+  const hasAlloc = d.calculation_status === 'CALCULATED';
+  const netTubeVal = d.net_tube_quantity !== undefined ? d.net_tube_quantity : d.net_quantity;
+  const netCutVal = d.net_cutting_quantity !== undefined ? d.net_cutting_quantity : d.net_quantity;
+  const netPrintVal = d.net_print_quantity !== undefined ? d.net_print_quantity : d.net_quantity;
+
+  const physTubeStock = Number(d.physical_tube_stock || d.available_stock || 0);
+  const allocTube = Number(d.allocated_tube_stock || 0);
+  const tubePool = Number(d.remaining_tube_stock_pool || 0);
+
+  const availCutStock = Number(d.available_cutting_stock || 0);
+  const allocCut = Number(d.allocated_cutting_stock || 0);
+  const cutPool = Number(d.remaining_cutting_stock_pool || 0);
+
+  const availPrintStock = Number(d.available_print_stock || 0);
+  const allocPrint = Number(d.allocated_print_stock || 0);
+  const printPool = Number(d.remaining_print_stock_pool || 0);
+
+  const availSheetStock = Number(d.available_raw_sheet_stock || 0);
+
   return `
     <div class="fixed inset-0 z-50 overflow-hidden flex justify-end" style="background-color: rgba(15, 23, 42, 0.35);">
-      <div class="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between border-l border-slate-200 animate-slideLeft">
+      <div class="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col justify-between border-l border-slate-200 animate-slideLeft">
         <!-- Drawer Header -->
         <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
           <div class="flex items-center gap-2">
             <span class="text-xs font-mono font-bold text-sky-800 bg-sky-50 px-2 py-1 rounded border border-sky-200">
               ${d.reference_no}
             </span>
+            ${d.is_no && d.is_no !== d.reference_no ? `
+              <span class="text-[10px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                ${d.is_no}
+              </span>
+            ` : ''}
             <span class="text-[10px] font-mono px-2 py-0.5 rounded font-medium ${
-              d.record_kind === 'source_transcription'
+              d.record_kind === 'live_erp_sync' || d.record_kind === 'source_transcription'
                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                 : 'bg-amber-50 text-amber-800 border border-amber-200'
             }">
-              ${d.record_kind === 'source_transcription' ? 'KAYNAK VERİ (ERP)' : 'DEMO SENARYO'}
+              ${d.record_kind === 'synthetic_demo' ? 'DEMO SENARYO' : 'ERP KAYNAK'}
             </span>
           </div>
 
@@ -2421,66 +2576,166 @@ function renderDemandDetailDrawer() {
         <div class="p-5 flex-1 overflow-y-auto space-y-5">
           <!-- Ürün Başlığı ve Stok Kodu -->
           <div>
-            <div class="text-[11px] font-mono uppercase text-slate-400">Ürün Adı & Stok Tanımı</div>
-            <h3 class="text-sm font-semibold text-slate-900 mt-1 leading-snug">
+            <div class="text-[10px] font-mono uppercase text-slate-400">Ürün Adı & Stok Tanımı</div>
+            <h3 class="text-sm font-semibold text-slate-900 mt-0.5 leading-snug">
               ${escapeHtml(d.stock_name)}
             </h3>
-            <div class="mt-2 inline-flex items-center gap-2 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded font-mono text-xs text-slate-700">
-              <span>ERP Kodu:</span>
-              <strong class="text-slate-900">${d.stock_code}</strong>
+            <div class="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs">
+              <span class="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-700">
+                Tüp Kodu: <strong class="text-slate-900">${d.stock_code}</strong>
+              </span>
+              ${d.dolum_mamul_kodu ? `
+                <span class="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-600 text-[11px]" title="${escapeHtml(d.dolum_mamul_adi || '')}">
+                  Dolum Mamul: ${d.dolum_mamul_kodu}
+                </span>
+              ` : ''}
             </div>
           </div>
 
-          <!-- Kademeli İhtiyaç Matrisi (Kural 9 & 10 İlkesi) -->
-          <div class="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-2.5">
-            <div class="text-xs font-semibold text-slate-800 flex items-center justify-between">
-              <span>Kademeli İhtiyaç Seviyeleri</span>
-              <span class="text-[10px] font-mono text-slate-400">Netleme Mantığı</span>
+          <!-- 4 Seviyeli Kademeli Reçete ve Stok Matrisi (Faz 3B Motoru) -->
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+              <span class="text-xs font-bold text-slate-900 uppercase tracking-tight">Kademeli İhtiyaç & Reçete Şelalesi</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-sky-100 text-sky-800 font-semibold">Faz 3B Motor</span>
             </div>
 
-            <div class="space-y-1.5 text-xs font-mono">
-              <div class="flex justify-between items-center py-1 border-b border-slate-200">
-                <span class="text-slate-600">1. Brüt İhtiyaç (Dolum/Satış):</span>
-                <span class="font-semibold text-slate-900 tabular-nums">${formatNum(d.gross_quantity)} adet</span>
+            <!-- 1. Aşama: Teneke Tüp -->
+            <div class="p-2.5 bg-white border border-slate-200 rounded space-y-1.5 text-xs font-mono">
+              <div class="flex items-center justify-between text-slate-700 font-semibold">
+                <span>1. Aşama: Teneke Tüp</span>
+                <span class="text-[10px] font-normal text-slate-500">${d.stock_code}</span>
               </div>
-              <div class="flex justify-between items-center py-1 border-b border-slate-200">
-                <span class="text-slate-600">2. Kullanılabilir Ambar Stok:</span>
-                <span class="font-semibold ${d.available_stock > 0 ? 'text-emerald-700' : 'text-slate-500'} tabular-nums">
-                  ${d.available_stock > 0 ? `${formatNum(d.available_stock)} adet` : '0 adet'}
-                </span>
+              <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-600">
+                <div>Brüt Dolum Talebi: <strong class="text-slate-900 tabular-nums">${formatNum(d.gross_quantity)} adet</strong></div>
+                <div>Fiziksel Ambar Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(physTubeStock)} adet</strong></div>
+                <div>Bu Talebe Tahsis: <strong class="text-emerald-700 tabular-nums">${formatNum(allocTube)} adet</strong></div>
+                <div>Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(tubePool)} adet</span></div>
               </div>
-              <div class="flex justify-between items-center py-1 border-b border-slate-200 bg-sky-50/60 px-2 rounded">
-                <span class="text-sky-900 font-medium">3. Net Tüp Üretim Hedefi:</span>
-                <span class="font-bold text-sky-900 tabular-nums">${formatNum(d.net_quantity)} adet</span>
-              </div>
-              <div class="flex justify-between items-center py-1 border-b border-dashed border-slate-200 text-slate-400">
-                <span>4. Kesik Levha Eşdeğer Stok:</span>
-                <span class="italic text-[11px]">Hesaplanmadı (Faz 3B)</span>
-              </div>
-              <div class="flex justify-between items-center py-1 border-b border-dashed border-slate-200 text-slate-400">
-                <span>5. Baskılı Levha Eşdeğer Stok:</span>
-                <span class="italic text-[11px]">Hesaplanmadı (Faz 3B)</span>
-              </div>
-              <div class="flex justify-between items-center py-1 text-slate-500">
-                <span>6. Net Baskı İhtiyacı:</span>
-                <span class="italic text-[11px]">Faz 3B'de devreye girecek</span>
+              <div class="flex justify-between items-center pt-1 border-t border-slate-100 font-semibold text-blue-900 bg-blue-50/50 px-2 py-0.5 rounded">
+                <span>Net Tüp Üretim Hedefi:</span>
+                <span class="tabular-nums font-bold">${formatNum(netTubeVal)} adet</span>
               </div>
             </div>
+
+            <!-- 2. Aşama: Kesik Levha -->
+            <div class="p-2.5 bg-white border border-slate-200 rounded space-y-1.5 text-xs font-mono">
+              <div class="flex items-center justify-between text-slate-700 font-semibold">
+                <span>2. Aşama: Kesik Levha</span>
+                <span class="text-[10px] font-normal text-slate-500">${d.cutting_stock_code || 'Reçetede Yok'}</span>
+              </div>
+              ${d.cutting_stock_code ? `
+                <div class="text-[11px] text-slate-500 line-clamp-1" title="${escapeHtml(d.cutting_stock_name || '')}">
+                  ${escapeHtml(d.cutting_stock_name || '')}
+                </div>
+                <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-600">
+                  <div>Tüp/Kesik Oranı: <span class="text-slate-800">${d.ratio_tube_to_cutting || '1.00'}</span></div>
+                  <div>Eldeki Kesik Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(availCutStock)} adet</strong></div>
+                  <div>Bu Talebe Tahsis: <strong class="text-emerald-700 tabular-nums">${formatNum(allocCut)} adet</strong></div>
+                  <div>Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(cutPool)} adet</span></div>
+                </div>
+                <div class="flex justify-between items-center pt-1 border-t border-slate-100 font-semibold text-amber-900 bg-amber-50/50 px-2 py-0.5 rounded">
+                  <span>Net Kesim İhtiyacı:</span>
+                  <span class="tabular-nums font-bold">${formatNum(netCutVal)} adet</span>
+                </div>
+              ` : `
+                <div class="text-[11px] text-slate-400 italic">Bu tüp için geçerli reçetede kesik levha bileşeni bulunamadı.</div>
+              `}
+            </div>
+
+            <!-- 3. Aşama: Baskılı Levha -->
+            <div class="p-2.5 bg-white border border-slate-200 rounded space-y-1.5 text-xs font-mono">
+              <div class="flex items-center justify-between text-slate-700 font-semibold">
+                <span>3. Aşama: Baskılı Levha (Montaj)</span>
+                <span class="text-[10px] font-normal text-slate-500">${d.print_stock_code || 'Reçetede Yok'}</span>
+              </div>
+              ${d.print_stock_code ? `
+                <div class="text-[11px] text-slate-500 line-clamp-1" title="${escapeHtml(d.print_stock_name || '')}">
+                  ${escapeHtml(d.print_stock_name || '')}
+                </div>
+                <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-600">
+                  <div>Kesik/Baskı Oranı: <span class="text-slate-800">${d.ratio_cutting_to_print || '1.00'}</span></div>
+                  <div>Eldeki Baskılı Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(availPrintStock)} adet</strong></div>
+                  <div>Bu Talebe Tahsis: <strong class="text-emerald-700 tabular-nums">${formatNum(allocPrint)} adet</strong></div>
+                  <div>Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(printPool)} adet</span></div>
+                </div>
+                <div class="flex justify-between items-center pt-1 border-t border-slate-100 font-bold text-sky-900 bg-sky-100/70 px-2 py-1 rounded">
+                  <span>Net Yeni Baskı İhtiyacı:</span>
+                  <span class="tabular-nums">${formatNum(netPrintVal)} adet</span>
+                </div>
+              ` : `
+                <div class="text-[11px] text-slate-400 italic">Bu ürün için geçerli reçetede baskılı levha bileşeni bulunamadı.</div>
+              `}
+            </div>
+
+            <!-- 4. Aşama: Ham Levha -->
+            <div class="p-2.5 bg-white border border-slate-200 rounded space-y-1 text-xs font-mono">
+              <div class="flex items-center justify-between text-slate-700 font-semibold">
+                <span>4. Aşama: Ham Levha İlişkisi</span>
+                <span class="text-[10px] font-normal text-slate-500">${d.raw_sheet_code || 'Tanımsız'}</span>
+              </div>
+              <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-600">
+                <div>Levha Kapasitesi: <strong class="text-slate-800">${d.raw_sheet_capacity ? `${d.raw_sheet_capacity} adet/levha` : 'Bilinmiyor'}</strong></div>
+                <div>Tahmini Ham Levha: <strong class="text-slate-900">${d.estimated_raw_sheets ? `${formatNum(d.estimated_raw_sheets)} levha` : '-'}</strong></div>
+                <div>Eldeki Ham Stok: <span class="text-slate-700 tabular-nums">${formatNum(availSheetStock)} levha</span></div>
+                <div class="col-span-2 text-[10px] text-slate-400 italic pt-1">
+                  * Ham levha stoğu yeni baskı ihtiyacını azaltmaz; satın alma gereksinimine etki eder.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mevcut Tüp Üretim Planı ve Termin Açığı ([alper_tenekeuretim]) -->
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-2.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-800 uppercase tracking-tight">Mevcut Üretim Planı ve Termin Durumu</span>
+              <span class="text-[10px] font-mono text-slate-500">[alper_tenekeuretim]</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 font-mono">
+              <div class="p-2 bg-white border border-slate-200 rounded">
+                <div class="text-[10px] text-slate-400">Planlanan Tüp Miktarı</div>
+                <div class="font-bold text-slate-900 mt-0.5 tabular-nums">${formatNum(d.planned_cover_quantity || 0)} adet</div>
+              </div>
+              <div class="p-2 bg-white border border-slate-200 rounded">
+                <div class="text-[10px] text-slate-400">İlave Planlanması Gereken</div>
+                <div class="font-bold ${(d.additional_planning_needed || 0) > 0 ? 'text-amber-700' : 'text-emerald-700'} mt-0.5 tabular-nums">
+                  ${formatNum(d.additional_planning_needed || 0)} adet
+                </div>
+              </div>
+            </div>
+
+            <div class="p-2 bg-white border border-slate-200 rounded space-y-1 font-mono text-[11px]">
+              <div class="flex justify-between">
+                <span class="text-slate-500">Dolum Termin Tarihi:</span>
+                <strong class="text-slate-800">${d.due_date ? String(d.due_date).substring(0, 10) : 'Belirtilmemiş'}</strong>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">Plan En Erken Bitiş:</span>
+                <strong class="text-slate-800">${d.plan_earliest_finish ? String(d.plan_earliest_finish).substring(0, 10) : 'Plana Alınmamış'}</strong>
+              </div>
+            </div>
+
+            ${d.is_schedule_delayed ? `
+              <div class="p-2.5 bg-rose-50 border border-rose-200 rounded text-rose-900 text-xs font-semibold flex items-center gap-2">
+                <span class="text-rose-600 text-sm">⚠</span>
+                <span>Termin Açığı: Üretim planı dolum termininden ${d.delay_days} gün sonraya kalmaktadır!</span>
+              </div>
+            ` : ''}
           </div>
 
           <!-- Teknik Özellikler Grid -->
           <div class="space-y-2.5">
-            <div class="text-xs font-semibold text-slate-800">Teknik Tanım ve Reçete Parametreleri</div>
+            <div class="text-xs font-semibold text-slate-800">Teknik Tanım ve Baskı Parametreleri</div>
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
                 <div class="text-[10px] text-slate-400 font-mono uppercase">Ebat (Çap x Boy)</div>
                 <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.tube_size}</div>
-                <div class="text-[10px] text-slate-500 font-mono">Çap: ${d.diameter_mm || 52} mm • Boy: ${d.height_mm || 195} mm</div>
+                <div class="text-[10px] text-slate-500 font-mono">Çap: ${d.diameter_mm || 0} mm • Boy: ${d.height_mm || 0} mm</div>
               </div>
 
               <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
                 <div class="text-[10px] text-slate-400 font-mono uppercase">Zemin Türü</div>
-                <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.print_surface || 'EMAYE'}</div>
+                <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.print_surface || 'BELİRTİLMEMİŞ'}</div>
                 <div class="text-[10px] text-slate-500">Baskı alt yüzeyi</div>
               </div>
 
@@ -2492,49 +2747,46 @@ function renderDemandDetailDrawer() {
 
               <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
                 <div class="text-[10px] text-slate-400 font-mono uppercase">Vernik / Dış Lak</div>
-                <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.vernish || d.varnish || 'BELİRTİLMEMİŞ'} / ${d.lacquer || 'BELİRTİLMEMİŞ'}</div>
+                <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.varnish || 'BELİRTİLMEMİŞ'} / ${d.lacquer || 'BELİRTİLMEMİŞ'}</div>
                 <div class="text-[10px] text-slate-500">Yüzey koruma ve parlaklık</div>
               </div>
-            </div>
-
-            <div class="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs">
-              <div class="text-[10px] text-slate-400 font-mono uppercase">Onaylı Ham Levha Bağlantısı</div>
-              <div class="font-semibold text-slate-800 mt-0.5 font-mono">${d.raw_sheet_code || 'Tanımlı Değil'}</div>
-              <div class="text-[11px] text-slate-600 mt-0.5">${d.raw_sheet_desc || 'Katalogda henüz eşleşmiş ham levha bulunmuyor.'}</div>
             </div>
           </div>
 
           <!-- Renkler -->
           <div class="space-y-2">
             <div class="text-xs font-semibold text-slate-800 flex items-center justify-between">
-              <span>Baskı Renkleri (${d.colors.length} Renk)</span>
+              <span>Baskı Renkleri (${(Array.isArray(d.colors) ? d.colors : []).length} Renk)</span>
               <span class="text-[10px] font-mono text-slate-400">Maks. 6 Renk Sınırı</span>
             </div>
             <div class="flex flex-wrap gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded">
-              ${d.colors.map(c => `
+              ${(Array.isArray(d.colors) ? d.colors : []).map(c => `
                 <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded px-2 py-1 shadow-2xs">
                   ${renderColorChip(c)}
                   <span class="text-xs font-mono font-medium text-slate-700">${c}</span>
                 </div>
               `).join('')}
+              ${(!d.colors || d.colors.length === 0) ? `
+                <span class="text-xs text-slate-400 italic">Tanımlı renk kaydı bulunmuyor.</span>
+              ` : ''}
             </div>
           </div>
         </div>
 
         <!-- Drawer Footer -->
         <div class="p-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between gap-3">
-          ${d.record_kind === 'synthetic_demo' ? `
+          ${(Number(netPrintVal) > 0) ? `
             <button
-              onclick="addDemandToWorkbench('${d.id}'); state.activePage='workbench'; closeDemandDetail();"
+              onclick="addDemandToWorkbenchWithQuantity(state.demands.find(i=>i.id==='${d.id}'), ${netPrintVal}); state.activePage='workbench'; closeDemandDetail();"
               class="flex-1 py-2 px-3 text-xs font-semibold rounded bg-sky-700 hover:bg-sky-800 text-white shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
             >
               ${getSvgIcon('arrow-right', 'w-4 h-4')}
-              <span>Bu Ürünü Kombinasyona Aktar (Demo)</span>
+              <span>Bu Ürünü Kombinasyona Aktar (${formatNum(netPrintVal)} Adet Yeni Baskı)</span>
             </button>
           ` : `
-            <div class="flex-1 py-2 px-3 text-xs rounded bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center gap-1.5 cursor-not-allowed" title="Faz 3B çok seviyeli stok netleme ve baskı hesabı motorundan sonra açılacaktır">
-              ${getSvgIcon('info', 'w-3.5 h-3.5 text-slate-400')}
-              <span>Baskı Hesabı Bekleniyor (Faz 3B)</span>
+            <div class="flex-1 py-2 px-3 text-xs rounded bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center gap-1.5 cursor-not-allowed">
+              ${getSvgIcon('check', 'w-3.5 h-3.5 text-emerald-600')}
+              <span>Stok Yeterli (Yeni Baskı İhtiyacı: 0)</span>
             </div>
           `}
           <button
@@ -4273,26 +4525,66 @@ function toggleSelectAllDemands(checked, filteredIds = null) {
   renderApp();
 }
 
+
+
 function transferSelectedDemandsToWorkbench() {
   if (!state.selectedDemandIds || state.selectedDemandIds.length === 0) return;
   const selectedItems = state.demands.filter(d => state.selectedDemandIds.includes(d.id));
-  const realItems = selectedItems.filter(d => d.record_kind !== 'synthetic_demo');
 
-  if (realItems.length > 0) {
+  // Kontrol 1: Hesaplanmamış veya hatalı talep var mı?
+  const uncalculated = selectedItems.filter(d => d.record_kind !== 'synthetic_demo' && d.calculation_status !== 'CALCULATED');
+  if (uncalculated.length > 0) {
     alert(
-      'KOMBİNASYON AKTARIM KORUMASI (FAZ 3A.2):\\n\\n' +
-      'Seçili kalemler arasında ' + realItems.length + ' adet gerçek ERP talebi bulunmaktadır.\\n\\n' +
-      'Gerçek talepler henüz Faz 3B çok seviyeli kesik ve baskılı stok netleme motorundan geçmediği için kombinasyon masasına aktarılamaz.\\n\\n' +
-      'Lütfen yalnızca "Demo Senaryo" etiketli temsili ürünleri seçiniz.'
+      'KOMBİNASYON AKTARIM KORUMASI:\\n\\n' +
+      'Seçili kalemler arasında ' + uncalculated.length + ' adet kademeli tahsisi henüz hesaplanmamış veya çözümlenememiş talep bulunmaktadır.\\n\\n' +
+      'Lütfen önce "Tahsisi Yeniden Hesapla" butonuna basarak hesaplamayı tamamlayınız.'
     );
     return;
   }
 
+  // Kontrol 2: Yeni baskı ihtiyacı sıfır olanlar
+  const zeroPrint = selectedItems.filter(d => d.record_kind !== 'synthetic_demo' && Number(d.net_print_quantity || 0) <= 0);
+  if (zeroPrint.length === selectedItems.length && selectedItems.every(d => d.record_kind !== 'synthetic_demo')) {
+    alert(
+      'KOMBİNASYONA AKTARILACAK YENİ BASKI İHTİYACI YOK:\\n\\n' +
+      'Seçilen tüm talepler eldeki tüp, kesik ve baskılı levha stoklarıyla tamamen karşılanmaktadır (Yeni Baskı İhtiyacı: 0).\\n\\n' +
+      'Yeni bir matbaa baskı montajı açılmasına gerek yoktur.'
+    );
+    return;
+  }
+
+  // Kontrol 3: Eksik teknik tanım kontrolü (Faz 2 & Faz 3 kuralı)
+  // Renk/zemin eksikliği tüp planını durdurmaz ancak yeni baskı kombinasyonunu engeller.
+  const missingDefs = selectedItems.filter(d => d.record_kind !== 'synthetic_demo' && d.definition_status !== 'complete');
+  if (missingDefs.length > 0) {
+    alert(
+      'TEKNİK TANIM EKSİKLİĞİ (KOMBİNASYON ENGELİ):\\n\\n' +
+      'Seçili kalemler arasında ' + missingDefs.length + ' adet ürünün teknik kartı (renk, zemin veya ham levha) eksik veya onaylanmamıştır.\\n\\n' +
+      'Örnek: ' + missingDefs[0].stock_code + ' - ' + missingDefs[0].stock_name + '\\n\\n' +
+      'Lütfen önce Tanımlar Merkezi ekranından ilgili ürünlerin renk ve teknik tanımlarını tamamlayınız.'
+    );
+    return;
+  }
+
+  // Uygun olanları aktar (netDemand = net_print_quantity)
+  let transferredCount = 0;
   selectedItems.forEach(d => {
-    addDemandToWorkbench(d.id);
+    if (d.record_kind === 'synthetic_demo') {
+      addDemandToWorkbench(d.id);
+      transferredCount++;
+    } else {
+      const netPrint = Number(d.net_print_quantity) || 0;
+      if (netPrint > 0) {
+        addDemandToWorkbenchWithQuantity(d, netPrint);
+        transferredCount++;
+      }
+    }
   });
-  state.activePage = 'workbench';
-  renderApp();
+
+  if (transferredCount > 0) {
+    state.activePage = 'workbench';
+    renderApp();
+  }
 }
 
 function openDemandDetail(id) {
@@ -4342,6 +4634,64 @@ async function testErpConnection() {
     state.isTestingConnection = false;
     renderApp();
   }
+}
+
+async function triggerCalculateAllocations() {
+  if (state.isCalculatingAllocations) return;
+  state.isCalculatingAllocations = true;
+  renderApp();
+  try {
+    const res = await apiRequest('/api/erp/calculate-allocations', { method: 'POST' });
+    if (res && res.success) {
+      state.latestCalculation = res.data;
+      // Talepleri yeniden çek
+      const demRes = await apiRequest('/api/erp/demands');
+      if (demRes && demRes.success && Array.isArray(demRes.data)) {
+        state.liveDemands = demRes.data;
+        if (state.demandSourceMode !== 'demo') {
+          state.demands = demRes.data;
+        }
+      }
+      alert(
+        'KADEMELİ TAHSİS MOTORU HESAPLANDI (FAZ 3B):\n\n' +
+        'Toplam Talep: ' + res.data.total_demands + ' satır\n' +
+        'Başarılı Hesaplanan: ' + res.data.calculated_count + ' satır\n' +
+        'Brüt Dolum Talebi: ' + formatNum(res.data.total_gross_tube) + ' adet\n' +
+        'Net Tüp İhtiyacı: ' + formatNum(res.data.total_net_tube) + ' adet\n' +
+        'Net Kesim İhtiyacı: ' + formatNum(res.data.total_net_cutting) + ' adet\n' +
+        'Net Yeni Baskı İhtiyacı: ' + formatNum(res.data.total_net_print) + ' adet\n\n' +
+        'İhtiyaç Havuzu ve detay matrisleri güncellendi.'
+      );
+    }
+  } catch (err) {
+    alert('Hesaplama hatası: ' + err.message);
+  } finally {
+    state.isCalculatingAllocations = false;
+    renderApp();
+  }
+}
+
+function addDemandToWorkbenchWithQuantity(d, netQuantity) {
+  const existing = state.workbenchItems.find(item => (item.productId === d.id || item.stockCode === d.stock_code));
+  if (existing) {
+    existing.netDemand = netQuantity;
+    return;
+  }
+  state.workbenchItems.push({
+    productId: d.id,
+    stockCode: d.stock_code,
+    stockName: d.stock_name,
+    tubeSize: d.tube_size,
+    printSurface: d.print_surface,
+    varnish: d.varnish || 'BELİRTİLMEMİŞ',
+    lacquer: d.lacquer || 'BELİRTİLMEMİŞ',
+    inside_coating: d.inside_coating || 'STANDART',
+    rawSheetCode: d.raw_sheet_code || '',
+    colors: Array.isArray(d.colors) ? d.colors : [],
+    netDemand: netQuantity,
+    repeatsPerSheet: 0,
+    record_kind: d.record_kind || 'live_erp_sync'
+  });
 }
 
 async function triggerErpSync() {
