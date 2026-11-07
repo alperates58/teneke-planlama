@@ -2,47 +2,103 @@ const { query, getClient } = require('../db');
 
 /**
  * FAZ 3B: KADEMELİ İHTİYAÇ MOTORU VE ÇOK SEVİYELİ STOK TAHSİS SERVİSİ
+ * (Kabul Düzeltmeleri Sürümü)
  * 
  * Reçete Zinciri:
  *   1) TÜP: Brüt İhtiyaç -> Tüp Kullanılabilir Stok Tahsisi -> Net Tüp Üretim İhtiyacı
- *   2) KESİK LEVHA: Net Tüp Üretimi -> Reçete Oranı -> Kesik Stok Tahsisi -> Net Kesim İhtiyacı
- *   3) BASKILI LEVHA: Net Kesim -> Reçete Oranı -> Baskılı Stok Tahsisi -> Net Yeni Baskı İhtiyacı
- *   4) HAM LEVHA: Net Baskı -> Reçete Oranı -> Tahmini Ham Levha İhtiyacı (Satın Alma)
- *   5) PLANLI ARZ: Mevcut tüp üretim planı ([alper_tenekeuretim]) ile karşılaştırma & termin açığı
+ *   2) KESİK LEVHA: Net Tüp Üretimi -> Birim Dönüşümü -> Kesik Stok Tahsisi -> Net Kesim İhtiyacı (Tüp Eşdeğeri)
+ *   3) BASKILI LEVHA: Net Kesim -> Birim Dönüşümü -> Baskılı Stok Tahsisi -> Net Yeni Baskı İhtiyacı (Tüp Eşdeğeri)
+ *   4) HAM LEVHA: Net Yeni Baskı -> Onaylı Kapasite Parametresi -> Tahmini Ham Levha Satın Alma İhtiyacı
+ *   5) PLANLI ARZ: Seçilmiş tekil plan taslağı üzerinden zamanında/geç karşılama ve termin açığı
  */
 
 /**
  * 1. Kademeli Hesaplamayı Çalıştır
  */
-async function runAllocationCalculation({ user, syncRunId = null }) {
+async function runAllocationCalculation({ user, syncRunId = null, planDraftId = null }) {
   const client = await getClient();
   const startTime = Date.now();
 
   try {
-    // 1. Hedef senkron koşusu (belirtilmemişse son başarılı koşu)
-    let targetSyncId = syncRunId;
-    if (!targetSyncId) {
-      const lastSyncRes = await client.query(`
-        SELECT id FROM erp_sync_runs 
-        WHERE status = 'success' 
-        ORDER BY id DESC LIMIT 1
-      `);
-      if (lastSyncRes.rows.length === 0) {
-        throw new Error('Hesaplama için geçerli bir ERP senkronizasyon kaydı bulunamadı. Önce ERP senkronizasyonu çalıştırılmalıdır.');
-      }
-      targetSyncId = lastSyncRes.rows[0].id;
+    // 1. ERP Senkronizasyonu çakışma kontrolü
+    const runningSyncRes = await client.query(`
+      SELECT id FROM erp_sync_runs 
+      WHERE status = 'running' 
+      LIMIT 1
+    `);
+    if (runningSyncRes.rows.length > 0) {
+      const err = new Error('ERP senkronizasyonu devam ederken kademeli tahsis hesaplaması çalıştırılamaz.');
+      err.status = 409;
+      err.code = 'SYNC_IN_PROGRESS';
+      throw err;
     }
 
-    // 2. Yeni calculation_run başlat
+    // 2. Hedef senkron koşusu (belirtilmemişse son başarılı koşu)
+    const lastSyncRes = await client.query(`
+      SELECT id FROM erp_sync_runs 
+      WHERE status = 'success' 
+      ORDER BY id DESC LIMIT 1
+    `);
+    if (lastSyncRes.rows.length === 0) {
+      const err = new Error('Hesaplama için geçerli bir ERP senkronizasyon kaydı bulunamadı. Önce ERP senkronizasyonu çalıştırılmalıdır.');
+      err.status = 400;
+      err.code = 'NO_SYNC_DATA';
+      throw err;
+    }
+    const latestSyncId = lastSyncRes.rows[0].id;
+
+    if (syncRunId && parseInt(syncRunId, 10) !== latestSyncId) {
+      const err = new Error(`Belirtilen senkronizasyon sürümü (#${syncRunId}) artık aktif staging katmanında bulunmuyor. Yalnızca en güncel senkronizasyon (#${latestSyncId}) hesaplanabilir.`);
+      err.status = 400;
+      err.code = 'STALE_SYNC_REQUESTED';
+      throw err;
+    }
+    const targetSyncId = latestSyncId;
+
+    // 3. Tekil ve Onaylı Plan Taslağını Seç (Alternatif taslakların mükerrer arz üretmesi engellenir)
+    let selectedDraft = null;
+    if (planDraftId) {
+      const draftRes = await client.query(`
+        SELECT id, name, version, status 
+        FROM production_plan_drafts 
+        WHERE id = $1
+      `, [planDraftId]);
+      if (draftRes.rows.length > 0) selectedDraft = draftRes.rows[0];
+    }
+    if (!selectedDraft) {
+      // Önce aktif onaylı plan taslağını ara
+      const activeDraftRes = await client.query(`
+        SELECT id, name, version, status 
+        FROM production_plan_drafts 
+        WHERE status = 'ACTIVE' 
+        ORDER BY updated_at DESC LIMIT 1
+      `);
+      if (activeDraftRes.rows.length > 0) selectedDraft = activeDraftRes.rows[0];
+    }
+    if (!selectedDraft) {
+      // Yoksa en son düzenlenen taslağı seç
+      const latestDraftRes = await client.query(`
+        SELECT id, name, version, status 
+        FROM production_plan_drafts 
+        ORDER BY updated_at DESC LIMIT 1
+      `);
+      if (latestDraftRes.rows.length > 0) selectedDraft = latestDraftRes.rows[0];
+    }
+
+    const selectedDraftId = selectedDraft ? selectedDraft.id : null;
+    const selectedDraftTitle = selectedDraft ? `${selectedDraft.name} (v${selectedDraft.version})` : 'Plan Taslağı Yok';
+
+    // 4. Yeni calculation_run kaydı başlat
     const runRes = await client.query(`
-      INSERT INTO calculation_runs (sync_run_id, status, triggered_by, started_at)
-      VALUES ($1, 'running', $2, CURRENT_TIMESTAMP)
+      INSERT INTO calculation_runs (
+        sync_run_id, plan_draft_id, plan_title, status, triggered_by, started_at
+      ) VALUES ($1, $2, $3, 'running', $4, CURRENT_TIMESTAMP)
       RETURNING id, run_id
-    `, [targetSyncId, user?.username || 'system']);
+    `, [targetSyncId, selectedDraftId, selectedDraftTitle, user?.username || 'system']);
     const calcRunId = runRes.rows[0].id;
     const calcRunUuid = runRes.rows[0].run_id;
 
-    // 3. Aktif brüt talepleri çek (Kararlı Sıralama: Termin Tarihi -> Dolum Sırası -> İş No -> Demand Key)
+    // 5. Aktif brüt talepleri çek (Kararlı Sıralama: Termin Tarihi -> Dolum Sırası -> İş No -> Demand Key)
     const demandsRes = await client.query(`
       SELECT 
         d.id as demand_id,
@@ -64,7 +120,7 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
         d.data_error_message,
         d.upl_guid
       FROM erp_gross_demands d
-      WHERE d.is_active = TRUE
+      WHERE d.is_active = TRUE AND d.status != 'cancelled'
       ORDER BY 
         d.ihtiyac_tarihi ASC NULLS LAST,
         COALESCE(NULLIF(regexp_replace(d.dolum_sira, '[^0-9]', '', 'g'), ''), '999999')::INTEGER ASC,
@@ -73,7 +129,7 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
     `);
     const demands = demandsRes.rows;
 
-    // 4. Stok seviyelerini in-memory havuza yükle
+    // 6. Stok seviyelerini in-memory havuza yükle
     const stocksRes = await client.query(`
       SELECT 
         stock_code, stock_name, category_code, unit,
@@ -88,7 +144,7 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
         stockCode: s.stock_code,
         stockName: s.stock_name,
         category: s.category_code,
-        unit: s.unit || 'ADET',
+        unit: (s.unit || 'ADET').toUpperCase(),
         physicalStock: parseFloat(s.physical_stock) || 0,
         excludedStock: parseFloat(s.excluded_quarantine_stock) || 0,
         rawNetStock: parseFloat(s.raw_net_stock) || 0,
@@ -99,14 +155,13 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
       });
     }
 
-    // Havuzda olmayan stoklar için güvenli yardımcı
-    function getOrCreatePool(stockCode, defaultCategory = 'TENEKETUP') {
+    function getOrCreatePool(stockCode, defaultCategory = 'TENEKETUP', defaultUnit = 'ADET') {
       if (!stockPool.has(stockCode)) {
         stockPool.set(stockCode, {
           stockCode,
           stockName: stockCode,
           category: defaultCategory,
-          unit: 'ADET',
+          unit: defaultUnit,
           physicalStock: 0,
           excludedStock: 0,
           rawNetStock: 0,
@@ -119,7 +174,37 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
       return stockPool.get(stockCode);
     }
 
-    // 5. Reçete bağlantılarını çek ve indeksle
+    // 7. Onaylı Ebat / Kapasite Parametrelerini Yükle (Kapasite hesaplanmaz, parametredir!)
+    const capacitiesRes = await client.query(`
+      SELECT tube_size, units_per_sheet, assembly_group_count, repeat_step 
+      FROM tube_capacities
+    `);
+    const capacityMap = new Map();
+    for (const c of capacitiesRes.rows) {
+      capacityMap.set(c.tube_size, {
+        unitsPerSheet: parseInt(c.units_per_sheet, 10),
+        groups: parseInt(c.assembly_group_count, 10),
+        step: parseInt(c.repeat_step, 10)
+      });
+    }
+
+    // 8. Teknik Kartları ve Onaylı Ham Levha Eşleşmelerini Yükle
+    const techRes = await client.query(`
+      SELECT stock_code, tube_size, raw_sheet_code, print_surface, colors 
+      FROM product_technicals 
+      WHERE is_active = TRUE
+    `);
+    const techCardMap = new Map();
+    for (const t of techRes.rows) {
+      techCardMap.set(t.stock_code, {
+        tubeSize: t.tube_size,
+        rawSheetCode: t.raw_sheet_code || null,
+        printSurface: t.print_surface,
+        colors: t.colors || []
+      });
+    }
+
+    // 9. Reçete bağlantılarını çek ve indeksle
     const recipesRes = await client.query(`
       SELECT 
         recete_guid, parent_stock_code, parent_category,
@@ -128,11 +213,8 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
       ORDER BY id ASC
     `);
 
-    // Tüp -> Kesik Levha haritası
     const tubeToCuttingMap = new Map();
-    // Kesik Levha -> Baskılı Levha haritası
     const cuttingToPrintMap = new Map();
-    // Baskılı Levha -> Ham Levha haritası
     const printToSheetMap = new Map();
 
     for (const r of recipesRes.rows) {
@@ -158,52 +240,43 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
       }
     }
 
-    // 6. Mevcut Tüp Üretim Planını Çek (Faz 3A.1 alper_tenekeuretim snapshot / taslağı)
-    const planRes = await client.query(`
-      SELECT 
-        pi.stock_code,
-        pi.quantity,
-        COALESCE(pi.end_date, pi.scheduled_date) as end_date,
-        pi.sequence_order
-      FROM production_plan_draft_items pi
-      JOIN production_plan_drafts pd ON pi.draft_id = pd.id
-      WHERE pd.status IN ('ACTIVE', 'DRAFT')
-      ORDER BY pi.sequence_order ASC
-    `);
-
-    // Planlı arz havuzu: stock_code -> array of orders
+    // 10. Seçilmiş Tek Plan Taslağından Planlı Arzı Çek
     const plannedSupplyMap = new Map();
-    for (const row of planRes.rows) {
-      if (!plannedSupplyMap.has(row.stock_code)) plannedSupplyMap.set(row.stock_code, []);
-      plannedSupplyMap.get(row.stock_code).push({
-        stockCode: row.stock_code,
-        quantity: parseFloat(row.quantity) || 0,
-        remainingQty: parseFloat(row.quantity) || 0,
-        endDate: row.end_date ? new Date(row.end_date) : null
-      });
+    if (selectedDraftId) {
+      const planRes = await client.query(`
+        SELECT 
+          pi.stock_code,
+          pi.quantity,
+          COALESCE(pi.end_date, pi.scheduled_date) as end_date,
+          pi.sequence_order
+        FROM production_plan_draft_items pi
+        WHERE pi.draft_id = $1
+        ORDER BY pi.sequence_order ASC, pi.id ASC
+      `, [selectedDraftId]);
+
+      for (const row of planRes.rows) {
+        if (!plannedSupplyMap.has(row.stock_code)) plannedSupplyMap.set(row.stock_code, []);
+        plannedSupplyMap.get(row.stock_code).push({
+          stockCode: row.stock_code,
+          quantity: parseFloat(row.quantity) || 0,
+          remainingQty: parseFloat(row.quantity) || 0,
+          endDate: row.end_date ? new Date(row.end_date) : null
+        });
+      }
     }
 
-    // 7. Kademeli Tahsis Döngüsü (Her talep için sıra sıra)
+    // 11. Kademeli Tahsis Döngüsü
     const allocations = [];
     let calculatedCount = 0;
     let unresolvedCount = 0;
     let errorCount = 0;
 
-    let totalGrossTube = 0;
-    let totalAllocatedTube = 0;
-    let totalNetTube = 0;
-    let totalAllocatedCutting = 0;
-    let totalNetCutting = 0;
-    let totalAllocatedPrint = 0;
-    let totalNetPrint = 0;
-
     let sortOrder = 1;
 
     for (const d of demands) {
       const grossDemand = parseFloat(d.brut_tup_ihtiyac);
-      totalGrossTube += (isNaN(grossDemand) || grossDemand < 0) ? 0 : grossDemand;
 
-      // Hata durumu kontrolü
+      // Veri hatası kontrolü
       if (d.has_data_error || isNaN(grossDemand) || grossDemand < 0) {
         errorCount++;
         allocations.push({
@@ -219,12 +292,16 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
           cutting_stock_code: null,
           ratio_tube_to_cutting: null,
           allocated_cutting_stock: 0,
+          allocated_cutting_tube_equiv: 0,
+          cutting_stock_unit: 'ADET',
           net_cutting_demand: null,
           cutting_stock_before: 0,
           cutting_stock_after: 0,
           print_stock_code: null,
           ratio_cutting_to_print: null,
           allocated_print_stock: 0,
+          allocated_print_tube_equiv: 0,
+          print_stock_unit: 'ADET',
           net_print_demand: null,
           print_stock_before: 0,
           print_stock_after: 0,
@@ -233,7 +310,11 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
           raw_sheet_capacity: null,
           estimated_raw_sheets: null,
           planned_cover_quantity: 0,
+          on_time_covered_quantity: 0,
+          delayed_covered_quantity: 0,
+          uncovered_quantity: isNaN(grossDemand) ? 0 : grossDemand,
           additional_planning_needed: isNaN(grossDemand) ? 0 : grossDemand,
+          full_coverage_date: null,
           plan_earliest_finish: null,
           is_schedule_delayed: false,
           delay_days: 0,
@@ -246,39 +327,42 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
       // -------------------------------------------------------------
       // SEVİYE 1: TENEKE TÜP STOK TAHSİSİ
       // -------------------------------------------------------------
-      const tubePool = getOrCreatePool(d.tup_stok_kodu, 'TENEKETUP');
+      const tubePool = getOrCreatePool(d.tup_stok_kodu, 'TENEKETUP', 'ADET');
       const tubeBefore = tubePool.remainingPool;
       const allocatedTube = Math.min(grossDemand, tubePool.remainingPool);
       tubePool.remainingPool -= allocatedTube;
       tubePool.allocatedTotal += allocatedTube;
       const tubeAfter = tubePool.remainingPool;
 
+      // Net tüp ihtiyacı (Decimal koruma: Math.round ile 2 basamak)
       const netTubeDemand = Math.round((grossDemand - allocatedTube) * 100) / 100;
-      totalAllocatedTube += allocatedTube;
-      totalNetTube += netTubeDemand;
 
       // -------------------------------------------------------------
-      // SEVİYE 2: KESİK LEVHA STOK TAHSİSİ
+      // SEVİYE 2: KESİK LEVHA STOK TAHSİSİ (Birim Dönüşümlü)
       // -------------------------------------------------------------
       let cuttingCode = null;
       let ratioTubeToCutting = null;
-      let allocatedCutting = 0;
-      let netCuttingDemand = 0;
+      let allocatedCuttingPhysical = 0;
+      let allocatedCuttingTubeEquiv = 0;
+      let netCuttingDemandTubeEquiv = 0;
       let cuttingBefore = 0;
       let cuttingAfter = 0;
+      let cuttingUnit = 'ADET';
 
       // -------------------------------------------------------------
-      // SEVİYE 3: BASKILI LEVHA STOK TAHSİSİ
+      // SEVİYE 3: BASKILI LEVHA STOK TAHSİSİ (Birim Dönüşümlü)
       // -------------------------------------------------------------
       let printCode = null;
       let ratioCuttingToPrint = null;
-      let allocatedPrint = 0;
-      let netPrintDemand = 0;
+      let allocatedPrintPhysical = 0;
+      let allocatedPrintTubeEquiv = 0;
+      let netPrintDemandTubeEquiv = 0;
       let printBefore = 0;
       let printAfter = 0;
+      let printUnit = 'ADET';
 
       // -------------------------------------------------------------
-      // SEVİYE 4: HAM LEVHA İLİŞKİSİ
+      // SEVİYE 4: HAM LEVHA PARAMETRESİ (Kapasite Parametresi ile)
       // -------------------------------------------------------------
       let rawSheetCode = null;
       let ratioPrintToSheet = null;
@@ -290,21 +374,21 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
 
       if (netTubeDemand <= 0) {
         // Tüp stoğu tamamını karşıladı
-        netCuttingDemand = 0;
-        netPrintDemand = 0;
+        netCuttingDemandTubeEquiv = 0;
+        netPrintDemandTubeEquiv = 0;
       } else {
         // Kesik levha reçetesini bul
         const kesikCandidates = tubeToCuttingMap.get(d.tup_stok_kodu) || [];
         if (kesikCandidates.length === 0) {
           calcStatus = 'UNRESOLVED';
-          unresolvedReason = `Tüp [${d.tup_stok_kodu}] için kesik levha reçetesi bulunamadı`;
-          netCuttingDemand = null;
-          netPrintDemand = null;
+          unresolvedReason = `Tüp [${d.tup_stok_kodu}] için geçerli kesik levha reçetesi bulunamadı`;
+          netCuttingDemandTubeEquiv = null;
+          netPrintDemandTubeEquiv = null;
         } else if (kesikCandidates.length > 1) {
           calcStatus = 'UNRESOLVED';
-          unresolvedReason = `Tüp [${d.tup_stok_kodu}] için birden fazla (${kesikCandidates.length}) kesik levha alternatifi var`;
-          netCuttingDemand = null;
-          netPrintDemand = null;
+          unresolvedReason = `Tüp [${d.tup_stok_kodu}] için birden fazla (${kesikCandidates.length}) alternatif kesik levha var`;
+          netCuttingDemandTubeEquiv = null;
+          netPrintDemandTubeEquiv = null;
         } else {
           const kesikLink = kesikCandidates[0];
           cuttingCode = kesikLink.childCode;
@@ -312,36 +396,40 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
 
           if (ratioTubeToCutting <= 0) {
             calcStatus = 'ERROR';
-            unresolvedReason = `Kesik levha reçete oranı geçersiz (${ratioTubeToCutting})`;
-            netCuttingDemand = null;
-            netPrintDemand = null;
+            unresolvedReason = `Kesik levha reçete katsayısı geçersiz (${ratioTubeToCutting})`;
+            netCuttingDemandTubeEquiv = null;
+            netPrintDemandTubeEquiv = null;
           } else {
-            const requiredCuttingUnits = netTubeDemand * ratioTubeToCutting;
-            const cuttingPool = getOrCreatePool(cuttingCode, 'KESIKLEVHA');
+            // Kesik levha fiziksel ihtiyacı (Birim dönüşümü: 1 tüp = ratio kesik)
+            const requiredCuttingPhysical = netTubeDemand * ratioTubeToCutting;
+            const cuttingPool = getOrCreatePool(cuttingCode, 'KESIKLEVHA', 'ADET');
+            cuttingUnit = cuttingPool.unit || 'ADET';
             cuttingBefore = cuttingPool.remainingPool;
-            allocatedCutting = Math.min(requiredCuttingUnits, cuttingPool.remainingPool);
-            cuttingPool.remainingPool -= allocatedCutting;
-            cuttingPool.allocatedTotal += allocatedCutting;
+
+            allocatedCuttingPhysical = Math.min(requiredCuttingPhysical, cuttingPool.remainingPool);
+            cuttingPool.remainingPool -= allocatedCuttingPhysical;
+            cuttingPool.allocatedTotal += allocatedCuttingPhysical;
             cuttingAfter = cuttingPool.remainingPool;
 
-            const remainingCuttingUnits = Math.round((requiredCuttingUnits - allocatedCutting) * 100) / 100;
-            netCuttingDemand = Math.round((remainingCuttingUnits / ratioTubeToCutting) * 100) / 100;
-            totalAllocatedCutting += allocatedCutting;
-            totalNetCutting += netCuttingDemand;
+            // Tahsis edilen fiziksel kesiğin tüp eşdeğeri
+            allocatedCuttingTubeEquiv = Math.round((allocatedCuttingPhysical / ratioTubeToCutting) * 100) / 100;
+            netCuttingDemandTubeEquiv = Math.round((netTubeDemand - allocatedCuttingTubeEquiv) * 100) / 100;
+
+            const remainingCuttingPhysical = Math.round((requiredCuttingPhysical - allocatedCuttingPhysical) * 100) / 100;
 
             // Seviye 3: Baskılı Levha
-            if (remainingCuttingUnits <= 0) {
-              netPrintDemand = 0;
+            if (remainingCuttingPhysical <= 0 || netCuttingDemandTubeEquiv <= 0) {
+              netPrintDemandTubeEquiv = 0;
             } else {
               const baskiliCandidates = cuttingToPrintMap.get(cuttingCode) || [];
               if (baskiliCandidates.length === 0) {
                 calcStatus = 'UNRESOLVED';
-                unresolvedReason = `Kesik Levha [${cuttingCode}] için baskılı levha reçetesi bulunamadı`;
-                netPrintDemand = null;
+                unresolvedReason = `Kesik Levha [${cuttingCode}] için geçerli baskılı levha reçetesi bulunamadı`;
+                netPrintDemandTubeEquiv = null;
               } else if (baskiliCandidates.length > 1) {
                 calcStatus = 'UNRESOLVED';
-                unresolvedReason = `Kesik Levha [${cuttingCode}] için birden fazla (${baskiliCandidates.length}) baskılı levha alternatifi var`;
-                netPrintDemand = null;
+                unresolvedReason = `Kesik Levha [${cuttingCode}] için birden fazla (${baskiliCandidates.length}) alternatif baskılı levha var`;
+                netPrintDemandTubeEquiv = null;
               } else {
                 const baskiliLink = baskiliCandidates[0];
                 printCode = baskiliLink.childCode;
@@ -349,30 +437,49 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
 
                 if (ratioCuttingToPrint <= 0) {
                   calcStatus = 'ERROR';
-                  unresolvedReason = `Baskılı levha reçete oranı geçersiz (${ratioCuttingToPrint})`;
-                  netPrintDemand = null;
+                  unresolvedReason = `Baskılı levha reçete katsayısı geçersiz (${ratioCuttingToPrint})`;
+                  netPrintDemandTubeEquiv = null;
                 } else {
-                  const requiredPrintUnits = remainingCuttingUnits * ratioCuttingToPrint;
-                  const printPool = getOrCreatePool(printCode, 'BASKILILEVHA');
+                  // Baskılı levha fiziksel ihtiyacı (Birim dönüşümü: 1 kesik = ratio baskılı)
+                  const requiredPrintPhysical = remainingCuttingPhysical * ratioCuttingToPrint;
+                  const printPool = getOrCreatePool(printCode, 'BASKILILEVHA', 'ADET');
+                  printUnit = printPool.unit || 'ADET';
                   printBefore = printPool.remainingPool;
-                  allocatedPrint = Math.min(requiredPrintUnits, printPool.remainingPool);
-                  printPool.remainingPool -= allocatedPrint;
-                  printPool.allocatedTotal += allocatedPrint;
+
+                  allocatedPrintPhysical = Math.min(requiredPrintPhysical, printPool.remainingPool);
+                  printPool.remainingPool -= allocatedPrintPhysical;
+                  printPool.allocatedTotal += allocatedPrintPhysical;
                   printAfter = printPool.remainingPool;
 
-                  const remainingPrintUnits = Math.round((requiredPrintUnits - allocatedPrint) * 100) / 100;
-                  netPrintDemand = Math.round((remainingPrintUnits / (ratioTubeToCutting * ratioCuttingToPrint)) * 100) / 100;
-                  totalAllocatedPrint += allocatedPrint;
-                  totalNetPrint += netPrintDemand;
+                  // Tahsis edilen fiziksel baskılının tüp eşdeğeri
+                  allocatedPrintTubeEquiv = Math.round((allocatedPrintPhysical / (ratioTubeToCutting * ratioCuttingToPrint)) * 100) / 100;
+                  netPrintDemandTubeEquiv = Math.round((netCuttingDemandTubeEquiv - allocatedPrintTubeEquiv) * 100) / 100;
 
-                  // Seviye 4: Ham Levha Tüketimi
+                  // -------------------------------------------------------------
+                  // SEVİYE 4: HAM LEVHA PARAMETRESİ VE KAPASİTE
+                  // -------------------------------------------------------------
+                  // İlke: Kapasite parametredir (tube_capacities); reçete oranından uydurulamaz.
+                  // Onaylı ham levha bağlantısı teknik karttan veya tekil reçeteden okunur.
+                  const techInfo = techCardMap.get(d.tup_stok_kodu);
+                  const candidateSheetCode = techInfo?.rawSheetCode || null;
+                  const tubeSize = techInfo?.tubeSize || null;
+
+                  // Ebat kapasite parametresi
+                  if (tubeSize && capacityMap.has(tubeSize)) {
+                    rawSheetCapacity = capacityMap.get(tubeSize).unitsPerSheet;
+                  }
+
+                  // Reçetedeki ham levha bağlantısı
                   const hamCandidates = printToSheetMap.get(printCode) || [];
-                  if (hamCandidates.length > 0) {
-                    const hamLink = hamCandidates[0];
-                    rawSheetCode = hamLink.childCode;
-                    ratioPrintToSheet = hamLink.ratio;
-                    rawSheetCapacity = ratioPrintToSheet > 0 ? Math.round(1 / ratioPrintToSheet) : 0;
-                    estimatedRawSheets = rawSheetCapacity > 0 ? Math.ceil(netPrintDemand / rawSheetCapacity) : 0;
+                  if (candidateSheetCode) {
+                    rawSheetCode = candidateSheetCode;
+                  } else if (hamCandidates.length === 1) {
+                    rawSheetCode = hamCandidates[0].childCode;
+                    ratioPrintToSheet = hamCandidates[0].ratio;
+                  }
+
+                  if (rawSheetCapacity && rawSheetCapacity > 0 && netPrintDemandTubeEquiv > 0) {
+                    estimatedRawSheets = Math.ceil(netPrintDemandTubeEquiv / rawSheetCapacity);
                   }
                 }
               }
@@ -386,42 +493,59 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
       else if (calcStatus === 'ERROR') errorCount++;
 
       // -------------------------------------------------------------
-      // MEVCUT ÜRETİM PLANIYLA KARŞILAŞTIRMA (Planlı Arz & Termin Açığı)
+      // MEVCUT PLANLI ARZ VE ZAMAN/TERMİN BAZLI KARŞILAMA
       // -------------------------------------------------------------
       let plannedCoverQuantity = 0;
-      let additionalPlanningNeeded = netTubeDemand;
+      let onTimeCoveredQuantity = 0;
+      let delayedCoveredQuantity = 0;
+      let uncoveredQuantity = netTubeDemand;
+      let fullCoverageDate = null;
       let planEarliestFinish = null;
       let isScheduleDelayed = false;
       let delayDays = 0;
 
+      const demandDueDate = d.ihtiyac_tarihi ? new Date(d.ihtiyac_tarihi) : null;
+
       if (netTubeDemand > 0 && plannedSupplyMap.has(d.tup_stok_kodu)) {
         const planList = plannedSupplyMap.get(d.tup_stok_kodu);
-        let neededFromPlan = netTubeDemand;
+        let needed = netTubeDemand;
+        let latestDelayedFinish = null;
 
         for (const p of planList) {
           if (p.remainingQty <= 0) continue;
-          const take = Math.min(neededFromPlan, p.remainingQty);
+          const take = Math.min(needed, p.remainingQty);
           p.remainingQty -= take;
-          neededFromPlan -= take;
+          needed -= take;
           plannedCoverQuantity += take;
 
           if (!planEarliestFinish || (p.endDate && p.endDate < planEarliestFinish)) {
             planEarliestFinish = p.endDate;
           }
 
-          if (neededFromPlan <= 0) break;
+          // Zamanında vs Geç Karşılama Kontrolü
+          const isTakeDelayed = Boolean(demandDueDate && p.endDate && (p.endDate > demandDueDate));
+          if (isTakeDelayed) {
+            delayedCoveredQuantity += take;
+            if (!latestDelayedFinish || p.endDate > latestDelayedFinish) {
+              latestDelayedFinish = p.endDate;
+            }
+          } else {
+            onTimeCoveredQuantity += take;
+          }
+
+          if (needed <= 0) {
+            fullCoverageDate = p.endDate;
+            break;
+          }
         }
 
-        additionalPlanningNeeded = Math.round(neededFromPlan * 100) / 100;
+        uncoveredQuantity = Math.round(needed * 100) / 100;
 
-        // Termin Açığı Kontrolü
-        if (d.ihtiyac_tarihi && planEarliestFinish) {
-          const demandDueDate = new Date(d.ihtiyac_tarihi);
-          if (planEarliestFinish > demandDueDate) {
-            isScheduleDelayed = true;
-            const diffMs = planEarliestFinish.getTime() - demandDueDate.getTime();
-            delayDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-          }
+        // Geç arz termin açığıdır!
+        if (delayedCoveredQuantity > 0 && latestDelayedFinish && demandDueDate) {
+          isScheduleDelayed = true;
+          const diffMs = latestDelayedFinish.getTime() - demandDueDate.getTime();
+          delayDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
         }
       }
 
@@ -437,14 +561,18 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
         tube_stock_after: tubeAfter,
         cutting_stock_code: cuttingCode,
         ratio_tube_to_cutting: ratioTubeToCutting,
-        allocated_cutting_stock: allocatedCutting,
-        net_cutting_demand: netCuttingDemand,
+        allocated_cutting_stock: allocatedCuttingPhysical,
+        allocated_cutting_tube_equiv: allocatedCuttingTubeEquiv,
+        cutting_stock_unit: cuttingUnit,
+        net_cutting_demand: netCuttingDemandTubeEquiv,
         cutting_stock_before: cuttingBefore,
         cutting_stock_after: cuttingAfter,
         print_stock_code: printCode,
         ratio_cutting_to_print: ratioCuttingToPrint,
-        allocated_print_stock: allocatedPrint,
-        net_print_demand: netPrintDemand,
+        allocated_print_stock: allocatedPrintPhysical,
+        allocated_print_tube_equiv: allocatedPrintTubeEquiv,
+        print_stock_unit: printUnit,
+        net_print_demand: netPrintDemandTubeEquiv,
         print_stock_before: printBefore,
         print_stock_after: printAfter,
         raw_sheet_code: rawSheetCode,
@@ -452,7 +580,11 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
         raw_sheet_capacity: rawSheetCapacity,
         estimated_raw_sheets: estimatedRawSheets,
         planned_cover_quantity: plannedCoverQuantity,
-        additional_planning_needed: additionalPlanningNeeded,
+        on_time_covered_quantity: onTimeCoveredQuantity,
+        delayed_covered_quantity: delayedCoveredQuantity,
+        uncovered_quantity: uncoveredQuantity,
+        additional_planning_needed: uncoveredQuantity,
+        full_coverage_date: fullCoverageDate,
         plan_earliest_finish: planEarliestFinish,
         is_schedule_delayed: isScheduleDelayed,
         delay_days: delayDays,
@@ -461,50 +593,76 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
       });
     }
 
-    // 8. DB'ye Yazma (Atomik Transaction)
+    // 12. Batch Insert: demand_allocations
     await client.query('BEGIN');
 
-    // Önceki bu run'a ait allocation varsa temizle
-    await client.query('DELETE FROM demand_allocations WHERE calculation_run_id = $1', [calcRunId]);
+    // Eski kayıtları temizle
+    await client.query(`DELETE FROM demand_allocations WHERE calculation_run_id = $1`, [calcRunId]);
 
-    // Batch insert demand_allocations
-    for (const alloc of allocations) {
-      await client.query(`
-        INSERT INTO demand_allocations (
-          calculation_run_id, demand_id, demand_key, sort_order, tube_stock_code, gross_demand,
-          allocated_tube_stock, net_tube_demand, tube_stock_before, tube_stock_after,
-          cutting_stock_code, ratio_tube_to_cutting, allocated_cutting_stock, net_cutting_demand,
-          cutting_stock_before, cutting_stock_after,
-          print_stock_code, ratio_cutting_to_print, allocated_print_stock, net_print_demand,
-          print_stock_before, print_stock_after,
-          raw_sheet_code, ratio_print_to_sheet, raw_sheet_capacity, estimated_raw_sheets,
-          planned_cover_quantity, additional_planning_needed, plan_earliest_finish,
-          is_schedule_delayed, delay_days, calculation_status, unresolved_reason
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6,
-          $7, $8, $9, $10,
-          $11, $12, $13, $14,
-          $15, $16,
-          $17, $18, $19, $20,
-          $21, $22,
-          $23, $24, $25, $26,
-          $27, $28, $29,
-          $30, $31, $32, $33
-        )
-      `, [
-        calcRunId, alloc.demand_id, alloc.demand_key, alloc.sort_order, alloc.tube_stock_code, alloc.gross_demand,
-        alloc.allocated_tube_stock, alloc.net_tube_demand, alloc.tube_stock_before, alloc.tube_stock_after,
-        alloc.cutting_stock_code, alloc.ratio_tube_to_cutting, alloc.allocated_cutting_stock, alloc.net_cutting_demand,
-        alloc.cutting_stock_before, alloc.cutting_stock_after,
-        alloc.print_stock_code, alloc.ratio_cutting_to_print, alloc.allocated_print_stock, alloc.net_print_demand,
-        alloc.print_stock_before, alloc.print_stock_after,
-        alloc.raw_sheet_code, alloc.ratio_print_to_sheet, alloc.raw_sheet_capacity, alloc.estimated_raw_sheets,
-        alloc.planned_cover_quantity, alloc.additional_planning_needed, alloc.plan_earliest_finish,
-        alloc.is_schedule_delayed, alloc.delay_days, alloc.calculation_status, alloc.unresolved_reason
+    const insertSql = `
+      INSERT INTO demand_allocations (
+        calculation_run_id, demand_id, demand_key, sort_order,
+        tube_stock_code, gross_demand, allocated_tube_stock, net_tube_demand,
+        tube_stock_before, tube_stock_after,
+        cutting_stock_code, ratio_tube_to_cutting, allocated_cutting_stock,
+        allocated_cutting_tube_equiv, cutting_stock_unit, net_cutting_demand,
+        cutting_stock_before, cutting_stock_after,
+        print_stock_code, ratio_cutting_to_print, allocated_print_stock,
+        allocated_print_tube_equiv, print_stock_unit, net_print_demand,
+        print_stock_before, print_stock_after,
+        raw_sheet_code, ratio_print_to_sheet, raw_sheet_capacity, estimated_raw_sheets,
+        planned_cover_quantity, on_time_covered_quantity, delayed_covered_quantity,
+        uncovered_quantity, additional_planning_needed,
+        full_coverage_date, plan_earliest_finish, is_schedule_delayed, delay_days,
+        calculation_status, unresolved_reason
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+        $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+        $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41
+      )
+    `;
+
+    for (const a of allocations) {
+      await client.query(insertSql, [
+        calcRunId, a.demand_id, a.demand_key, a.sort_order,
+        a.tube_stock_code, a.gross_demand, a.allocated_tube_stock, a.net_tube_demand,
+        a.tube_stock_before, a.tube_stock_after,
+        a.cutting_stock_code, a.ratio_tube_to_cutting, a.allocated_cutting_stock,
+        a.allocated_cutting_tube_equiv, a.cutting_stock_unit, a.net_cutting_demand,
+        a.cutting_stock_before, a.cutting_stock_after,
+        a.print_stock_code, a.ratio_cutting_to_print, a.allocated_print_stock,
+        a.allocated_print_tube_equiv, a.print_stock_unit, a.net_print_demand,
+        a.print_stock_before, a.print_stock_after,
+        a.raw_sheet_code, a.ratio_print_to_sheet, a.raw_sheet_capacity, a.estimated_raw_sheets,
+        a.planned_cover_quantity, a.on_time_covered_quantity, a.delayed_covered_quantity,
+        a.uncovered_quantity, a.additional_planning_needed,
+        a.full_coverage_date, a.plan_earliest_finish, a.is_schedule_delayed, a.delay_days,
+        a.calculation_status, a.unresolved_reason
       ]);
     }
 
-    // Calculation run başlığını tamamla
+    // 13. Kesin Toplamları Veritabanından Hesapla (Yuvarlama ve float farkını sıfırlar)
+    const totalsRes = await client.query(`
+      SELECT 
+        COALESCE(SUM(gross_demand), 0) as total_gross,
+        COALESCE(SUM(allocated_tube_stock), 0) as total_alloc_tube,
+        COALESCE(SUM(net_tube_demand), 0) as total_net_tube,
+        COALESCE(SUM(allocated_cutting_tube_equiv), 0) as total_alloc_cutting_equiv,
+        COALESCE(SUM(net_cutting_demand), 0) as total_net_cutting,
+        COALESCE(SUM(allocated_print_tube_equiv), 0) as total_alloc_print_equiv,
+        COALESCE(SUM(net_print_demand), 0) as total_net_print,
+        COALESCE(SUM(on_time_covered_quantity), 0) as total_on_time,
+        COALESCE(SUM(delayed_covered_quantity), 0) as total_delayed,
+        COALESCE(SUM(additional_planning_needed), 0) as total_additional
+      FROM demand_allocations 
+      WHERE calculation_run_id = $1
+    `, [calcRunId]);
+    const totals = totalsRes.rows[0];
+
+    const durationMs = Date.now() - startTime;
+
+    // 14. calculation_runs güncelle
     await client.query(`
       UPDATE calculation_runs SET
         status = 'success',
@@ -520,14 +678,23 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
         total_net_cutting = $9,
         total_allocated_print = $10,
         total_net_print = $11,
-        parameters = $12
-      WHERE id = $13
+        total_on_time_covered = $12,
+        total_delayed_covered = $13,
+        total_additional_planning = $14,
+        parameters = $15
+      WHERE id = $16
     `, [
       allocations.length, calculatedCount, unresolvedCount, errorCount,
-      totalGrossTube, totalAllocatedTube, totalNetTube,
-      totalAllocatedCutting, totalNetCutting,
-      totalAllocatedPrint, totalNetPrint,
-      JSON.stringify({ durationMs: Date.now() - startTime }),
+      totals.total_gross, totals.total_alloc_tube, totals.total_net_tube,
+      totals.total_alloc_cutting_equiv, totals.total_net_cutting,
+      totals.total_alloc_print_equiv, totals.total_net_print,
+      totals.total_on_time, totals.total_delayed, totals.total_additional,
+      JSON.stringify({ 
+        durationMs, 
+        selectedDraftId, 
+        selectedDraftTitle,
+        syncRunId: targetSyncId
+      }),
       calcRunId
     ]);
 
@@ -537,25 +704,30 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
       success: true,
       calculationRunId: calcRunId,
       calculationRunUuid: calcRunUuid,
-      durationMs: Date.now() - startTime,
-      summary: {
-        totalDemands: allocations.length,
-        calculatedCount,
-        unresolvedCount,
-        errorCount,
-        totalGrossTube,
-        totalAllocatedTube,
-        totalNetTube,
-        totalAllocatedCutting,
-        totalNetCutting,
-        totalAllocatedPrint,
-        totalNetPrint
-      }
+      syncRunId: targetSyncId,
+      selectedDraftId,
+      selectedDraftTitle,
+      totalDemands: allocations.length,
+      calculatedCount,
+      unresolvedCount,
+      errorCount,
+      totals: {
+        totalGrossTube: parseFloat(totals.total_gross),
+        totalAllocatedTube: parseFloat(totals.total_alloc_tube),
+        totalNetTube: parseFloat(totals.total_net_tube),
+        totalAllocatedCutting: parseFloat(totals.total_alloc_cutting_equiv),
+        totalNetCutting: parseFloat(totals.total_net_cutting),
+        totalAllocatedPrint: parseFloat(totals.total_alloc_print_equiv),
+        totalNetPrint: parseFloat(totals.total_net_print),
+        totalOnTimeCovered: parseFloat(totals.total_on_time),
+        totalDelayedCovered: parseFloat(totals.total_delayed),
+        totalAdditionalPlanning: parseFloat(totals.total_additional)
+      },
+      durationMs
     };
-
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
-    console.error('[DemandAllocation] HATA:', err.message);
+    await client.query('ROLLBACK');
+    console.error('[DemandAllocationService] Hesaplama hatası:', err);
     throw err;
   } finally {
     client.release();
@@ -563,45 +735,59 @@ async function runAllocationCalculation({ user, syncRunId = null }) {
 }
 
 /**
- * 2. En Son Başarılı Hesaplama Koşusunu Getir
+ * 2. En Son Hesaplama Koşusunu Getir (Özet & Durum & Bayatlar Kontrolü)
  */
 async function getLatestCalculation() {
-  const res = await query(`
-    SELECT * FROM calculation_runs
-    WHERE status = 'success'
-    ORDER BY id DESC
+  const runRes = await query(`
+    SELECT 
+      cr.*,
+      (
+        SELECT MAX(id) FROM erp_sync_runs WHERE status = 'success'
+      ) as latest_sync_id,
+      d.version as current_draft_version,
+      d.updated_at as current_draft_updated_at
+    FROM calculation_runs cr
+    LEFT JOIN production_plan_drafts d ON d.id = cr.plan_draft_id
+    WHERE cr.status = 'success'
+    ORDER BY cr.id DESC
     LIMIT 1
   `);
-  return res.rows[0] || null;
+
+  if (runRes.rows.length === 0) return null;
+  const row = runRes.rows[0];
+
+  const syncStale = Boolean(row.latest_sync_id && row.sync_run_id && row.latest_sync_id > row.sync_run_id);
+  const draftStale = Boolean(row.current_draft_updated_at && row.started_at && new Date(row.current_draft_updated_at) > new Date(row.started_at));
+  const isStale = syncStale || draftStale;
+
+  return {
+    ...row,
+    is_stale: isStale,
+    stale_reason: syncStale ? 'YENI_ERP_SENKRONU' : (draftStale ? 'PLAN_TASLAK_DEGISIKLIGI' : null)
+  };
 }
 
 /**
- * 3. İhtiyaç Havuzu İçin Kademeli Hesaplanmış Talep Listesi (Detaylı Bilgilerle)
+ * 3. Kademeli Tahsis Sonuçlarını Taleplerle Birleştirerek Getir
  */
-async function getAllocatedDemands(options = {}) {
-  const { calculationRunId = null } = options;
-
-  let targetCalcId = calculationRunId;
-  if (!targetCalcId) {
+async function getAllocatedDemands(calculationRunId = null) {
+  let targetRunId = calculationRunId;
+  if (!targetRunId) {
     const latest = await getLatestCalculation();
-    if (!latest) {
-      // Henüz hesaplama çalışmamışsa, hesaplanmamış talepleri PENDING durumuyla döndür
-      return getPendingDemands();
-    }
-    targetCalcId = latest.id;
+    if (!latest) return [];
+    targetRunId = latest.id;
   }
 
   const res = await query(`
     SELECT 
-      CONCAT('ERP-', d.id) as id,
       d.id as erp_demand_id,
+      CONCAT('ERP-', d.id) as id,
       d.demand_key,
       d.is_no,
       d.siparis_no as reference_no,
       d.dolum_mamul_kodu,
       d.dolum_mamul_adi,
       d.dolum_plan_miktar,
-      d.dolum_gerceklesen_miktar,
       d.dolum_kalan_miktar,
       d.ihtiyac_tarihi as due_date,
       d.bitis_tarihi,
@@ -612,52 +798,60 @@ async function getAllocatedDemands(options = {}) {
       d.tup_stok_adi as stock_name,
       d.brut_tup_ihtiyac as gross_quantity,
       
-      -- Tahsis Seviyeleri (demand_allocations)
-      a.sort_order,
-      a.calculation_status,
-      a.unresolved_reason,
+      -- Tahsis Seviyeleri (Faz 3B)
+      da.sort_order,
+      da.calculation_status,
+      da.unresolved_reason,
       
-      -- Tüp
-      a.allocated_tube_stock,
-      a.net_tube_demand as net_tube_quantity,
-      stk_tube.usable_stock as available_tube_stock,
-      stk_tube.physical_stock as physical_tube_stock,
-      a.tube_stock_after as remaining_tube_stock_pool,
+      -- Seviye 1: Tüp
+      da.allocated_tube_stock,
+      da.net_tube_demand as net_tube_quantity,
+      da.tube_stock_before as available_tube_stock,
+      s.physical_stock as physical_tube_stock,
+      da.tube_stock_after as remaining_tube_stock_pool,
       
-      -- Kesik
-      a.cutting_stock_code,
-      stk_cut.stock_name as cutting_stock_name,
-      a.ratio_tube_to_cutting,
-      a.allocated_cutting_stock,
-      a.net_cutting_demand as net_cutting_quantity,
-      stk_cut.usable_stock as available_cutting_stock,
-      a.cutting_stock_after as remaining_cutting_stock_pool,
+      -- Seviye 2: Kesik Levha
+      da.cutting_stock_code,
+      sc.stock_name as cutting_stock_name,
+      da.ratio_tube_to_cutting,
+      da.allocated_cutting_stock as allocated_cutting_physical,
+      da.allocated_cutting_tube_equiv as allocated_cutting_stock,
+      da.cutting_stock_unit,
+      da.net_cutting_demand as net_cutting_quantity,
+      da.cutting_stock_before as available_cutting_stock,
+      da.cutting_stock_after as remaining_cutting_stock_pool,
       
-      -- Baskılı
-      a.print_stock_code,
-      stk_print.stock_name as print_stock_name,
-      a.ratio_cutting_to_print,
-      a.allocated_print_stock,
-      a.net_print_demand as net_print_quantity,
-      stk_print.usable_stock as available_print_stock,
-      a.print_stock_after as remaining_print_stock_pool,
+      -- Seviye 3: Baskılı Levha
+      da.print_stock_code,
+      sp.stock_name as print_stock_name,
+      da.ratio_cutting_to_print,
+      da.allocated_print_stock as allocated_print_physical,
+      da.allocated_print_tube_equiv as allocated_print_stock,
+      da.print_stock_unit,
+      da.net_print_demand as net_print_quantity,
+      da.print_stock_before as available_print_stock,
+      da.print_stock_after as remaining_print_stock_pool,
       
-      -- Ham Levha
-      a.raw_sheet_code,
-      stk_raw.stock_name as raw_sheet_name,
-      a.ratio_print_to_sheet,
-      a.raw_sheet_capacity,
-      a.estimated_raw_sheets,
-      stk_raw.usable_stock as available_raw_sheet_stock,
+      -- Seviye 4: Ham Levha Parametresi
+      da.raw_sheet_code,
+      sh.stock_name as raw_sheet_name,
+      da.ratio_print_to_sheet,
+      da.raw_sheet_capacity,
+      da.estimated_raw_sheets,
+      sh.physical_stock as available_raw_sheet_stock,
       
-      -- Mevcut Plan & Termin Açığı
-      a.planned_cover_quantity,
-      a.additional_planning_needed,
-      a.plan_earliest_finish,
-      a.is_schedule_delayed,
-      a.delay_days,
+      -- Mevcut Planlı Arz & Termin Açığı
+      da.planned_cover_quantity,
+      da.on_time_covered_quantity,
+      da.delayed_covered_quantity,
+      da.uncovered_quantity,
+      da.additional_planning_needed,
+      da.full_coverage_date,
+      da.plan_earliest_finish,
+      da.is_schedule_delayed,
+      da.delay_days,
       
-      -- Teknik Kart Özellikleri (product_technicals)
+      -- Teknik Kart Özellikleri
       COALESCE(pt.tube_size, 'BELİRTİLMEMİŞ') as tube_size,
       COALESCE(pt.diameter_mm, 0) as diameter_mm,
       COALESCE(pt.height_mm, 0) as height_mm,
@@ -665,127 +859,160 @@ async function getAllocatedDemands(options = {}) {
       COALESCE(pt.varnish, 'BELİRTİLMEMİŞ') as varnish,
       COALESCE(pt.lacquer, 'BELİRTİLMEMİŞ') as lacquer,
       COALESCE(pt.inside_coating, 'BELİRTİLMEMİŞ') as inside_coating,
-      COALESCE(pt.colors, ARRAY[]::VARCHAR[]) as colors,
-      
+      COALESCE(pt.colors, '{}') as colors,
       CASE 
         WHEN pt.stock_code IS NULL THEN 'missing_technical_card'
-        WHEN pt.raw_sheet_code IS NULL OR pt.raw_sheet_code = '' THEN 'missing_raw_sheet'
+        WHEN pt.raw_sheet_code IS NULL THEN 'missing_raw_sheet'
         ELSE 'complete'
       END as definition_status,
       
       'RPT' as order_type,
       'live_erp_sync' as record_kind,
-      a.calculation_run_id,
-      d.synced_at
-    FROM erp_gross_demands d
-    LEFT JOIN demand_allocations a ON d.id = a.demand_id AND a.calculation_run_id = $1
-    LEFT JOIN erp_stock_levels stk_tube ON d.tup_stok_kodu = stk_tube.stock_code
-    LEFT JOIN erp_stock_levels stk_cut ON a.cutting_stock_code = stk_cut.stock_code
-    LEFT JOIN erp_stock_levels stk_print ON a.print_stock_code = stk_print.stock_code
-    LEFT JOIN erp_stock_levels stk_raw ON a.raw_sheet_code = stk_raw.stock_code
+      da.calculation_run_id,
+      d.synced_at,
+      
+      -- Kombinasyona gidecek net miktar (Doğrulanmış yeni baskı ihtiyacı)
+      COALESCE(da.net_print_demand, 0) as net_quantity
+    FROM demand_allocations da
+    JOIN erp_gross_demands d ON da.demand_id = d.id
+    LEFT JOIN erp_stock_levels s ON d.tup_stok_kodu = s.stock_code
+    LEFT JOIN erp_stock_levels sc ON da.cutting_stock_code = sc.stock_code
+    LEFT JOIN erp_stock_levels sp ON da.print_stock_code = sp.stock_code
+    LEFT JOIN erp_stock_levels sh ON da.raw_sheet_code = sh.stock_code
     LEFT JOIN product_technicals pt ON d.tup_stok_kodu = pt.stock_code
-    WHERE d.is_active = TRUE
-    ORDER BY a.sort_order ASC NULLS LAST, d.ihtiyac_tarihi ASC, d.id ASC
-  `, [targetCalcId]);
+    WHERE da.calculation_run_id = $1
+    ORDER BY da.sort_order ASC
+  `, [targetRunId]);
 
-  return res.rows.map(row => ({
-    ...row,
-    gross_quantity: parseFloat(row.gross_quantity) || 0,
-    allocated_tube_stock: row.allocated_tube_stock !== null ? parseFloat(row.allocated_tube_stock) : 0,
-    net_tube_quantity: row.net_tube_quantity !== null ? parseFloat(row.net_tube_quantity) : null,
-    available_tube_stock: parseFloat(row.available_tube_stock) || 0,
-    
-    allocated_cutting_stock: row.allocated_cutting_stock !== null ? parseFloat(row.allocated_cutting_stock) : 0,
-    net_cutting_quantity: row.net_cutting_quantity !== null ? parseFloat(row.net_cutting_quantity) : null,
-    available_cutting_stock: parseFloat(row.available_cutting_stock) || 0,
-    
-    allocated_print_stock: row.allocated_print_stock !== null ? parseFloat(row.allocated_print_stock) : 0,
-    net_print_quantity: row.net_print_quantity !== null ? parseFloat(row.net_print_quantity) : null,
-    available_print_stock: parseFloat(row.available_print_stock) || 0,
-    
-    raw_sheet_capacity: parseInt(row.raw_sheet_capacity, 10) || null,
-    estimated_raw_sheets: parseInt(row.estimated_raw_sheets, 10) || null,
-    available_raw_sheet_stock: parseFloat(row.available_raw_sheet_stock) || 0,
-    
-    planned_cover_quantity: parseFloat(row.planned_cover_quantity) || 0,
-    additional_planning_needed: row.additional_planning_needed !== null ? parseFloat(row.additional_planning_needed) : null,
-    delay_days: parseInt(row.delay_days, 10) || 0,
-    
-    // Eski uyumluluk: net_quantity artık doğrulanmış YENİ BASKI İHTİYACI'dır (eğer hesaplanmışsa)
-    net_quantity: row.net_print_quantity !== null ? parseFloat(row.net_print_quantity) : null,
-    calculation_status: row.calculation_status || 'PENDING'
-  }));
+  return res.rows;
 }
 
 /**
- * 4. Henüz Hesaplanmamış (PENDING) Talepleri Getir
+ * 4. Çekirdek Tahsis Fonksiyonu (Birim Testleri ve İzolasyon İçin)
  */
-async function getPendingDemands() {
-  const res = await query(`
-    SELECT 
-      CONCAT('ERP-', d.id) as id,
-      d.id as erp_demand_id,
-      d.demand_key,
-      d.is_no,
-      d.siparis_no as reference_no,
-      d.dolum_mamul_kodu,
-      d.dolum_mamul_adi,
-      d.dolum_plan_miktar,
-      d.ihtiyac_tarihi as due_date,
-      d.bitis_tarihi,
-      d.dolum_makine,
-      d.dolum_sira,
-      d.dolum_seri,
-      d.tup_stok_kodu as stock_code,
-      d.tup_stok_adi as stock_name,
-      d.brut_tup_ihtiyac as gross_quantity,
-      COALESCE(stk.usable_stock, 0) as available_stock,
-      COALESCE(stk.usable_stock, 0) as available_tube_stock,
-      NULL as net_quantity, -- Motor hesaplayana kadar NULL
-      NULL as net_tube_quantity,
-      NULL as net_cutting_quantity,
-      NULL as net_print_quantity,
-      'PENDING' as calculation_status,
-      'Kademeli stok tahsis motoru henüz çalıştırılmadı' as unresolved_reason,
-      COALESCE(pt.tube_size, 'BELİRTİLMEMİŞ') as tube_size,
-      COALESCE(pt.diameter_mm, 0) as diameter_mm,
-      COALESCE(pt.height_mm, 0) as height_mm,
-      COALESCE(pt.raw_sheet_code, '') as raw_sheet_code,
-      COALESCE(pt.print_surface, 'BELİRTİLMEMİŞ') as print_surface,
-      COALESCE(pt.varnish, 'BELİRTİLMEMİŞ') as varnish,
-      COALESCE(pt.lacquer, 'BELİRTİLMEMİŞ') as lacquer,
-      COALESCE(pt.inside_coating, 'BELİRTİLMEMİŞ') as inside_coating,
-      COALESCE(pt.colors, ARRAY[]::VARCHAR[]) as colors,
-      CASE 
-        WHEN pt.stock_code IS NULL THEN 'missing_technical_card'
-        WHEN pt.raw_sheet_code IS NULL OR pt.raw_sheet_code = '' THEN 'missing_raw_sheet'
-        ELSE 'complete'
-      END as definition_status,
-      'RPT' as order_type,
-      'live_erp_sync' as record_kind,
-      d.synced_at
-    FROM erp_gross_demands d
-    LEFT JOIN erp_stock_levels stk ON d.tup_stok_kodu = stk.stock_code
-    LEFT JOIN product_technicals pt ON d.tup_stok_kodu = pt.stock_code
-    WHERE d.is_active = TRUE
-    ORDER BY d.ihtiyac_tarihi ASC, d.id ASC
-  `);
+function calculateSingleDemandPure({
+  grossDemand,
+  tubeStock = 0,
+  cuttingStock = 0,
+  ratioTubeToCutting = 1.0,
+  printStock = 0,
+  ratioCuttingToPrint = 1.0,
+  rawSheetCapacity = null,
+  planSupplies = [], // [{ quantity, endDate }]
+  dueDate = null
+}) {
+  const gross = Math.max(0, parseFloat(grossDemand) || 0);
 
-  return res.rows.map(row => ({
-    ...row,
-    gross_quantity: parseFloat(row.gross_quantity) || 0,
-    available_stock: parseFloat(row.available_stock) || 0,
-    available_tube_stock: parseFloat(row.available_tube_stock) || 0,
-    net_quantity: null,
-    net_tube_quantity: null,
-    net_cutting_quantity: null,
-    net_print_quantity: null
-  }));
+  // Aşama 1: Tüp
+  const availTube = Math.max(0, parseFloat(tubeStock) || 0);
+  const allocTube = Math.min(gross, availTube);
+  const netTube = Math.round((gross - allocTube) * 100) / 100;
+  const remTubeStock = Math.round((availTube - allocTube) * 100) / 100;
+
+  // Aşama 2: Kesik Levha (Fiziksel stok & Tüp eşdeğeri)
+  let allocCutPhys = 0;
+  let allocCutTubeEquiv = 0;
+  let netCutDemandTubeEquiv = netTube;
+  let remCutStock = Math.max(0, parseFloat(cuttingStock) || 0);
+
+  if (netTube > 0 && ratioTubeToCutting > 0) {
+    const reqCutPhys = netTube * ratioTubeToCutting;
+    allocCutPhys = Math.min(reqCutPhys, remCutStock);
+    remCutStock = Math.round((remCutStock - allocCutPhys) * 100) / 100;
+    allocCutTubeEquiv = Math.round((allocCutPhys / ratioTubeToCutting) * 100) / 100;
+    netCutDemandTubeEquiv = Math.round((netTube - allocCutTubeEquiv) * 100) / 100;
+  }
+
+  // Aşama 3: Baskılı Levha (Fiziksel stok & Tüp eşdeğeri)
+  let allocPrintPhys = 0;
+  let allocPrintTubeEquiv = 0;
+  let netPrintDemandTubeEquiv = netCutDemandTubeEquiv;
+  let remPrintStock = Math.max(0, parseFloat(printStock) || 0);
+
+  if (netCutDemandTubeEquiv > 0 && ratioTubeToCutting > 0 && ratioCuttingToPrint > 0) {
+    const reqPrintPhys = (netCutDemandTubeEquiv * ratioTubeToCutting) * ratioCuttingToPrint;
+    allocPrintPhys = Math.min(reqPrintPhys, remPrintStock);
+    remPrintStock = Math.round((remPrintStock - allocPrintPhys) * 100) / 100;
+    allocPrintTubeEquiv = Math.round((allocPrintPhys / (ratioTubeToCutting * ratioCuttingToPrint)) * 100) / 100;
+    netPrintDemandTubeEquiv = Math.round((netCutDemandTubeEquiv - allocPrintTubeEquiv) * 100) / 100;
+  }
+
+  // Aşama 4: Ham Levha İhtiyacı
+  let estimatedRawSheets = null;
+  if (rawSheetCapacity && rawSheetCapacity > 0 && netPrintDemandTubeEquiv > 0) {
+    estimatedRawSheets = Math.ceil(netPrintDemandTubeEquiv / rawSheetCapacity);
+  }
+
+  // Aşama 5: Planlı Arz & Zamanında/Geç Karşılama
+  let onTimeCovered = 0;
+  let delayedCovered = 0;
+  let needed = netTube;
+  let fullCoverageDate = null;
+  let latestDelayedFinish = null;
+
+  const due = dueDate ? new Date(dueDate) : null;
+
+  for (const p of planSupplies) {
+    if (p.quantity <= 0) continue;
+    const take = Math.min(needed, p.quantity);
+    needed -= take;
+
+    const pDate = p.endDate ? new Date(p.endDate) : null;
+    const isDelayed = Boolean(due && pDate && (pDate > due));
+    if (isDelayed) {
+      delayedCovered += take;
+      if (!latestDelayedFinish || pDate > latestDelayedFinish) {
+        latestDelayedFinish = pDate;
+      }
+    } else {
+      onTimeCovered += take;
+    }
+
+    if (needed <= 0) {
+      fullCoverageDate = pDate;
+      break;
+    }
+  }
+
+  const uncoveredQty = Math.round(needed * 100) / 100;
+  let delayDays = 0;
+  const isScheduleDelayed = delayedCovered > 0;
+  if (isScheduleDelayed && latestDelayedFinish && due) {
+    const diffMs = latestDelayedFinish.getTime() - due.getTime();
+    delayDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  }
+
+  return {
+    grossDemand: gross,
+    allocatedTubeStock: allocTube,
+    netTubeDemand: netTube,
+    remainingTubeStock: remTubeStock,
+
+    allocatedCuttingPhysical: allocCutPhys,
+    allocatedCuttingTubeEquiv: allocCutTubeEquiv,
+    netCuttingDemandTubeEquiv: netCutDemandTubeEquiv,
+    remainingCuttingStock: remCutStock,
+
+    allocatedPrintPhysical: allocPrintPhys,
+    allocatedPrintTubeEquiv: allocPrintTubeEquiv,
+    netPrintDemandTubeEquiv: netPrintDemandTubeEquiv,
+    remainingPrintStock: remPrintStock,
+
+    rawSheetCapacity,
+    estimatedRawSheets,
+
+    onTimeCoveredQuantity: onTimeCovered,
+    delayedCoveredQuantity: delayedCovered,
+    uncoveredQuantity: uncoveredQty,
+    fullCoverageDate,
+    isScheduleDelayed,
+    delayDays
+  };
 }
 
 module.exports = {
   runAllocationCalculation,
   getLatestCalculation,
   getAllocatedDemands,
-  getPendingDemands
+  calculateSingleDemandPure
 };

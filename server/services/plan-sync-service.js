@@ -14,6 +14,7 @@ const crypto = require('crypto');
 const { Connection, Request } = require('tedious');
 const config = require('../config');
 const { query, withTransaction } = require('../db');
+const schedulingEngine = require('./schedulingEngine');
 
 /**
  * SQL Server'a salt-okunur bağlanarak sorgu çalıştırır
@@ -473,7 +474,7 @@ async function commitSourcePlanSnapshot({ user, notes = '', createOrUpdateDraft 
 }
 
 /**
- * 3. Aktif Taslağı ve Satırlarını Getir
+ * 3. Aktif Taslağı ve Satırlarını Getir (Faz 5A Çizelgeleme Alanları ile)
  */
 async function getActiveDraft(draftId = 'DRAFT-DEFAULT') {
   const draftRes = await query(
@@ -490,6 +491,11 @@ async function getActiveDraft(draftId = 'DRAFT-DEFAULT') {
     `SELECT
       id, sequence_order, stock_code, stock_name, quantity,
       order_no, tube_size, series, scheduled_date, start_date, end_date,
+      source_start_date, source_end_date,
+      suggested_start_date, suggested_end_date,
+      setup_duration_minutes, production_duration_minutes,
+      speed_units_per_minute, is_start_locked, is_sequence_locked,
+      delay_days, is_delayed, due_date, material_status, covered_demand_keys,
       status, is_locked, notes
      FROM production_plan_draft_items
      WHERE draft_id = $1
@@ -505,9 +511,9 @@ async function getActiveDraft(draftId = 'DRAFT-DEFAULT') {
 }
 
 /**
- * 4. Taslak Sırasını Güncelle (Kullanıcı Sıra Düzenlemesi)
+ * 4. Taslak Sırasını Güncelle (Kullanıcı Sıra Düzenlemesi ve 409 Optimistic Lock Koruması)
  */
-async function updateDraftItemsOrder(draftId, orderedItemIds, user) {
+async function updateDraftItemsOrder(draftId, orderedItemIds, user, expectedVersion = null) {
   return await withTransaction(async (client) => {
     const draftRes = await client.query(
       'SELECT id, version FROM production_plan_drafts WHERE id = $1 FOR UPDATE',
@@ -516,6 +522,14 @@ async function updateDraftItemsOrder(draftId, orderedItemIds, user) {
 
     if (draftRes.rows.length === 0) {
       throw new Error(`Taslak bulunamadı: ${draftId}`);
+    }
+
+    const currentDraft = draftRes.rows[0];
+    if (expectedVersion !== null && expectedVersion !== undefined && currentDraft.version !== expectedVersion) {
+      const err = new Error(`Çakışma: Plan taslağı başka bir oturum tarafından güncellenmiş (Mevcut Sürüm: ${currentDraft.version}, Beklenen: ${expectedVersion}).`);
+      err.code = 'CONCURRENT_MODIFICATION';
+      err.currentVersion = currentDraft.version;
+      throw err;
     }
 
     for (let i = 0; i < orderedItemIds.length; i++) {
@@ -541,6 +555,507 @@ async function updateDraftItemsOrder(draftId, orderedItemIds, user) {
     return {
       success: true,
       draft: updatedDraft.rows[0]
+    };
+  });
+}
+
+/**
+ * 4.1. Tekil Taslak Satırı Güncelle (Miktar, Kilit, Notlar ve 409 Kontrolü)
+ */
+async function updateDraftItem({ draftId = 'DRAFT-DEFAULT', itemId, updates = {}, expectedVersion = null, user }) {
+  return await withTransaction(async (client) => {
+    const draftRes = await client.query(
+      'SELECT id, version FROM production_plan_drafts WHERE id = $1 FOR UPDATE',
+      [draftId]
+    );
+
+    if (draftRes.rows.length === 0) {
+      throw new Error(`Taslak bulunamadı: ${draftId}`);
+    }
+
+    const currentDraft = draftRes.rows[0];
+    if (expectedVersion !== null && expectedVersion !== undefined && currentDraft.version !== expectedVersion) {
+      const err = new Error(`Çakışma: Plan taslağı başka bir oturum tarafından güncellenmiş.`);
+      err.code = 'CONCURRENT_MODIFICATION';
+      err.currentVersion = currentDraft.version;
+      throw err;
+    }
+
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    if (updates.quantity !== undefined) {
+      fields.push(`quantity = $${idx++}`);
+      values.push(Number(updates.quantity) || 0);
+    }
+    if (updates.is_start_locked !== undefined) {
+      fields.push(`is_start_locked = $${idx++}`);
+      values.push(Boolean(updates.is_start_locked));
+    }
+    if (updates.is_sequence_locked !== undefined) {
+      fields.push(`is_sequence_locked = $${idx++}`);
+      values.push(Boolean(updates.is_sequence_locked));
+    }
+    if (updates.start_date !== undefined) {
+      fields.push(`start_date = $${idx++}`);
+      values.push(updates.start_date ? new Date(updates.start_date) : null);
+    }
+    if (updates.notes !== undefined) {
+      fields.push(`notes = $${idx++}`);
+      values.push(updates.notes);
+    }
+
+    fields.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(itemId);
+    values.push(draftId);
+
+    const updateItemSql = `
+      UPDATE production_plan_draft_items
+      SET ${fields.join(', ')}
+      WHERE id = $${idx++} AND draft_id = $${idx++}
+      RETURNING *
+    `;
+
+    const updatedItemRes = await client.query(updateItemSql, values);
+    if (updatedItemRes.rows.length === 0) {
+      throw new Error(`Taslak satırı bulunamadı: ${itemId}`);
+    }
+
+    // Toplam miktarı yeniden hesapla
+    const sumRes = await client.query(
+      'SELECT SUM(quantity) as total_qty, COUNT(*) as total_items FROM production_plan_draft_items WHERE draft_id = $1',
+      [draftId]
+    );
+
+    const updatedDraft = await client.query(
+      `UPDATE production_plan_drafts SET
+        version = version + 1,
+        is_dirty = TRUE,
+        total_quantity = $1,
+        total_items = $2,
+        updated_at = CURRENT_TIMESTAMP,
+        updated_by = $3
+       WHERE id = $4
+       RETURNING *`,
+      [sumRes.rows[0].total_qty || 0, sumRes.rows[0].total_items || 0, user ? user.username : 'system', draftId]
+    );
+
+    return {
+      success: true,
+      draft: updatedDraft.rows[0],
+      item: updatedItemRes.rows[0]
+    };
+  });
+}
+
+/**
+ * 4.2. Çizelgeleme Parametrelerini Getir (Takvim, Molalar, İstisnalar, Hızlar, Ayar Kuralları)
+ */
+async function getSchedulingParameters(configId = 'DEFAULT') {
+  const configRes = await query('SELECT * FROM production_calendar_configs WHERE id = $1', [configId]);
+  const breaksRes = await query('SELECT * FROM production_calendar_breaks WHERE calendar_config_id = $1 AND is_active = TRUE ORDER BY start_time ASC', [configId]);
+  const exceptionsRes = await query('SELECT * FROM production_calendar_exceptions WHERE calendar_config_id = $1 ORDER BY exception_date ASC', [configId]);
+  const speedsRes = await query('SELECT * FROM tube_production_speeds WHERE is_active = TRUE');
+  const setupRulesRes = await query('SELECT * FROM production_setup_rules WHERE is_active = TRUE');
+
+  const speedMap = new Map();
+  speedsRes.rows.forEach(s => {
+    speedMap.set(s.tube_size, Number(s.speed_units_per_minute));
+    speedMap.set(s.tube_size.toLowerCase(), Number(s.speed_units_per_minute));
+  });
+
+  return {
+    config: configRes.rows[0] || {},
+    breaks: breaksRes.rows,
+    exceptions: exceptionsRes.rows,
+    speeds: speedsRes.rows,
+    speedMap,
+    setupRules: setupRulesRes.rows
+  };
+}
+
+/**
+ * 4.3. Çizelgeleme Önizlemesi (Mevcut Taslağı Değiştirmeden Tarih/Gecikme/Ayar Hesabı)
+ */
+async function previewSchedule({ draftId = 'DRAFT-DEFAULT', scheduleStartTime = null, itemsOverride = null }) {
+  let items = itemsOverride;
+  if (!items) {
+    const draftData = await getActiveDraft(draftId);
+    if (!draftData.exists) {
+      throw new Error(`Taslak bulunamadı: ${draftId}`);
+    }
+    items = draftData.items;
+  }
+
+  const params = await getSchedulingParameters();
+  const startTime = scheduleStartTime || items[0]?.source_start_date || items[0]?.start_date || '2026-11-06T07:30:00+03:00';
+
+  const scheduleResult = schedulingEngine.scheduleProductionPlanPure({
+    items,
+    scheduleStartTime: startTime,
+    config: params.config,
+    breaks: params.breaks,
+    exceptions: params.exceptions,
+    speedMap: params.speedMap,
+    setupRules: params.setupRules
+  });
+
+  return {
+    ...scheduleResult,
+    scheduleStartTime: startTime,
+    draftId
+  };
+}
+
+/**
+ * 4.4. Çizelgeyi Uygula ve Kaydet (Commit Schedule with Transaction & 409 Optimistic Lock)
+ */
+async function commitSchedule({ draftId = 'DRAFT-DEFAULT', scheduleStartTime, scheduledItems, expectedVersion, user }) {
+  return await withTransaction(async (client) => {
+    const draftRes = await client.query(
+      'SELECT id, version FROM production_plan_drafts WHERE id = $1 FOR UPDATE',
+      [draftId]
+    );
+
+    if (draftRes.rows.length === 0) {
+      throw new Error(`Taslak bulunamadı: ${draftId}`);
+    }
+
+    const currentDraft = draftRes.rows[0];
+    if (expectedVersion !== null && expectedVersion !== undefined && currentDraft.version !== expectedVersion) {
+      const err = new Error(`Çakışma: Plan taslağı başka bir kullanıcı tarafından güncellenmiş (Mevcut: ${currentDraft.version}, Beklenen: ${expectedVersion}).`);
+      err.code = 'CONCURRENT_MODIFICATION';
+      err.currentVersion = currentDraft.version;
+      throw err;
+    }
+
+    let delayedCount = 0;
+    let totalSetupMinutes = 0;
+    let totalWorkingMinutes = 0;
+
+    for (let i = 0; i < scheduledItems.length; i++) {
+      const it = scheduledItems[i];
+      totalSetupMinutes += Number(it.setup_duration_minutes || 0);
+      totalWorkingMinutes += Number(it.production_duration_minutes || 0);
+      if (it.is_delayed) delayedCount++;
+
+      await client.query(`
+        UPDATE production_plan_draft_items
+        SET
+          sequence_order = $1,
+          start_date = $2,
+          end_date = $3,
+          suggested_start_date = $2,
+          suggested_end_date = $3,
+          setup_duration_minutes = $4,
+          production_duration_minutes = $5,
+          speed_units_per_minute = $6,
+          is_delayed = $7,
+          delay_days = $8,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $9 AND draft_id = $10
+      `, [
+        i + 1,
+        it.suggested_start_date ? new Date(it.suggested_start_date) : null,
+        it.suggested_end_date ? new Date(it.suggested_end_date) : null,
+        it.setup_duration_minutes || 0,
+        it.production_duration_minutes || 0,
+        it.speed_units_per_minute || null,
+        Boolean(it.is_delayed),
+        it.delay_days || 0,
+        it.id,
+        draftId
+      ]);
+    }
+
+    const updatedDraft = await client.query(`
+      UPDATE production_plan_drafts
+      SET
+        version = version + 1,
+        is_dirty = FALSE,
+        schedule_start_time = $1,
+        last_scheduled_at = CURRENT_TIMESTAMP,
+        total_setup_minutes = $2,
+        total_working_minutes = $3,
+        delayed_items_count = $4,
+        updated_at = CURRENT_TIMESTAMP,
+        updated_by = $5
+      WHERE id = $6
+      RETURNING *
+    `, [
+      scheduleStartTime ? new Date(scheduleStartTime) : null,
+      totalSetupMinutes,
+      Math.round(totalWorkingMinutes),
+      delayedCount,
+      user ? user.username : 'system',
+      draftId
+    ]);
+
+    return {
+      success: true,
+      draft: updatedDraft.rows[0],
+      delayedCount,
+      totalSetupMinutes,
+      totalWorkingMinutes
+    };
+  });
+}
+
+/**
+ * 4.5. İhtiyaç Havuzundan İlave Tüp Planı Ekle (Uncovered Demands Only)
+ */
+async function addUncoveredDemandToDraft({ draftId = 'DRAFT-DEFAULT', demandId, user, expectedVersion = null }) {
+  return await withTransaction(async (client) => {
+    // 1. Taslak kilidi
+    const draftRes = await client.query(
+      'SELECT * FROM production_plan_drafts WHERE id = $1 FOR UPDATE',
+      [draftId]
+    );
+    if (draftRes.rows.length === 0) throw new Error(`Taslak bulunamadı: ${draftId}`);
+    const draft = draftRes.rows[0];
+
+    if (expectedVersion !== null && expectedVersion !== undefined && draft.version !== expectedVersion) {
+      const err = new Error('Çakışma: Plan taslağı güncellenmiş.');
+      err.code = 'CONCURRENT_MODIFICATION';
+      throw err;
+    }
+
+    // 2. Talebi ve tahsis durumunu kontrol et
+    const rawId = String(demandId).replace('ERP-', '');
+    const demRes = await client.query(`
+      SELECT 
+        d.*,
+        da.calculation_status,
+        da.uncovered_quantity,
+        da.additional_planning_needed,
+        da.net_tube_demand,
+        pt.tube_size as tech_tube_size
+      FROM erp_gross_demands d
+      LEFT JOIN demand_allocations da ON da.erp_demand_id = d.id AND da.calculation_run_id = (
+        SELECT MAX(id) FROM calculation_runs WHERE status = 'success'
+      )
+      LEFT JOIN product_technicals pt ON pt.stock_code = d.tup_stok_kodu
+      WHERE d.id = $1
+    `, [rawId]);
+
+    if (demRes.rows.length === 0) {
+      throw new Error(`Talep bulunamadı: ${demandId}`);
+    }
+
+    const dem = demRes.rows[0];
+    const uncoveredQty = Number(dem.uncovered_quantity || dem.additional_planning_needed || 0);
+
+    if (uncoveredQty <= 0) {
+      throw new Error(`Bu talep zaten mevcut planda veya ambar stoklarıyla tamamen karşılanmaktadır (İlave planlama ihtiyacı: 0).`);
+    }
+
+    // Mükerrer ekleme koruması
+    const existingCheck = await client.query(`
+      SELECT id, order_no, quantity FROM production_plan_draft_items
+      WHERE draft_id = $1 AND stock_code = $2 AND order_no = $3
+    `, [draftId, dem.tup_stok_kodu, dem.is_no]);
+
+    if (existingCheck.rows.length > 0) {
+      throw new Error(`Bu sipariş/iş emri (${dem.is_no}) zaten üretim planında yer almaktadır.`);
+    }
+
+    // 3. Sıradaki sequence_order
+    const maxSeqRes = await client.query(
+      'SELECT COALESCE(MAX(sequence_order), 0) as max_seq FROM production_plan_draft_items WHERE draft_id = $1',
+      [draftId]
+    );
+    const nextSeq = (maxSeqRes.rows[0].max_seq || 0) + 1;
+    const tubeSize = dem.tech_tube_size || '52x195';
+
+    // 4. Yeni parti satırı ekle
+    const insertRes = await client.query(`
+      INSERT INTO production_plan_draft_items (
+        draft_id, sequence_order, stock_code, stock_name, quantity,
+        order_no, tube_size, series, status, due_date,
+        material_status, covered_demand_keys, notes
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, 'PLANNED', $9,
+        'AWAITING_CONFIRMATION', $10, $11
+      ) RETURNING *
+    `, [
+      draftId,
+      nextSeq,
+      dem.tup_stok_kodu,
+      dem.tup_stok_adi,
+      uncoveredQty,
+      dem.is_no,
+      tubeSize,
+      'S1',
+      dem.ihtiyac_tarihi || dem.bitis_tarihi,
+      JSON.stringify([dem.demand_key]),
+      `İhtiyaç Havuzundan eklendi (Açık İhtiyaç: ${uncoveredQty} adet)`
+    ]);
+
+    // 5. Taslak özetini güncelle
+    const updatedDraft = await client.query(`
+      UPDATE production_plan_drafts
+      SET
+        version = version + 1,
+        is_dirty = TRUE,
+        total_items = total_items + 1,
+        total_quantity = total_quantity + $1,
+        updated_at = CURRENT_TIMESTAMP,
+        updated_by = $2
+      WHERE id = $3
+      RETURNING *
+    `, [uncoveredQty, user ? user.username : 'system', draftId]);
+
+    return {
+      success: true,
+      draft: updatedDraft.rows[0],
+      newItem: insertRes.rows[0]
+    };
+  });
+}
+
+/**
+ * 4.6. Senaryo Olarak Kaydet
+ */
+async function saveDraftScenario({ draftId = 'DRAFT-DEFAULT', scenarioName, notes = '', user }) {
+  const draftData = await getActiveDraft(draftId);
+  if (!draftData.exists) throw new Error(`Taslak bulunamadı: ${draftId}`);
+
+  const scenarioId = `SCN-${Date.now()}`;
+  const summaryMetrics = {
+    totalItems: draftData.draft.total_items,
+    totalQuantity: draftData.draft.total_quantity,
+    totalSetupMinutes: draftData.draft.total_setup_minutes,
+    totalWorkingMinutes: draftData.draft.total_working_minutes,
+    delayedCount: draftData.draft.delayed_items_count,
+    draftVersion: draftData.draft.version
+  };
+
+  const res = await query(`
+    INSERT INTO production_plan_scenarios (
+      id, draft_id, scenario_name, version, created_by, notes, items_payload, summary_metrics
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING *
+  `, [
+    scenarioId,
+    draftId,
+    scenarioName || `Senaryo ${new Date().toLocaleDateString('tr-TR')}`,
+    draftData.draft.version,
+    user ? user.username : 'planner',
+    notes,
+    JSON.stringify(draftData.items),
+    JSON.stringify(summaryMetrics)
+  ]);
+
+  return res.rows[0];
+}
+
+/**
+ * 4.7. Senaryoları Listele
+ */
+async function getScenariosList(draftId = 'DRAFT-DEFAULT') {
+  const res = await query(`
+    SELECT id, draft_id, scenario_name, version, created_at, created_by, notes, summary_metrics
+    FROM production_plan_scenarios
+    WHERE draft_id = $1
+    ORDER BY created_at DESC
+  `, [draftId]);
+  return res.rows;
+}
+
+/**
+ * 4.8. Senaryoya Geri Dön (Revert to Scenario)
+ */
+async function revertDraftToScenario({ draftId = 'DRAFT-DEFAULT', scenarioId, user }) {
+  return await withTransaction(async (client) => {
+    const scnRes = await client.query(
+      'SELECT * FROM production_plan_scenarios WHERE id = $1 AND draft_id = $2',
+      [scenarioId, draftId]
+    );
+
+    if (scnRes.rows.length === 0) throw new Error(`Senaryo bulunamadı: ${scenarioId}`);
+    const scn = scnRes.rows[0];
+    const items = typeof scn.items_payload === 'string' ? JSON.parse(scn.items_payload) : scn.items_payload;
+
+    await client.query('DELETE FROM production_plan_draft_items WHERE draft_id = $1', [draftId]);
+
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      await client.query(`
+        INSERT INTO production_plan_draft_items (
+          draft_id, sequence_order, stock_code, stock_name, quantity,
+          order_no, tube_size, series, scheduled_date, start_date, end_date,
+          source_start_date, source_end_date, suggested_start_date, suggested_end_date,
+          setup_duration_minutes, production_duration_minutes, speed_units_per_minute,
+          is_start_locked, is_sequence_locked, delay_days, is_delayed, due_date,
+          material_status, covered_demand_keys, notes
+        ) VALUES (
+          $1, $2, $3, $4, $5,
+          $6, $7, $8, $9, $10, $11,
+          $12, $13, $14, $15,
+          $16, $17, $18,
+          $19, $20, $21, $22, $23,
+          $24, $25, $26
+        )
+      `, [
+        draftId,
+        i + 1,
+        it.stock_code,
+        it.stock_name,
+        it.quantity,
+        it.order_no,
+        it.tube_size,
+        it.series || 'S1',
+        it.scheduled_date,
+        it.start_date ? new Date(it.start_date) : null,
+        it.end_date ? new Date(it.end_date) : null,
+        it.source_start_date ? new Date(it.source_start_date) : null,
+        it.source_end_date ? new Date(it.source_end_date) : null,
+        it.suggested_start_date ? new Date(it.suggested_start_date) : null,
+        it.suggested_end_date ? new Date(it.suggested_end_date) : null,
+        it.setup_duration_minutes || 0,
+        it.production_duration_minutes || 0,
+        it.speed_units_per_minute || null,
+        Boolean(it.is_start_locked),
+        Boolean(it.is_sequence_locked),
+        it.delay_days || 0,
+        Boolean(it.is_delayed),
+        it.due_date ? new Date(it.due_date) : null,
+        it.material_status || 'CONFIRMED',
+        JSON.stringify(it.covered_demand_keys || []),
+        it.notes || ''
+      ]);
+    }
+
+    const updatedDraft = await client.query(`
+      UPDATE production_plan_drafts
+      SET
+        version = version + 1,
+        is_dirty = TRUE,
+        total_items = $1,
+        total_quantity = $2,
+        total_setup_minutes = $3,
+        total_working_minutes = $4,
+        delayed_items_count = $5,
+        updated_at = CURRENT_TIMESTAMP,
+        updated_by = $6
+      WHERE id = $7
+      RETURNING *
+    `, [
+      items.length,
+      scn.summary_metrics?.totalQuantity || 0,
+      scn.summary_metrics?.totalSetupMinutes || 0,
+      scn.summary_metrics?.totalWorkingMinutes || 0,
+      scn.summary_metrics?.delayedCount || 0,
+      user ? user.username : 'system',
+      draftId
+    ]);
+
+    return {
+      success: true,
+      draft: updatedDraft.rows[0],
+      revertedToScenario: scn.scenario_name
     };
   });
 }
@@ -595,6 +1110,14 @@ module.exports = {
   commitSourcePlanSnapshot,
   getActiveDraft,
   updateDraftItemsOrder,
+  updateDraftItem,
+  getSchedulingParameters,
+  previewSchedule,
+  commitSchedule,
+  addUncoveredDemandToDraft,
+  saveDraftScenario,
+  getScenariosList,
+  revertDraftToScenario,
   getSnapshotsList,
   getSnapshotDetails
 };

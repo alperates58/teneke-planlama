@@ -58,8 +58,8 @@ async function handlePlanSyncRoutes(req, res, pathname) {
     }
   }
 
-  // 3. GET /api/plan-sync/draft -> Aktif üretim planı taslağını getir
-  if (req.method === 'GET' && pathname === '/api/plan-sync/draft') {
+  // 3. GET /api/plan-sync/draft & /api/plan/draft -> Aktif üretim planı taslağını getir
+  if (req.method === 'GET' && (pathname === '/api/plan-sync/draft' || pathname === '/api/plan/draft')) {
     try {
       const draftData = await planSyncService.getActiveDraft();
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -78,8 +78,8 @@ async function handlePlanSyncRoutes(req, res, pathname) {
     }
   }
 
-  // 4. PUT /api/plan-sync/draft/order -> Taslak satır sırasını güncelle (Kullanıcı Sıralaması)
-  if (req.method === 'PUT' && pathname === '/api/plan-sync/draft/order') {
+  // 4. PUT /api/plan-sync/draft/order & /api/plan/draft/order -> Taslak satır sırasını güncelle (Kullanıcı Sıralaması & 409 Koruması)
+  if (req.method === 'PUT' && (pathname === '/api/plan-sync/draft/order' || pathname === '/api/plan/draft/order')) {
     const canEditPlan = req.user && (req.user.permissions?.canApprovePlans || req.user.permissions?.canEditParameters || req.user.role === 'admin' || req.user.role === 'planner');
     if (!canEditPlan) {
       res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -93,6 +93,8 @@ async function handlePlanSyncRoutes(req, res, pathname) {
     try {
       const targetDraftId = req.body?.draftId || req.body?.draft_id || 'DRAFT-DEFAULT';
       const targetItemIds = req.body?.itemIds || req.body?.ordered_item_ids || [];
+      const expectedVersion = req.body?.expectedVersion !== undefined ? Number(req.body.expectedVersion) : null;
+
       if (!Array.isArray(targetItemIds) || targetItemIds.length === 0) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({
@@ -102,7 +104,7 @@ async function handlePlanSyncRoutes(req, res, pathname) {
         return true;
       }
 
-      const result = await planSyncService.updateDraftItemsOrder(targetDraftId, targetItemIds, req.user);
+      const result = await planSyncService.updateDraftItemsOrder(targetDraftId, targetItemIds, req.user, expectedVersion);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({
         success: true,
@@ -110,11 +112,211 @@ async function handlePlanSyncRoutes(req, res, pathname) {
       }));
       return true;
     } catch (err) {
+      if (err.code === 'CONCURRENT_MODIFICATION') {
+        res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({
+          success: false,
+          error: { code: 'CONCURRENT_MODIFICATION', message: err.message, currentVersion: err.currentVersion }
+        }));
+        return true;
+      }
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({
         success: false,
         error: { code: 'DRAFT_ORDER_UPDATE_ERROR', message: err.message }
       }));
+      return true;
+    }
+  }
+
+  // 4.1. PUT /api/plan/draft/item/:id -> Tekil satır güncelle (Miktar, Kilit, Notlar ve 409 Kontrolü)
+  if (req.method === 'PUT' && pathname.startsWith('/api/plan/draft/item/')) {
+    const itemId = pathname.replace('/api/plan/draft/item/', '');
+    try {
+      const targetDraftId = req.body?.draftId || 'DRAFT-DEFAULT';
+      const expectedVersion = req.body?.expectedVersion !== undefined ? Number(req.body.expectedVersion) : null;
+      const updates = req.body?.updates || {};
+
+      const result = await planSyncService.updateDraftItem({
+        draftId: targetDraftId,
+        itemId,
+        updates,
+        expectedVersion,
+        user: req.user
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, data: result }));
+      return true;
+    } catch (err) {
+      if (err.code === 'CONCURRENT_MODIFICATION') {
+        res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({
+          success: false,
+          error: { code: 'CONCURRENT_MODIFICATION', message: err.message }
+        }));
+        return true;
+      }
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+      return true;
+    }
+  }
+
+  // 4.2. GET /api/plan/scheduling-parameters -> Takvim, Hız ve Ayar Parametreleri
+  if (req.method === 'GET' && pathname === '/api/plan/scheduling-parameters') {
+    try {
+      const params = await planSyncService.getSchedulingParameters();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, data: params }));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+      return true;
+    }
+  }
+
+  // 4.3. POST /api/plan/schedule-preview -> Çizelgeleme Önizlemesi (Mevcut Planı Değiştirmez)
+  if (req.method === 'POST' && pathname === '/api/plan/schedule-preview') {
+    try {
+      const { draftId, scheduleStartTime, items } = req.body || {};
+      const preview = await planSyncService.previewSchedule({
+        draftId: draftId || 'DRAFT-DEFAULT',
+        scheduleStartTime,
+        itemsOverride: items || null
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, data: preview }));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+      return true;
+    }
+  }
+
+  // 4.4. POST /api/plan/schedule-commit -> Çizelgeyi Uygula ve Kaydet (409 Korumalı)
+  if (req.method === 'POST' && pathname === '/api/plan/schedule-commit') {
+    try {
+      const { draftId, scheduleStartTime, scheduledItems, expectedVersion } = req.body || {};
+      if (!Array.isArray(scheduledItems) || scheduledItems.length === 0) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: { message: 'Kaydedilecek çizelgelenmiş iş listesi boş olamaz.' } }));
+        return true;
+      }
+
+      const result = await planSyncService.commitSchedule({
+        draftId: draftId || 'DRAFT-DEFAULT',
+        scheduleStartTime,
+        scheduledItems,
+        expectedVersion: expectedVersion !== undefined ? Number(expectedVersion) : null,
+        user: req.user
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, data: result }));
+      return true;
+    } catch (err) {
+      if (err.code === 'CONCURRENT_MODIFICATION') {
+        res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({
+          success: false,
+          error: { code: 'CONCURRENT_MODIFICATION', message: err.message, currentVersion: err.currentVersion }
+        }));
+        return true;
+      }
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+      return true;
+    }
+  }
+
+  // 4.5. POST /api/plan/draft/add-demand -> İhtiyaç Havuzundan İlave Plan Ekle
+  if (req.method === 'POST' && pathname === '/api/plan/draft/add-demand') {
+    try {
+      const { draftId, demandId, expectedVersion } = req.body || {};
+      if (!demandId) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: { message: 'demandId parametresi zorunludur.' } }));
+        return true;
+      }
+
+      const result = await planSyncService.addUncoveredDemandToDraft({
+        draftId: draftId || 'DRAFT-DEFAULT',
+        demandId,
+        user: req.user,
+        expectedVersion: expectedVersion !== undefined ? Number(expectedVersion) : null
+      });
+
+      res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, data: result }));
+      return true;
+    } catch (err) {
+      if (err.code === 'CONCURRENT_MODIFICATION') {
+        res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: { code: 'CONCURRENT_MODIFICATION', message: err.message } }));
+        return true;
+      }
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+      return true;
+    }
+  }
+
+  // 4.6. POST & GET /api/plan/scenarios -> Senaryo Kaydet ve Listele
+  if (pathname === '/api/plan/scenarios') {
+    if (req.method === 'GET') {
+      try {
+        const scenarios = await planSyncService.getScenariosList('DRAFT-DEFAULT');
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: scenarios }));
+        return true;
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+        return true;
+      }
+    }
+
+    if (req.method === 'POST') {
+      try {
+        const { draftId, scenarioName, notes } = req.body || {};
+        const saved = await planSyncService.saveDraftScenario({
+          draftId: draftId || 'DRAFT-DEFAULT',
+          scenarioName,
+          notes,
+          user: req.user
+        });
+
+        res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: saved }));
+        return true;
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+        return true;
+      }
+    }
+  }
+
+  // 4.7. POST /api/plan/scenarios/:id/revert -> Senaryoya Geri Dön
+  if (req.method === 'POST' && pathname.startsWith('/api/plan/scenarios/') && pathname.endsWith('/revert')) {
+    const scenarioId = pathname.replace('/api/plan/scenarios/', '').replace('/revert', '');
+    try {
+      const result = await planSyncService.revertDraftToScenario({
+        draftId: 'DRAFT-DEFAULT',
+        scenarioId,
+        user: req.user
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, data: result }));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: { message: err.message } }));
       return true;
     }
   }

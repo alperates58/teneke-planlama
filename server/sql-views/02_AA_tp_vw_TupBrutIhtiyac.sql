@@ -4,16 +4,25 @@
 -- KAYNAK: [MikroDesktop_LIDER26].[dbo].[alper_terminler], [URETIM_MALZEME_PLANLAMA], [STOKLAR], [ISEMRI_MALZEME_DURUMLARI]
 -- AÇIKLAMA: Dolum planı ve iş emirlerinden gelen brüt teneke tüp ihtiyaçları
 -- FORMÜL: (upl_miktar / NULLIF(upl_uret_miktar, 0)) * dolum_kalan_miktar
--- GÜNCELLEME (FAZ 3B):
---  1) upl_uretim_tuket = 0 (tüketim) ve upl_iptal = 0 filtreleri eklendi.
---  2) Kalan dolum miktarı: ISEMRI_MALZEME_DURUMLARI üzerinden (ish_planuretim - ish_uret_miktar).
+-- GÜNCELLEME (FAZ 3B KABUL DÜZELTMESİ):
+--  1) upl_uretim_tuket = 0 (tüketim) ve upl_iptal = 0 filtreleri uygulandı.
+--  2) Bölünmüş dolum satırlarında iş emri gerçekleşen miktarının oransal dağıtımı:
+--     dolum_kalan_miktar = t.PLANMIKTAR * (1 - (ish_uret_miktar / ish_planuretim))
 --  3) Sıfır veya eksik upl_uret_miktar durumunda brut_tup_ihtiyac NULL yapılır, satır kaybolmaz, has_recipe_error = 1 ile işaretlenir.
---  4) Kararlı talep kimliği: demand_key = CONCAT(t.ISNO, '_', u.upl_Guid).
+--  4) Kararlı ve ayrıştırıcı talep kimliği:
+--     demand_key = CONCAT(ISNO, '_', upl_Guid, '_', Tarih, '_', MAKINE, '_', SIRA)
+--     Böylece aynı iş emri ve aynı UPL'nin farklı tarih/makine/sıra satırları birbirini ezmez.
 --  5) Tarih/saat bütünlüğü: TRY_CAST(t.IHTIYACTARIH AS DATETIME) ile saat bilgisi korunur.
 -- ============================================================================
 CREATE OR ALTER VIEW [dbo].[AA_tp_vw_TupBrutIhtiyac] AS
 SELECT 
-    CONCAT(t.ISNO, '_', CAST(u.upl_Guid AS NVARCHAR(36))) AS demand_key,
+    CONCAT(
+        t.ISNO, '_', 
+        CAST(u.upl_Guid AS NVARCHAR(36)), '_', 
+        CONVERT(NVARCHAR(10), t.Tarih, 120), '_', 
+        ISNULL(t.MAKINE, ''), '_', 
+        ISNULL(t.SIRA, '')
+    ) AS demand_key,
     t.ISNO AS is_no,
     t.SIPARISNO AS siparis_no,
     t.URUNKOD AS dolum_mamul_kodu,
@@ -22,9 +31,10 @@ SELECT
     ISNULL(i.ish_uret_miktar, 0) AS dolum_gerceklesen_miktar,
     CAST(
         CASE 
-            WHEN i.ish_isemri IS NOT NULL THEN 
-                CASE WHEN (i.ish_planuretim - i.ish_uret_miktar) < 0 THEN 0 
-                     ELSE (i.ish_planuretim - i.ish_uret_miktar) 
+            WHEN i.ish_isemri IS NOT NULL AND ISNULL(i.ish_planuretim, 0) > 0 THEN 
+                CASE 
+                    WHEN ISNULL(i.ish_uret_miktar, 0) >= i.ish_planuretim THEN 0 
+                    ELSE t.PLANMIKTAR * (1.0 - (CAST(ISNULL(i.ish_uret_miktar, 0) AS FLOAT) / CAST(i.ish_planuretim AS FLOAT)))
                 END
             ELSE t.PLANMIKTAR 
         END AS NUMERIC(18, 2)
@@ -45,9 +55,10 @@ SELECT
             WHEN ISNULL(u.upl_uret_miktar, 0) <= 0 THEN NULL
             ELSE (u.upl_miktar / u.upl_uret_miktar) * (
                 CASE 
-                    WHEN i.ish_isemri IS NOT NULL THEN 
-                        CASE WHEN (i.ish_planuretim - i.ish_uret_miktar) < 0 THEN 0 
-                             ELSE (i.ish_planuretim - i.ish_uret_miktar) 
+                    WHEN i.ish_isemri IS NOT NULL AND ISNULL(i.ish_planuretim, 0) > 0 THEN 
+                        CASE 
+                            WHEN ISNULL(i.ish_uret_miktar, 0) >= i.ish_planuretim THEN 0 
+                            ELSE t.PLANMIKTAR * (1.0 - (CAST(ISNULL(i.ish_uret_miktar, 0) AS FLOAT) / CAST(i.ish_planuretim AS FLOAT)))
                         END
                     ELSE t.PLANMIKTAR 
                 END

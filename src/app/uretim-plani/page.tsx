@@ -30,7 +30,7 @@ export default function UretimPlaniPage() {
   const handleOpenEdit = (item: ProductionPlanItem) => {
     setEditingItem(item);
     setEditDate(item.finish_date);
-    setEditMachine(item.machine || 'HAT-01 (Otomatik Hat)');
+    setEditMachine(item.machine || 'Tüp Gövde Üretim Hattı (Tek Makine)');
     setEditShift(item.shift || 'Vardiya-1 (08:00 - 16:00)');
     setEditUnits(item.planned_units.toString());
     setEditStatus(item.material_status);
@@ -368,9 +368,7 @@ export default function UretimPlaniPage() {
                 onChange={(e) => setEditMachine(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 text-slate-100 text-xs rounded px-3 py-1.5"
               >
-                <option value="HAT-01 (Otomatik Hat - 52mm/65mm)">HAT-01 (Otomatik Hat - 52mm/65mm)</option>
-                <option value="HAT-02 (Hızlı Hat - 65mm)">HAT-02 (Hızlı Hat - 65mm)</option>
-                <option value="HAT-03 (Esnek Hat - 45mm/52mm)">HAT-03 (Esnek Hat - 45mm/52mm)</option>
+                <option value="Tüp Gövde Üretim Hattı (Tek Makine)">Tüp Gövde Üretim Hattı (Tek Makine)</option>
               </select>
             </EnterpriseFormField>
 

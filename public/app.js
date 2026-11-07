@@ -367,11 +367,10 @@ const INITIAL_BUSINESS_RULES = [
   {id:'RULE-007', code:'KRL-LAK-02', title:'Özel Lak: En Az Bir Başka Laklı', scope:'combination', condition_field:'lacquer', operator:'at_least_one_lacquered', parameter_value:'LAKLI', rule_type:'requires_approval', priority:5, is_active:false, description:'Laklı ürün montajında en az bir başka laklı ürün bulunmalıdır.', record_kind:'synthetic_demo'}
 ];
 
-// 7. HAT VE MAKİNELER
+// 7. HAT VE MAKİNELER (Kural: Tek tüp gövde üretim hattı esastır)
 const INITIAL_PRODUCTION_LINES = [
-  {id:'LINE-MAKAS-01', code:'MAKAS-01', name:'Hat 01 - Çiftli Otomatik Makas', line_type:'shearing', supported_tube_sizes:['52x195','52x214','65x104','65x195'], shifts_per_day:3, speed_units_per_hour:4500, waste_rate_percent:0.5},
-  {id:'LINE-TUP-01', code:'HAT-01', name:'Tüp Gövde Üretim Hattı 1 (Otomatik)', line_type:'tube_body', supported_tube_sizes:['52x195','52x214','65x104','65x195'], shifts_per_day:3, speed_units_per_hour:12000, waste_rate_percent:1.2},
-  {id:'LINE-TUP-02', code:'HAT-02', name:'Tüp Gövde Üretim Hattı 2 (Hızlı)', line_type:'tube_body', supported_tube_sizes:['45x140','45x175','52x165','52x234'], shifts_per_day:3, speed_units_per_hour:10000, waste_rate_percent:1.5}
+  {id:'LINE-MAKAS-01', code:'MAKAS-01', name:'Hat 01 - Çiftli Otomatik Makas', line_type:'shearing', supported_tube_sizes:['45x100','45x140','45x175','52x105','52x161','52x165','52x195','52x214','52x234','65x104','65x157','65x165','65x195','65x270','65x300'], shifts_per_day:3, speed_units_per_hour:4500, waste_rate_percent:0.5},
+  {id:'LINE-TUP-01', code:'TUP-HATTI', name:'Tüp Gövde Üretim Hattı (Tek Makine)', line_type:'tube_body', supported_tube_sizes:['45x100','45x140','45x175','52x105','52x161','52x165','52x195','52x214','52x234','65x104','65x157','65x165','65x195','65x270','65x300'], shifts_per_day:3, speed_units_per_hour:12000, waste_rate_percent:1.2}
 ];
 
 // 8. DENETİM İZİ (Audit Logs)
@@ -1732,7 +1731,18 @@ let state = {
   // Faz 3B: Kademeli İhtiyaç Motoru & Stok Tahsisi
   latestCalculation: null,
   isCalculatingAllocations: false,
-  demandCalculationFilter: 'ALL' // 'ALL' | 'CALCULATED' | 'UNRESOLVED' | 'ERROR'
+  demandCalculationFilter: 'ALL', // 'ALL' | 'CALCULATED' | 'UNRESOLVED' | 'ERROR'
+
+  // Faz 5A: Tek Makine Çizelgeleme ve Takvim State
+  scheduleStartTime: '2026-11-06T07:30',
+  schedulePreview: null,
+  isCalculatingSchedule: false,
+  isSavingSchedule: false,
+  planScenarios: [],
+  showScenarioModal: false,
+  scenarioModalMode: 'list', // 'list' | 'save'
+  showAddDemandModal: false,
+  schedulingParams: null
 };
 
 const PRODUCT_PALETTES = [
@@ -1744,10 +1754,17 @@ const PRODUCT_PALETTES = [
   { bg: 'bg-teal-100', border: 'border-teal-400', text: 'text-teal-950', chip: 'bg-teal-500 text-white', badge: 'border-teal-400 bg-teal-50 text-teal-900' }
 ];
 
-function formatNum(n) {
+function formatNum(n, forceDecimals = null) {
   const num = typeof n === 'number' ? n : parseFloat(n);
   if (isNaN(num)) return '0';
-  return Math.round(num).toLocaleString('tr-TR');
+  if (forceDecimals !== null) {
+    return num.toLocaleString('tr-TR', { minimumFractionDigits: forceDecimals, maximumFractionDigits: forceDecimals });
+  }
+  const hasDecimals = (num % 1) !== 0;
+  return num.toLocaleString('tr-TR', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0
+  });
 }
 
 function logAudit(entity, entityId, action, details) {
@@ -1944,7 +1961,7 @@ function renderHeader() {
           <span class="w-2 h-2 rounded-full ${state.backendConnected ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
           <span class="font-medium text-[11px] sm:text-xs">${state.backendConnected ? 'PostgreSQL' : 'Demo'}</span>
         </div>
-        <span class="text-[11px] font-mono text-slate-400 hidden sm:inline">v2.4 (Faz 2D)</span>
+        <span class="text-[11px] font-mono text-slate-400 hidden sm:inline">v5.0 (Faz 5A)</span>
       </div>
     </header>
   `;
@@ -1973,6 +1990,25 @@ function renderOverview() {
   return `
     <div class="space-y-6">
       <!-- İlke Hatırlatması & Faz 3B Durumu -->
+      ${calc && calc.is_stale ? `
+        <div class="p-3.5 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-950 flex items-start gap-2.5">
+          <span class="text-base text-amber-600">⚠️</span>
+          <div class="flex-1">
+            <div class="font-bold">Hesaplama Eskimiş (Stale Data Uyarısı)</div>
+            <div class="text-[11px] text-amber-800 mt-0.5">
+              Son stok tahsis hesaplamasından sonra yeni bir ERP senkronizasyonu veya veri güncellemesi gerçekleşti. Gösterilen net ihtiyaçlar güncel veri setini yansıtmayabilir. Lütfen sağdaki butona basarak tahsisi yeniden hesaplayınız.
+            </div>
+          </div>
+          <button
+            onclick="triggerCalculateAllocations();"
+            ${state.isCalculatingAllocations ? 'disabled' : ''}
+            class="px-3 py-1.5 text-xs font-semibold rounded bg-amber-700 hover:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer flex-shrink-0"
+          >
+            Tahsisi Yenile
+          </button>
+        </div>
+      ` : ''}
+
       <div class="p-3.5 bg-sky-50 border border-sky-200 rounded-lg text-xs text-sky-950 flex items-start gap-2.5">
         <span class="text-base text-sky-600">ℹ</span>
         <div class="flex-1">
@@ -2054,6 +2090,38 @@ function renderOverview() {
           <span class="text-[10px] text-sky-700 font-mono">Montaja gidecek net</span>
         </div>
       </div>
+
+      <!-- Planlı Arz ve Termin Açığı Bilgi Çubuğu (Faz 3B Kabul Kuralı 1) -->
+      ${isCalculated ? `
+        <div class="bg-white border border-slate-200 rounded-lg p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-500">Karşılaştırılan Çizelge:</span>
+            <span class="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-900 font-bold">
+              ${escapeHtml(calc.selected_draft_title || 'Varsayılan Çizelge (alper_tenekeuretim)')}
+            </span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-5">
+            <div class="flex items-center gap-1.5" title="Dolum termininden önce üretimi biten tüpler">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+              <span class="text-slate-600">Zamanında Karşılanan:</span>
+              <strong class="text-emerald-700 tabular-nums font-bold">${formatNum(calc.total_on_time_covered)} adet</strong>
+            </div>
+
+            <div class="flex items-center gap-1.5" title="Dolum termininden sonra üretimi tamamlanan tüpler (Termin Açığı!)">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+              <span class="text-slate-600">Geç Karşılanan (Termin Açığı):</span>
+              <strong class="text-rose-700 tabular-nums font-bold">${formatNum(calc.total_delayed_covered)} adet</strong>
+            </div>
+
+            <div class="flex items-center gap-1.5" title="Mevcut üretim planında hiç yer almayan, ilave açılması gereken üretim miktarı">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+              <span class="text-slate-600">Planda Olmayan (İlave Plan):</span>
+              <strong class="text-amber-700 tabular-nums font-bold">${formatNum(calc.total_additional_planning)} adet</strong>
+            </div>
+          </div>
+        </div>
+      ` : ''}
 
       <!-- Hızlı Aksiyonlar -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2629,9 +2697,10 @@ function renderDemandDetailDrawer() {
                 </div>
                 <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-600">
                   <div>Tüp/Kesik Oranı: <span class="text-slate-800">${d.ratio_tube_to_cutting || '1.00'}</span></div>
-                  <div>Eldeki Kesik Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(availCutStock)} adet</strong></div>
-                  <div>Bu Talebe Tahsis: <strong class="text-emerald-700 tabular-nums">${formatNum(allocCut)} adet</strong></div>
-                  <div>Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(cutPool)} adet</span></div>
+                  <div>Eldeki Kesik Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(availCutStock)} ${d.cutting_stock_unit || 'LEVHA'}</strong></div>
+                  <div>Tahsis Fiziksel: <strong class="text-emerald-700 tabular-nums">${formatNum(d.allocated_cutting_physical || 0)} ${d.cutting_stock_unit || 'LEVHA'}</strong></div>
+                  <div>Tahsis Tüp Eşdeğeri: <strong class="text-blue-700 tabular-nums">${formatNum(allocCut)} adet</strong></div>
+                  <div class="col-span-2">Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(cutPool)} ${d.cutting_stock_unit || 'LEVHA'}</span></div>
                 </div>
                 <div class="flex justify-between items-center pt-1 border-t border-slate-100 font-semibold text-amber-900 bg-amber-50/50 px-2 py-0.5 rounded">
                   <span>Net Kesim İhtiyacı:</span>
@@ -2654,9 +2723,10 @@ function renderDemandDetailDrawer() {
                 </div>
                 <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-600">
                   <div>Kesik/Baskı Oranı: <span class="text-slate-800">${d.ratio_cutting_to_print || '1.00'}</span></div>
-                  <div>Eldeki Baskılı Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(availPrintStock)} adet</strong></div>
-                  <div>Bu Talebe Tahsis: <strong class="text-emerald-700 tabular-nums">${formatNum(allocPrint)} adet</strong></div>
-                  <div>Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(printPool)} adet</span></div>
+                  <div>Eldeki Baskılı Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(availPrintStock)} ${d.print_stock_unit || 'LEVHA'}</strong></div>
+                  <div>Tahsis Fiziksel: <strong class="text-emerald-700 tabular-nums">${formatNum(d.allocated_print_physical || 0)} ${d.print_stock_unit || 'LEVHA'}</strong></div>
+                  <div>Tahsis Tüp Eşdeğeri: <strong class="text-blue-700 tabular-nums">${formatNum(allocPrint)} adet</strong></div>
+                  <div class="col-span-2">Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(printPool)} ${d.print_stock_unit || 'LEVHA'}</span></div>
                 </div>
                 <div class="flex justify-between items-center pt-1 border-t border-slate-100 font-bold text-sky-900 bg-sky-100/70 px-2 py-1 rounded">
                   <span>Net Yeni Baskı İhtiyacı:</span>
@@ -2691,14 +2761,20 @@ function renderDemandDetailDrawer() {
               <span class="text-[10px] font-mono text-slate-500">[alper_tenekeuretim]</span>
             </div>
 
-            <div class="grid grid-cols-2 gap-2 font-mono">
+            <div class="grid grid-cols-3 gap-2 font-mono">
               <div class="p-2 bg-white border border-slate-200 rounded">
-                <div class="text-[10px] text-slate-400">Planlanan Tüp Miktarı</div>
-                <div class="font-bold text-slate-900 mt-0.5 tabular-nums">${formatNum(d.planned_cover_quantity || 0)} adet</div>
+                <div class="text-[10px] text-slate-400">Zamanında Karşılanan</div>
+                <div class="font-bold text-emerald-700 mt-0.5 tabular-nums">${formatNum(d.on_time_covered_quantity || 0)} adet</div>
+              </div>
+              <div class="p-2 bg-white border border-slate-200 rounded">
+                <div class="text-[10px] text-slate-400">Geç (Termin Açığı)</div>
+                <div class="font-bold ${Number(d.delayed_covered_quantity || 0) > 0 ? 'text-rose-700' : 'text-slate-600'} mt-0.5 tabular-nums">
+                  ${formatNum(d.delayed_covered_quantity || 0)} adet
+                </div>
               </div>
               <div class="p-2 bg-white border border-slate-200 rounded">
                 <div class="text-[10px] text-slate-400">İlave Planlanması Gereken</div>
-                <div class="font-bold ${(d.additional_planning_needed || 0) > 0 ? 'text-amber-700' : 'text-emerald-700'} mt-0.5 tabular-nums">
+                <div class="font-bold ${Number(d.additional_planning_needed || 0) > 0 ? 'text-amber-700' : 'text-slate-600'} mt-0.5 tabular-nums">
                   ${formatNum(d.additional_planning_needed || 0)} adet
                 </div>
               </div>
@@ -2713,14 +2789,25 @@ function renderDemandDetailDrawer() {
                 <span class="text-slate-500">Plan En Erken Bitiş:</span>
                 <strong class="text-slate-800">${d.plan_earliest_finish ? String(d.plan_earliest_finish).substring(0, 10) : 'Plana Alınmamış'}</strong>
               </div>
+              ${d.full_coverage_date ? `
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Tam Karşılanma Tarihi:</span>
+                  <strong class="${Number(d.delayed_covered_quantity || 0) > 0 ? 'text-rose-700' : 'text-emerald-700'}">${String(d.full_coverage_date).substring(0, 10)}</strong>
+                </div>
+              ` : ''}
             </div>
 
-            ${d.is_schedule_delayed ? `
+            ${Number(d.delayed_covered_quantity || 0) > 0 ? `
               <div class="p-2.5 bg-rose-50 border border-rose-200 rounded text-rose-900 text-xs font-semibold flex items-center gap-2">
-                <span class="text-rose-600 text-sm">⚠</span>
+                <span class="text-rose-600 text-sm">⚠️</span>
+                <span>Termin Açığı: Üretim planından ${formatNum(d.delayed_covered_quantity)} adet tüp dolum termininden sonra tamamlanmaktadır (${d.delay_days} gün gecikmeli)!</span>
+              </div>
+            ` : (d.is_schedule_delayed ? `
+              <div class="p-2.5 bg-rose-50 border border-rose-200 rounded text-rose-900 text-xs font-semibold flex items-center gap-2">
+                <span class="text-rose-600 text-sm">⚠️</span>
                 <span>Termin Açığı: Üretim planı dolum termininden ${d.delay_days} gün sonraya kalmaktadır!</span>
               </div>
-            ` : ''}
+            ` : '')}
           </div>
 
           <!-- Teknik Özellikler Grid -->
@@ -6629,19 +6716,355 @@ async function moveDraftItem(index, direction) {
 
   try {
     const itemIds = items.map(it => it.id);
-    const res = await apiRequest('/api/plan-sync/draft/order', {
+    const res = await apiRequest('/api/plan/draft/order', {
       method: 'PUT',
       body: {
         draftId: state.planDraft.draft.id,
+        expectedVersion: state.planDraft.draft.version,
         itemIds
       }
     });
     if (res && res.data && res.data.draft) {
       state.planDraft.draft = res.data.draft;
       renderApp();
+    } else if (res?.error?.code === 'CONCURRENT_MODIFICATION') {
+      alert('EŞZAMANLI DEĞİŞİKLİK UYARISI (HTTP 409):\n\nBu plan başka bir oturumda güncellendi. En son hali getiriliyor.');
+      await refreshPlanDraft();
     }
   } catch (err) {
     console.error('Sıralama sunucuya kaydedilemedi:', err);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// FAZ 5A: ÇİZELGELEME, TAKVİM, KİLİT VE SENARYO YÖNETİMİ FONKSİYONLARI
+// ----------------------------------------------------------------------------
+
+async function refreshPlanDraft() {
+  try {
+    const res = await apiRequest('/api/plan/draft');
+    if (res && res.data && res.data.exists) {
+      state.planDraft = res.data;
+      renderApp();
+    }
+  } catch (e) {
+    console.error('Plan taslağı yenilenemedi:', e);
+  }
+}
+
+async function previewProductionSchedule() {
+  if (state.isCalculatingSchedule) return;
+  state.isCalculatingSchedule = true;
+  renderApp();
+
+  try {
+    const res = await apiRequest('/api/plan/schedule-preview', {
+      method: 'POST',
+      body: {
+        draftId: state.planDraft?.draft?.id || 'DRAFT-DEFAULT',
+        scheduleStartTime: state.scheduleStartTime || '2026-11-06T07:30:00+03:00'
+      }
+    });
+
+    if (res && res.success && res.data) {
+      state.schedulePreview = res.data;
+      const previewMap = new Map((res.data.scheduledItems || []).map(it => [String(it.id), it]));
+      if (state.planDraft && Array.isArray(state.planDraft.items)) {
+        state.planDraft.items.forEach(it => {
+          const p = previewMap.get(String(it.id));
+          if (p) {
+            it.suggested_start_date = p.suggested_start_date;
+            it.suggested_end_date = p.suggested_end_date;
+            it.setup_duration_minutes = p.setup_duration_minutes;
+            it.production_duration_minutes = p.production_duration_minutes;
+            it.speed_units_per_minute = p.speed_units_per_minute;
+            it.is_delayed = p.is_delayed;
+            it.delay_days = p.delay_days;
+            it.is_collision = p.is_collision;
+            it.source_diff_minutes = p.source_diff_minutes;
+          }
+        });
+      }
+      logAudit('plan_schedule', state.planDraft?.draft?.id, 'preview', `Çizelge önizlendi: ${res.data.totalWorkingMinutes} dk çalışma, ${res.data.totalSetupMinutes} dk hazırlık`);
+    } else {
+      alert('Çizelgeleme hatası: ' + (res?.error?.message || 'Bilinmeyen hata'));
+    }
+  } catch (err) {
+    console.error('Çizelgeleme önizleme hatası:', err);
+    alert('Çizelgeleme önizleme hatası: ' + err.message);
+  } finally {
+    state.isCalculatingSchedule = false;
+    renderApp();
+  }
+}
+
+async function commitProductionSchedule() {
+  if (state.currentRole === 'viewer') {
+    alert('Yetkisiz işlem: Görüntüleyici rolü çizelge kaydedemez.');
+    return;
+  }
+  if (!state.planDraft?.draft) return;
+  if (state.isSavingSchedule) return;
+
+  if (!confirm(`Tek Makine Çizelgesi Uygulansın mı?\n\nBu işlem hesaplanan başlangıç ve bitiş tarihlerini çalışma taslağına (v${state.planDraft.draft.version}) kalıcı olarak kaydedecektir.`)) {
+    return;
+  }
+
+  state.isSavingSchedule = true;
+  renderApp();
+
+  try {
+    const res = await apiRequest('/api/plan/schedule-commit', {
+      method: 'POST',
+      body: {
+        draftId: state.planDraft.draft.id,
+        expectedVersion: state.planDraft.draft.version,
+        scheduleStartTime: state.scheduleStartTime || '2026-11-06T07:30:00+03:00'
+      }
+    });
+
+    if (res && res.success && res.data) {
+      state.planDraft.draft = res.data.draft;
+      state.planDraft.items = res.data.items;
+      state.schedulePreview = null;
+      alert(`Çizelge başarıyla kaydedildi!\n\nToplam ${res.data.items.length} kalem için üretim takvimi güncellendi (Yeni Sürüm: v${res.data.draft.version}).`);
+    } else if (res?.error?.code === 'CONCURRENT_MODIFICATION') {
+      alert('EŞZAMANLI DEĞİŞİKLİK UYARISI (HTTP 409):\n\nBu plan başka bir kullanıcı veya oturum tarafından güncellenmiştir. Güncel verileri almak için plan yeniden yükleniyor.');
+      await refreshPlanDraft();
+    } else {
+      alert('Çizelge kaydetme hatası: ' + (res?.error?.message || 'Bilinmeyen hata'));
+    }
+  } catch (err) {
+    alert('Çizelge kaydedilirken hata: ' + err.message);
+  } finally {
+    state.isSavingSchedule = false;
+    renderApp();
+  }
+}
+
+async function toggleItemStartLock(itemId) {
+  if (state.currentRole === 'viewer') return;
+  const item = state.planDraft?.items?.find(it => String(it.id) === String(itemId));
+  if (!item) return;
+
+  const newLock = !item.is_start_locked;
+  item.is_start_locked = newLock;
+  renderApp();
+
+  try {
+    const res = await apiRequest(`/api/plan/draft/item/${itemId}`, {
+      method: 'PUT',
+      body: {
+        draftId: state.planDraft.draft.id,
+        expectedVersion: state.planDraft.draft.version,
+        is_start_locked: newLock
+      }
+    });
+    if (res && res.data) {
+      if (res.data.draft) state.planDraft.draft = res.data.draft;
+      if (res.data.item) {
+        const idx = state.planDraft.items.findIndex(it => String(it.id) === String(itemId));
+        if (idx !== -1) state.planDraft.items[idx] = res.data.item;
+      }
+    } else if (res?.error?.code === 'CONCURRENT_MODIFICATION') {
+      alert('Eşzamanlı değişiklik tespit edildi. Plan yenileniyor.');
+      await refreshPlanDraft();
+    }
+  } catch (err) {
+    console.error('Kilit kaydedilemedi:', err);
+    item.is_start_locked = !newLock;
+    renderApp();
+  }
+}
+
+async function toggleItemSequenceLock(itemId) {
+  if (state.currentRole === 'viewer') return;
+  const item = state.planDraft?.items?.find(it => String(it.id) === String(itemId));
+  if (!item) return;
+
+  const newLock = !item.is_sequence_locked;
+  item.is_sequence_locked = newLock;
+  renderApp();
+
+  try {
+    const res = await apiRequest(`/api/plan/draft/item/${itemId}`, {
+      method: 'PUT',
+      body: {
+        draftId: state.planDraft.draft.id,
+        expectedVersion: state.planDraft.draft.version,
+        is_sequence_locked: newLock
+      }
+    });
+    if (res && res.data) {
+      if (res.data.draft) state.planDraft.draft = res.data.draft;
+      if (res.data.item) {
+        const idx = state.planDraft.items.findIndex(it => String(it.id) === String(itemId));
+        if (idx !== -1) state.planDraft.items[idx] = res.data.item;
+      }
+    } else if (res?.error?.code === 'CONCURRENT_MODIFICATION') {
+      alert('Eşzamanlı değişiklik tespit edildi. Plan yenileniyor.');
+      await refreshPlanDraft();
+    }
+  } catch (err) {
+    console.error('Sıra kilidi kaydedilemedi:', err);
+    item.is_sequence_locked = !newLock;
+    renderApp();
+  }
+}
+
+async function editDraftItemQuantity(itemId) {
+  if (state.currentRole === 'viewer') return;
+  const item = state.planDraft?.items?.find(it => String(it.id) === String(itemId));
+  if (!item) return;
+
+  const currentVal = Math.round(Number(item.quantity) || 0);
+  const input = prompt(`[${item.stock_code}] ${item.stock_name}\n\nYeni üretim miktarını giriniz (Adet):`, currentVal);
+  if (input === null) return;
+  const newQty = parseFloat(input.replace(/\./g, '').replace(',', '.'));
+  if (isNaN(newQty) || newQty <= 0) {
+    alert('Geçersiz miktar! Lütfen pozitif bir tam sayı giriniz.');
+    return;
+  }
+
+  const oldQty = item.quantity;
+  item.quantity = newQty;
+  renderApp();
+
+  try {
+    const res = await apiRequest(`/api/plan/draft/item/${itemId}`, {
+      method: 'PUT',
+      body: {
+        draftId: state.planDraft.draft.id,
+        expectedVersion: state.planDraft.draft.version,
+        quantity: newQty
+      }
+    });
+    if (res && res.data) {
+      if (res.data.draft) state.planDraft.draft = res.data.draft;
+      if (res.data.item) {
+        const idx = state.planDraft.items.findIndex(it => String(it.id) === String(itemId));
+        if (idx !== -1) state.planDraft.items[idx] = res.data.item;
+      }
+    } else if (res?.error?.code === 'CONCURRENT_MODIFICATION') {
+      alert('Eşzamanlı değişiklik tespit edildi. Plan yenileniyor.');
+      await refreshPlanDraft();
+    }
+  } catch (err) {
+    console.error('Miktar güncellenemedi:', err);
+    item.quantity = oldQty;
+    alert('Miktar kaydedilemedi: ' + err.message);
+  } finally {
+    renderApp();
+  }
+}
+
+async function openScenarioModal() {
+  state.showScenarioModal = true;
+  state.scenarioModalMode = 'list';
+  renderApp();
+
+  try {
+    const res = await apiRequest('/api/plan/scenarios');
+    if (res && res.success && Array.isArray(res.data)) {
+      state.planScenarios = res.data;
+      renderApp();
+    }
+  } catch (err) {
+    console.error('Senaryolar alınamadı:', err);
+  }
+}
+
+function closeScenarioModal() {
+  state.showScenarioModal = false;
+  renderApp();
+}
+
+async function saveCurrentScenario() {
+  const nameInput = document.getElementById('txtScenarioName');
+  const descInput = document.getElementById('txtScenarioDesc');
+  const scenarioName = nameInput ? nameInput.value.trim() : '';
+  const description = descInput ? descInput.value.trim() : '';
+
+  if (!scenarioName) {
+    alert('Lütfen bir senaryo adı giriniz.');
+    return;
+  }
+
+  try {
+    const res = await apiRequest('/api/plan/scenarios', {
+      method: 'POST',
+      body: {
+        draftId: state.planDraft?.draft?.id || 'DRAFT-DEFAULT',
+        scenarioName,
+        description
+      }
+    });
+    if (res && res.success) {
+      alert(`"${scenarioName}" senaryosu başarıyla kaydedildi!`);
+      state.scenarioModalMode = 'list';
+      const listRes = await apiRequest('/api/plan/scenarios');
+      if (listRes && Array.isArray(listRes.data)) {
+        state.planScenarios = listRes.data;
+      }
+      renderApp();
+    }
+  } catch (err) {
+    alert('Senaryo kaydedilemedi: ' + err.message);
+  }
+}
+
+async function revertDraftToScenario(scenarioId) {
+  if (state.currentRole === 'viewer') return;
+  if (!confirm('DİKKAT: Mevcut çalışma taslağınız bu senaryodaki durumuna geri yüklenecektir.\n\nDevam etmek istiyor musunuz?')) {
+    return;
+  }
+
+  try {
+    const res = await apiRequest(`/api/plan/scenarios/${scenarioId}/revert`, {
+      method: 'POST',
+      body: {
+        expectedVersion: state.planDraft?.draft?.version
+      }
+    });
+    if (res && res.success) {
+      alert('Taslak seçilen senaryoya başarıyla geri yüklendi!');
+      closeScenarioModal();
+      await refreshPlanDraft();
+    }
+  } catch (err) {
+    alert('Senaryo geri yükleme hatası: ' + err.message);
+  }
+}
+
+function openAddDemandModal() {
+  state.showAddDemandModal = true;
+  renderApp();
+}
+
+function closeAddDemandModal() {
+  state.showAddDemandModal = false;
+  renderApp();
+}
+
+async function addDemandToPlan(demandKey, quantity) {
+  if (state.currentRole === 'viewer') return;
+  try {
+    const res = await apiRequest('/api/plan/draft/add-demand', {
+      method: 'POST',
+      body: {
+        draftId: state.planDraft?.draft?.id || 'DRAFT-DEFAULT',
+        expectedVersion: state.planDraft?.draft?.version,
+        demandKey,
+        quantity
+      }
+    });
+    if (res && res.success) {
+      alert('Kalem başarıyla üretim planının sonuna eklendi!');
+      closeAddDemandModal();
+      await refreshPlanDraft();
+    }
+  } catch (err) {
+    alert('Kalem plana eklenirken hata: ' + err.message);
   }
 }
 
@@ -6680,16 +7103,23 @@ function renderProduction() {
 
   const totalQty = items.reduce((acc, it) => acc + (parseFloat(it.quantity) || 0), 0);
   const snapCount = state.planSnapshots?.length || 0;
+  const preview = state.schedulePreview;
+
+  // Çizelge özet metrikleri (Önizleme varsa ondan, yoksa taslak alanlarından)
+  const totalSetupMin = preview ? preview.totalSetupMinutes : items.reduce((a, b) => a + (Number(b.setup_duration_minutes) || 0), 0);
+  const totalWorkMin = preview ? preview.totalWorkingMinutes : items.reduce((a, b) => a + (Number(b.production_duration_minutes) || 0), 0);
+  const delayedItemsCount = preview ? preview.delayedCount : items.filter(it => it.is_delayed).length;
+  const collisionItemsCount = preview ? preview.collisionCount : items.filter(it => it.is_collision).length;
 
   return `
     <div class="space-y-4 font-sans">
-      <!-- 1. Üst Bilgi ve Eylem Kartı -->
-      <div class="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <!-- 1. Üst Bilgi ve Eylem Kartı (Faz 5A Çizelgeleme Konsolu) -->
+      <div class="bg-white border border-slate-200 rounded-lg p-4 shadow-xs space-y-3">
+        <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div class="space-y-1">
             <div class="flex items-center gap-2">
               <span class="text-xl">🏭</span>
-              <h2 class="text-base font-bold text-slate-900">Tek Tüp Makinesi Üretim Planı (Faz 3A.1 & 5A)</h2>
+              <h2 class="text-base font-bold text-slate-900 tracking-tight">Tek Tüp Makinesi Üretim Çizelgeleme (Faz 5A)</h2>
               ${hasDraft ? `
                 <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold ${draft?.is_dirty ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'}">
                   Taslak v${draft?.version || 1} ${draft?.is_dirty ? '● Düzenlendi' : '✓ Kayıtlı'}
@@ -6699,77 +7129,183 @@ function renderProduction() {
                   Taslak Yok
                 </span>
               `}
+              ${preview ? `
+                <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-sky-100 text-sky-900 border border-sky-300 animate-pulse">
+                  ⚡ Önizleme Aktif
+                </span>
+              ` : ''}
             </div>
             <div class="text-xs text-slate-500 font-mono flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span>Kaynak: <b class="text-slate-700">${state.planDraft?.draft?.snapshot_source || 'MikroDesktop_LIDER26.dbo.alper_tenekeuretim'}</b></span>
+              <span>Hat: <b class="text-slate-800">Tüp Gövde Üretim Hattı (Tek Makine)</b></span>
+              <span>Kaynak: <b class="text-slate-700">${draft?.snapshot_source || 'MikroDesktop_LIDER26.dbo.alper_tenekeuretim'}</b></span>
               <span>Toplam Satır: <b class="text-slate-900">${items.length}</b></span>
               <span>Toplam Üretim: <b class="text-indigo-700">${totalQty.toLocaleString('tr-TR')} Adet</b></span>
-              ${draft?.snapshot_id ? `<span>Bağlı Snapshot: <b class="text-slate-600">${draft.snapshot_id}</b></span>` : ''}
             </div>
           </div>
 
+          <!-- Çizelgeleme ve Senaryo Araç Çubuğu -->
           <div class="flex flex-wrap items-center gap-2">
+            <!-- Plan Başlangıç Tarihi -->
+            <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded px-2.5 py-1 text-xs font-mono">
+              <span class="text-slate-500 text-[10px]">BAŞLANGIÇ:</span>
+              <input
+                type="datetime-local"
+                value="${state.scheduleStartTime ? state.scheduleStartTime.slice(0, 16) : '2026-11-06T07:30'}"
+                onchange="state.scheduleStartTime = this.value; renderApp();"
+                class="bg-transparent text-slate-800 text-xs font-bold outline-none cursor-pointer"
+              />
+            </div>
+
+            <!-- Çizelge Önizle Butonu -->
+            <button
+              onclick="previewProductionSchedule();"
+              ${state.isCalculatingSchedule ? 'disabled' : ''}
+              class="px-3.5 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white font-mono font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Çalışma takvimi, mola ve ayar sürelerine göre net başlangıç/bitiş tarihlerini önizle"
+            >
+              <span>⚡</span>
+              <span>${state.isCalculatingSchedule ? 'Hesaplanıyor...' : 'Çizelgeyi Önizle'}</span>
+            </button>
+
+            <!-- Çizelgeyi Kaydet Butonu -->
+            <button
+              onclick="commitProductionSchedule();"
+              ${state.isSavingSchedule || state.currentRole === 'viewer' ? 'disabled' : ''}
+              class="px-3.5 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Hesaplanan önerilen çizelge tarihlerini taslağa uygula ve kaydet"
+            >
+              <span>💾</span>
+              <span>${state.isSavingSchedule ? 'Kaydediliyor...' : 'Çizelgeyi Uygula & Kaydet'}</span>
+            </button>
+
+            <!-- Senaryolar Modal Butonu -->
+            <button
+              onclick="openScenarioModal();"
+              class="px-3 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="Senaryo kaydet, karşılaştır veya geri yükle"
+            >
+              <span>📁</span>
+              <span>Senaryolar</span>
+            </button>
+
+            <!-- Havuzdan İlave Ekle Butonu -->
+            <button
+              onclick="openAddDemandModal();"
+              class="px-3 py-2 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-mono text-xs border border-indigo-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="İhtiyaç Havuzundaki karşılanmamış talepleri üretim planının sonuna ekle"
+            >
+              <span>➕</span>
+              <span>Havuzdan Ekle</span>
+            </button>
+
+            <!-- SQL Snapshot Menüsü -->
             <button
               onclick="openSqlPlanPreviewModal();"
-              class="px-3.5 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-mono font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5"
+              class="px-3 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="MikroDesktop_LIDER26.dbo.alper_tenekeuretim tablosundan yeni snapshot al"
             >
               <span>📥</span>
-              <span>Mevcut SQL Planını Al</span>
+              <span>SQL'den Yenile</span>
             </button>
             <button
               onclick="openSnapshotHistoryModal();"
-              class="px-3 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs border border-slate-300 transition-colors flex items-center gap-1.5"
+              class="px-2.5 py-2 rounded bg-slate-50 hover:bg-slate-100 text-slate-600 font-mono text-xs border border-slate-200 transition-colors flex items-center gap-1"
+              title="Snapshot geçmişini görüntüle"
             >
               <span>🕒</span>
-              <span>Snapshot Geçmişi (${snapCount})</span>
+              <span>(${snapCount})</span>
             </button>
           </div>
         </div>
 
-        <!-- Sıra ve Esas Kaynak Notu -->
-        <div class="mt-3 p-2.5 bg-sky-50/80 border border-sky-200 rounded text-xs text-sky-950 flex items-start gap-2">
+        <!-- 2. KPI ve Süre Özeti Şeridi -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1 text-xs font-mono">
+          <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+            <div class="text-[10px] text-slate-500 uppercase">Toplam Hazırlık (Ayar)</div>
+            <div class="font-bold text-slate-800 text-sm mt-0.5 tabular-nums">
+              ${totalSetupMin.toLocaleString('tr-TR')} dk <span class="text-xs text-slate-500 font-normal">(${(totalSetupMin / 60).toFixed(1)} sa)</span>
+            </div>
+          </div>
+          <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+            <div class="text-[10px] text-slate-500 uppercase">Net Üretim Çalışması</div>
+            <div class="font-bold text-indigo-700 text-sm mt-0.5 tabular-nums">
+              ${Math.round(totalWorkMin).toLocaleString('tr-TR')} dk <span class="text-xs text-slate-500 font-normal">(${(totalWorkMin / 60).toFixed(1)} sa)</span>
+            </div>
+          </div>
+          <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+            <div class="text-[10px] text-slate-500 uppercase">Toplam Çizelge Süresi</div>
+            <div class="font-bold text-slate-900 text-sm mt-0.5 tabular-nums">
+              ${((totalSetupMin + totalWorkMin) / 60).toFixed(1)} saat
+            </div>
+          </div>
+          <div class="p-2.5 bg-slate-50 border border-slate-200 rounded">
+            <div class="text-[10px] text-slate-500 uppercase">Tahmini Bitiş Tarihi</div>
+            <div class="font-bold text-slate-800 text-xs mt-0.5 truncate" title="${preview?.scheduleFinishTime || ''}">
+              ${preview?.scheduleFinishTime ? new Date(preview.scheduleFinishTime).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+            </div>
+          </div>
+          <div class="p-2.5 ${delayedItemsCount > 0 ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'} border rounded">
+            <div class="text-[10px] ${delayedItemsCount > 0 ? 'text-rose-700' : 'text-emerald-700'} uppercase font-bold">Termin Durumu</div>
+            <div class="font-bold ${delayedItemsCount > 0 ? 'text-rose-800' : 'text-emerald-800'} text-xs mt-0.5">
+              ${delayedItemsCount > 0 ? `⚠️ ${delayedItemsCount} Kalem Gecikmeli` : '✓ Tüm İşler Zamanında'}
+            </div>
+          </div>
+          <div class="p-2.5 ${collisionItemsCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'} border rounded">
+            <div class="text-[10px] ${collisionItemsCount > 0 ? 'text-amber-700' : 'text-slate-500'} uppercase font-bold">Kilit Uyumu</div>
+            <div class="font-bold ${collisionItemsCount > 0 ? 'text-amber-800' : 'text-slate-700'} text-xs mt-0.5">
+              ${collisionItemsCount > 0 ? `⚠️ ${collisionItemsCount} Kilit Çakışması` : '✓ Kilitler Uyumlu'}
+            </div>
+          </div>
+        </div>
+
+        <!-- Bilgi İpucu -->
+        <div class="p-2.5 bg-sky-50/70 border border-sky-200 rounded text-xs text-sky-950 flex items-start gap-2">
           <span class="text-sky-600 font-bold text-sm">ℹ</span>
-          <div class="space-y-0.5">
-            <span class="font-bold">Kayıpsız Plan ve Kronolojik Sıra Sözleşmesi:</span>
-            <span>Mevcut tüp üretim planı <code class="font-mono bg-sky-100 text-sky-900 px-1 rounded font-bold">MikroDesktop_LIDER26.dbo.alper_tenekeuretim</code> tablosundan kayıpsız olarak içeri alınır. Kaynak tablodaki [Başlangıç Tarih] ve [Bitiş Tarih] makine üzerindeki üretim çizelgesini kronolojik olarak belirler. Sıralamayı listedeki <b>▲ / ▼</b> butonlarıyla serbestçe değiştirebilirsiniz. Değişiklikler PostgreSQL taslağında güvenle saklanır; SQL Server tablolarına bu fazda geri yazım yapılmaz.</span>
+          <div class="space-y-0.5 text-[11px] leading-relaxed">
+            <span class="font-bold">Tek Makine Kuralı & Çalışma Takvimi:</span>
+            <span>Fabrikada tek bir tüp gövde üretim hattı bulunur. Vardiya takvimi <b>07:30 - 17:30</b> ve gece uzamasıyla <b>01:30</b>'a kadar çalışır; 6 mola aralığı takvimden otomatik düşülür. Hazırlık matrisi gereği 45 çapa geçiş <b>480 dk</b>, diğer çap değişimleri <b>180 dk</b>, boy değişimi <b>60 dk</b>, aynı ebat <b>0 dk</b> ayar süresi alır. Sırayı <b>▲ / ▼</b> butonlarıyla değiştirip <b>⚡ Çizelgeyi Önizle</b> ile sonuçları anında görebilirsiniz.</span>
           </div>
         </div>
       </div>
 
-      <!-- 2. Arama ve Filtre Çubuğu -->
+      <!-- 3. Arama ve Filtre Çubuğu -->
       <div class="bg-white border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-4 shadow-xs">
         <div class="flex-1 max-w-md relative">
           <input
             type="text"
-            placeholder="Stok kodu veya ürün adı ile ara..."
+            placeholder="Stok kodu veya ürün adı ile filtrele..."
             value="${state.planSearch || ''}"
             oninput="state.planSearch = this.value; renderApp();"
-            class="w-full pl-8 pr-3 py-1.5 text-xs font-mono rounded border border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            class="w-full pl-8 pr-3 py-1.5 text-xs font-mono rounded border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
           >
           <span class="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
         </div>
-        <div class="text-xs font-mono text-slate-500">
-          Gösterilen: <b class="text-slate-800">${filteredItems.length}</b> / ${items.length} Satır
+        <div class="text-xs font-mono text-slate-500 flex items-center gap-3">
+          <span>Gösterilen: <b class="text-slate-800">${filteredItems.length}</b> / ${items.length} Kalem</span>
+          ${state.planSearch ? `
+            <button onclick="state.planSearch=''; renderApp();" class="text-sky-700 hover:underline">Temizle</button>
+          ` : ''}
         </div>
       </div>
 
-      <!-- 3. Üretim Planı Tablosu -->
+      <!-- 4. Üretim Planı Tablosu (Yoğun ve Profesyonel Görünüm) -->
       ${hasDraft ? `
         <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
-          <div class="overflow-x-auto max-h-[620px]">
+          <div class="overflow-x-auto max-h-[640px]">
             <table class="w-full text-left text-xs border-collapse">
-              <thead class="sticky top-0 bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase z-10">
+              <thead class="sticky top-0 bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase z-10 select-none">
                 <tr>
-                  <th class="py-2.5 px-3 w-14 text-center">Sıra</th>
-                  <th class="py-2.5 px-2 w-16 text-center">Taşı</th>
-                  <th class="py-2.5 px-3">Stok Kodu</th>
-                  <th class="py-2.5 px-3">Ürün Açıklaması</th>
-                  <th class="py-2.5 px-2">Ebat</th>
-                  <th class="py-2.5 px-2">Seri</th>
-                  <th class="py-2.5 px-3 text-right">Planlanan Adet</th>
-                  <th class="py-2.5 px-3">Başlangıç Tarihi</th>
-                  <th class="py-2.5 px-3">Bitiş Tarihi</th>
-                  <th class="py-2.5 px-3 text-center">Durum</th>
+                  <th class="py-2.5 px-3 w-12 text-center"># Sıra</th>
+                  <th class="py-2.5 px-1.5 w-14 text-center">Taşı</th>
+                  <th class="py-2.5 px-2 w-16 text-center">Kilitler</th>
+                  <th class="py-2.5 px-3">Stok Kodu & Adı</th>
+                  <th class="py-2.5 px-2 text-center">Ebat</th>
+                  <th class="py-2.5 px-3 text-right">Miktar (Adet)</th>
+                  <th class="py-2.5 px-2.5">Kaynak Tarihleri (ERP)</th>
+                  <th class="py-2.5 px-2.5">Önerilen Çizelge</th>
+                  <th class="py-2.5 px-2 text-center">Ayar (Hazırlık)</th>
+                  <th class="py-2.5 px-2 text-center">Net Üretim</th>
+                  <th class="py-2.5 px-3 text-center">Termin Durumu</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
@@ -6778,54 +7314,149 @@ function renderProduction() {
                   const isFirst = originalIndex === 0;
                   const isLast = originalIndex === items.length - 1;
 
+                  // Fark rozeti
+                  const diffMin = it.source_diff_minutes;
+                  let diffBadge = '';
+                  if (diffMin !== undefined && diffMin !== null && diffMin !== 0) {
+                    if (diffMin > 0) {
+                      diffBadge = `<span class="px-1 py-0.2 rounded text-[9px] bg-rose-100 text-rose-800 font-bold" title="${diffMin} dakika gecikme">+${Math.round(diffMin/60)} sa</span>`;
+                    } else {
+                      diffBadge = `<span class="px-1 py-0.2 rounded text-[9px] bg-emerald-100 text-emerald-800 font-bold" title="${Math.abs(diffMin)} dakika erken">${Math.round(diffMin/60)} sa</span>`;
+                    }
+                  }
+
                   return `
-                    <tr class="hover:bg-slate-50/80 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}">
-                      <td class="py-2 px-3 text-center font-bold text-slate-700 bg-slate-50/50">
+                    <tr class="hover:bg-sky-50/50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} ${it.is_collision ? 'bg-amber-50/60' : ''}">
+                      <!-- 1. Sıra -->
+                      <td class="py-2 px-3 text-center font-bold text-slate-700 bg-slate-50/50 tabular-nums">
                         #${it.sequence_order}
                       </td>
-                      <td class="py-2 px-2 text-center">
-                        <div class="inline-flex items-center gap-1">
+
+                      <!-- 2. Taşıma Butonları -->
+                      <td class="py-2 px-1 text-center">
+                        <div class="inline-flex items-center gap-0.5">
                           <button
                             onclick="moveDraftItem(${originalIndex}, -1);"
-                            ${isFirst || state.currentRole === 'viewer' ? 'disabled' : ''}
-                            title="Yukarı Taşı"
-                            class="p-1 rounded text-slate-600 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                            ${isFirst || state.currentRole === 'viewer' || it.is_sequence_locked ? 'disabled' : ''}
+                            title="${it.is_sequence_locked ? 'Sıra kilitli' : 'Yukarı Taşı'}"
+                            class="p-1 rounded text-slate-600 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer"
                           >▲</button>
                           <button
                             onclick="moveDraftItem(${originalIndex}, 1);"
-                            ${isLast || state.currentRole === 'viewer' ? 'disabled' : ''}
-                            title="Aşağı Taşı"
-                            class="p-1 rounded text-slate-600 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                            ${isLast || state.currentRole === 'viewer' || it.is_sequence_locked ? 'disabled' : ''}
+                            title="${it.is_sequence_locked ? 'Sıra kilitli' : 'Aşağı Taşı'}"
+                            class="p-1 rounded text-slate-600 hover:bg-slate-200 disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer"
                           >▼</button>
                         </div>
                       </td>
-                      <td class="py-2 px-3 font-bold text-slate-900">${it.stock_code}</td>
-                      <td class="py-2 px-3 font-sans text-slate-800">${it.stock_name || '-'}</td>
-                      <td class="py-2 px-2 text-slate-600 font-mono text-[11px]">${it.tube_size || '-'}</td>
-                      <td class="py-2 px-2 text-slate-600 font-mono text-[11px]">${it.series || '-'}</td>
-                      <td class="py-2 px-3 text-right font-bold text-indigo-700">
-                        ${parseFloat(it.quantity).toLocaleString('tr-TR')}
+
+                      <!-- 3. Kilitler (Başlangıç ve Sıra) -->
+                      <td class="py-2 px-2 text-center">
+                        <div class="inline-flex items-center gap-1">
+                          <button
+                            onclick="toggleItemStartLock('${it.id}');"
+                            title="${it.is_start_locked ? 'Başlangıç Tarihi Kilitli (Kaldırmak için tıkla)' : 'Başlangıç Tarihini Kilitle'}"
+                            class="p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer text-xs"
+                          >
+                            ${it.is_start_locked ? '🔒' : '<span class="opacity-30">🔓</span>'}
+                          </button>
+                          <button
+                            onclick="toggleItemSequenceLock('${it.id}');"
+                            title="${it.is_sequence_locked ? 'Sıra Kilitli (Kaldırmak için tıkla)' : 'Sırayı Kilitle'}"
+                            class="p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer text-xs"
+                          >
+                            ${it.is_sequence_locked ? '📌' : '<span class="opacity-30">📍</span>'}
+                          </button>
+                        </div>
                       </td>
-                      <td class="py-2 px-3 text-slate-700">
-                        ${it.start_date ? `
-                          <span class="inline-flex items-center gap-1 font-sans text-[11px]">
-                            <span>🕒</span>
-                            <span>${new Date(it.start_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</span>
-                          </span>
-                        ` : (it.scheduled_date ? new Date(it.scheduled_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '-')}
+
+                      <!-- 4. Stok Kodu ve Açıklama -->
+                      <td class="py-2 px-3">
+                        <div class="font-bold text-slate-900">${it.stock_code}</div>
+                        <div class="font-sans text-[11px] text-slate-600 truncate max-w-[220px]" title="${it.stock_name || ''}">
+                          ${it.stock_name || '-'}
+                        </div>
                       </td>
-                      <td class="py-2 px-3 text-emerald-800">
-                        ${it.end_date ? `
-                          <span class="inline-flex items-center gap-1 font-sans text-[11px]">
-                            <span>🏁</span>
-                            <span>${new Date(it.end_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+
+                      <!-- 5. Ebat -->
+                      <td class="py-2 px-2 text-center font-mono text-[11px] text-slate-700">
+                        ${it.tube_size ? `<span class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-bold">${it.tube_size}</span>` : '-'}
+                      </td>
+
+                      <!-- 6. Miktar (Düzenlenebilir) -->
+                      <td class="py-2 px-3 text-right">
+                        <button
+                          onclick="editDraftItemQuantity('${it.id}');"
+                          title="Miktarı değiştirmek için tıklayın"
+                          class="font-bold text-indigo-700 hover:text-indigo-900 hover:underline tabular-nums cursor-pointer"
+                        >
+                          ${parseFloat(it.quantity).toLocaleString('tr-TR')}
+                        </button>
+                      </td>
+
+                      <!-- 7. Kaynak Tarihleri (ERP) -->
+                      <td class="py-2 px-2.5 text-slate-600">
+                        <div class="text-[10px] space-y-0.5">
+                          <div>Baş: <span class="text-slate-800">${it.source_start_date ? new Date(it.source_start_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : (it.start_date ? new Date(it.start_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '-')}</span></div>
+                          <div>Bit: <span class="text-slate-800">${it.source_end_date ? new Date(it.source_end_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : (it.end_date ? new Date(it.end_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '-')}</span></div>
+                        </div>
+                      </td>
+
+                      <!-- 8. Önerilen Çizelge Tarihleri -->
+                      <td class="py-2 px-2.5">
+                        ${it.suggested_start_date ? `
+                          <div class="text-[10px] space-y-0.5">
+                            <div class="flex items-center gap-1">
+                              <span>🕒</span>
+                              <span class="text-slate-900 font-semibold">${new Date(it.suggested_start_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                              <span>🏁</span>
+                              <span class="text-emerald-800 font-bold">${new Date(it.suggested_end_date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                              ${diffBadge}
+                            </div>
+                          </div>
+                        ` : `
+                          <span class="text-slate-400 italic text-[10px]">— Hesaplanmadı —</span>
+                        `}
+                      </td>
+
+                      <!-- 9. Hazırlık (Ayar) Süresi -->
+                      <td class="py-2 px-2 text-center font-mono">
+                        ${Number(it.setup_duration_minutes) > 0 ? `
+                          <span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 font-bold" title="Kalıp/çap değişimi hazırlık süresi">
+                            ${it.setup_duration_minutes} dk
                           </span>
+                        ` : `
+                          <span class="text-slate-400">0 dk</span>
+                        `}
+                      </td>
+
+                      <!-- 10. Net Üretim Süresi -->
+                      <td class="py-2 px-2 text-center font-mono">
+                        ${it.production_duration_minutes ? `
+                          <div>
+                            <span class="font-bold text-slate-800">${Math.round(it.production_duration_minutes)} dk</span>
+                            <div class="text-[9px] text-slate-500">${it.speed_units_per_minute ? Math.round(it.speed_units_per_minute) + ' ad/dk' : ''}</div>
+                          </div>
                         ` : '-'}
                       </td>
+
+                      <!-- 11. Termin Durumu -->
                       <td class="py-2 px-3 text-center">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
-                          ${it.status || 'Planlandı'}
-                        </span>
+                        ${it.is_collision ? `
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300" title="${it.collision_reason || 'Kilitli başlangıca yetişilemiyor'}">
+                            ⚠️ Çakışma
+                          </span>
+                        ` : (it.is_delayed ? `
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-900 border border-rose-300" title="Termin ${it.delay_days} gün gecikmektedir">
+                            ⚠️ +${it.delay_days} gün
+                          </span>
+                        ` : `
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                            ✓ Zamanında
+                          </span>
+                        `)}
                       </td>
                     </tr>
                   `;
@@ -6848,14 +7479,162 @@ function renderProduction() {
           </div>
           <button
             onclick="openSqlPlanPreviewModal();"
-            class="px-5 py-2.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-mono font-bold text-xs shadow-xs transition-colors"
+            class="px-5 py-2.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-mono font-bold text-xs shadow-xs transition-colors cursor-pointer"
           >
             Mevcut SQL Planını Önizle ve İçeri Al
           </button>
         </div>
       `}
 
-      <!-- 4. MODAL: SQL Plan Önizleme ve İçeri Alma -->
+      <!-- 5. MODAL: Senaryo Kaydet ve Yönet -->
+      ${state.showScenarioModal ? `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 font-sans">
+          <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div class="flex items-center gap-2">
+                <span class="text-lg">📁</span>
+                <h3 class="font-bold text-slate-900 text-sm">Üretim Planı Senaryoları</h3>
+              </div>
+              <button onclick="closeScenarioModal();" class="text-slate-400 hover:text-slate-600 text-lg font-mono">✕</button>
+            </div>
+
+            <!-- Tablar -->
+            <div class="flex border-b border-slate-200 px-5 pt-2 gap-4 text-xs font-semibold">
+              <button
+                onclick="state.scenarioModalMode='list'; renderApp();"
+                class="pb-2 border-b-2 ${state.scenarioModalMode==='list' ? 'border-sky-600 text-sky-700' : 'border-transparent text-slate-500 hover:text-slate-800'}"
+              >
+                Kayıtlı Senaryolar (${state.planScenarios?.length || 0})
+              </button>
+              <button
+                onclick="state.scenarioModalMode='save'; renderApp();"
+                class="pb-2 border-b-2 ${state.scenarioModalMode==='save' ? 'border-sky-600 text-sky-700' : 'border-transparent text-slate-500 hover:text-slate-800'}"
+              >
+                Mevcut Durumu Senaryo Olarak Kaydet
+              </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto flex-1 space-y-4 text-xs">
+              ${state.scenarioModalMode === 'save' ? `
+                <div class="space-y-3">
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Senaryo Adı:</label>
+                    <input
+                      type="text"
+                      id="txtScenarioName"
+                      placeholder="Örn: 10 Kasım Revize Sıralaması (Çap Gruplamalı)"
+                      class="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Açıklama / Karar Notu:</label>
+                    <textarea
+                      id="txtScenarioDesc"
+                      rows="3"
+                      placeholder="Ayar sürelerini azaltmak için 65 çap ürünler peş peşe toplandı..."
+                      class="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-sans"
+                    ></textarea>
+                  </div>
+                  <button
+                    onclick="saveCurrentScenario();"
+                    class="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded text-xs transition-colors shadow-xs"
+                  >
+                    Senaryoyu Kaydet
+                  </button>
+                </div>
+              ` : `
+                <!-- Liste Modu -->
+                ${state.planScenarios && state.planScenarios.length > 0 ? `
+                  <div class="divide-y divide-slate-100 border border-slate-200 rounded">
+                    ${state.planScenarios.map(sc => `
+                      <div class="p-3 hover:bg-slate-50 flex items-center justify-between gap-3">
+                        <div class="space-y-0.5 min-w-0">
+                          <div class="font-bold text-slate-900">${sc.scenario_name}</div>
+                          <div class="text-[11px] text-slate-500 font-sans truncate">${sc.description || 'Açıklama yok'}</div>
+                          <div class="text-[10px] font-mono text-slate-400">
+                            ${new Date(sc.created_at).toLocaleString('tr-TR')} | ${sc.item_count} Kalem | Toplam: ${Number(sc.total_quantity).toLocaleString('tr-TR')} Adet
+                          </div>
+                        </div>
+                        <button
+                          onclick="revertDraftToScenario('${sc.id}');"
+                          class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold rounded text-[11px] flex-shrink-0 cursor-pointer"
+                        >
+                          Geri Yükle
+                        </button>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : `
+                  <div class="p-8 text-center text-slate-400">Henüz kayıtlı bir senaryo bulunmuyor.</div>
+                `}
+              `}
+            </div>
+
+            <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button onclick="closeScenarioModal();" class="px-4 py-1.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-mono">
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- 6. MODAL: İhtiyaç Havuzundan İlave Plan Ekle -->
+      ${state.showAddDemandModal ? `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 font-sans">
+          <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div class="flex items-center gap-2">
+                <span class="text-lg">➕</span>
+                <h3 class="font-bold text-slate-900 text-sm">İhtiyaç Havuzundaki Talebi Üretim Planına Ekle</h3>
+              </div>
+              <button onclick="closeAddDemandModal();" class="text-slate-400 hover:text-slate-600 text-lg font-mono">✕</button>
+            </div>
+
+            <div class="p-4 bg-sky-50 border-b border-sky-200 text-xs text-sky-950">
+              Mevcut tüp üretim planında henüz yer almayan veya ilave planlama gerektiren dolum talepleri aşağıda listelenmiştir. Seçtiğiniz talep çalışma taslağının en sonuna yeni bir iş emri satırı olarak eklenecektir.
+            </div>
+
+            <div class="p-5 overflow-y-auto flex-1 space-y-2 text-xs font-mono">
+              ${(() => {
+                const candidates = (state.demands || []).filter(d => Number(d.additional_planning_needed || 0) > 0 || (Number(d.net_tup_ihtiyac || 0) > 0 && !d.plan_earliest_finish));
+                if (candidates.length === 0) {
+                  return '<div class="p-8 text-center text-slate-400">İhtiyaç havuzunda plana eklenecek açık talep bulunamadı (Tüm talepler karşılanmış veya planlanmış).</div>';
+                }
+                return `
+                  <div class="border border-slate-200 rounded divide-y divide-slate-100">
+                    ${candidates.slice(0, 30).map(d => `
+                      <div class="p-3 hover:bg-slate-50 flex items-center justify-between gap-3">
+                        <div class="space-y-0.5 min-w-0">
+                          <div class="font-bold text-slate-900">${d.stock_code} - ${d.stock_name || ''}</div>
+                          <div class="text-[11px] text-slate-600">İş No: ${d.is_no || '-'} | Termin: ${d.termin_tarihi ? String(d.termin_tarihi).slice(0, 10) : 'Belirtilmemiş'} | Ebat: ${d.tube_size || '-'}</div>
+                          <div class="text-[10px] text-amber-700 font-bold">
+                            İlave Planlama İhtiyacı: ${Number(d.additional_planning_needed || d.net_tup_ihtiyac || 0).toLocaleString('tr-TR')} Adet
+                          </div>
+                        </div>
+                        <button
+                          onclick="addDemandToPlan('${d.demand_key}', ${Number(d.additional_planning_needed || d.net_tup_ihtiyac || 0)});"
+                          class="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded text-xs flex-shrink-0 cursor-pointer"
+                        >
+                          Plana Ekle
+                        </button>
+                      </div>
+                    `).join('')}
+                  </div>
+                `;
+              })()}
+            </div>
+
+            <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button onclick="closeAddDemandModal();" class="px-4 py-1.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-mono">
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- 7. MODAL: SQL Plan Önizleme ve İçeri Alma -->
       ${state.showSqlPlanModal ? `
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -7854,6 +8633,32 @@ function renderApp() {
     ${state.isImportModalOpen ? renderImportModal() : ''}
   `;
 }
+
+// Global router and page functions exposed to window
+window.state = state;
+window.renderApp = renderApp;
+window.renderOverview = renderOverview;
+window.renderDemands = renderDemands;
+window.renderWorkbench = renderWorkbench;
+window.renderPrintingRules = renderPrintingRules;
+window.renderTechnical = renderTechnical;
+window.renderProduction = renderProduction;
+window.renderIntegration = renderIntegration;
+
+// Faz 5A Çizelgeleme ve Plan Yönetimi fonksiyonları
+window.previewProductionSchedule = previewProductionSchedule;
+window.commitProductionSchedule = commitProductionSchedule;
+window.toggleItemStartLock = toggleItemStartLock;
+window.toggleItemSequenceLock = toggleItemSequenceLock;
+window.editDraftItemQuantity = editDraftItemQuantity;
+window.openScenarioModal = openScenarioModal;
+window.closeScenarioModal = closeScenarioModal;
+window.saveCurrentScenario = saveCurrentScenario;
+window.revertDraftToScenario = revertDraftToScenario;
+window.openAddDemandModal = openAddDemandModal;
+window.closeAddDemandModal = closeAddDemandModal;
+window.addDemandToPlan = addDemandToPlan;
+window.refreshPlanDraft = refreshPlanDraft;
 
 // Global initialization
 window.addEventListener('DOMContentLoaded', () => {

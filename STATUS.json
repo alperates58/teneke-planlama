@@ -2,7 +2,7 @@
   "project": "Teneke Planlama",
   "package_version": "2.0",
   "updated_at": "2026-11-07",
-  "document_status": "faz_3b_demand_engine_completed",
+  "document_status": "faz_5a_single_machine_scheduling_completed",
   "authorized_initial_scope": [
     0,
     1,
@@ -11,10 +11,11 @@
     "3A.1",
     "2D",
     "3A.2",
-    "3B"
+    "3B",
+    "5A"
   ],
-  "current_phase": "3B",
-  "next_implementation_phase": "5A",
+  "current_phase": "5A",
+  "next_implementation_phase": "4",
   "phases": [
     {
       "number": 0,
@@ -95,14 +96,16 @@
         "3A.2"
       ],
       "verified_at": "2026-11-07",
-      "evidence": "38/38 entegrasyon ve mutabakat testi başarılı: 50/10/5/7 -> 40/35/28 kademeli netleme motoru uygulandı; deterministik FIFO sıralama; tekil stok havuzu tahsisi (mükerrer stok engellendi); negatif kaynak stok koruması; demand_key ile çoklu satır garantisi; 443 canlı ERP talebinde 4.970.843 brüt tüpten 1.216.896 tüp stok, 621.362 kesik stok ve 712.960 baskılı stok düşülerek 2.419.625 net yeni baskı ihtiyacı hesaplandı; alper_tenekeuretim tüp planı ve termin gecikme açığı bağlandı; Overview 5 seviyeli KPI ve 4 aşamalı detay çekmecesi tamamlandı."
+      "evidence": "46/46 entegrasyon ve kabul testi başarılı (10 senaryo): demand_key oransal kalan dolum düzeltmesi ile brüt tüp dolum talebi 4.940.560,42 adette kesinleştirildi; 1.208.034,24 tüp stok tahsisi -> 3.732.526,18 net tüp üretimi; 646.582,00 kesik stok tahsisi -> 3.085.944,18 net kesim; 668.747,60 baskılı stok tahsisi -> 2.417.196,58 net yeni baskı ihtiyacı; tekil seçilmiş plan taslağıyla arz tahsisi (zamanında: 2.231.611,52, geç/termin açığı: 671.871,08, planda olmayan/ilave: 829.043,58 -> toplam net tüpe tam eşit); levha ters orantısı kaldırıldı ve onaylı units_per_sheet bağlandı; fiziksel stok birimleri ile tüp eşdeğeri ayrıldı; formatNum ondalık hassasiyeti korundu; stale data (is_stale) tespiti ve UI uyarısı eklendi; tek tüp makinesi kuralı koda ve arayüze işlendi."
     },
     {
       "number": "5A",
       "name": "Tek Tüp Makinesinde Üretim Planı ve Takvim",
       "file": "phases/FAZ-05-URETIM-PLANLAMA.md",
-      "status": "planned",
-      "acceptance_verified": false,
+      "status": "completed",
+      "acceptance_verified": true,
+      "verified_at": "2026-11-07",
+      "evidence": "15/15 entegrasyon ve çizelgeleme testi başarılı: Tek makine kuralı (TUP-HATTI) ve fabrika çalışma takvimi (07:30 - 17:30 / 01:30 gece taşması, 6 mola, Cumartesi yarım gün, Pazar tatil); mola ortasında başlangıçta kalan süreyi bekleme; 29 ebat için adet/dakika hızları ve tanımsız ebatta EBAT_HIZ_TANIMI_YOK açık hatası; Excel zaman.vba hazırlık matrisi (45 çapa geçiş 480 dk, diğer çap 180 dk, boy 60 dk, aynı ebat 0 dk); 215 satırlık canlı alper_tenekeuretim planının kayıpsız çizelgelenmesi (2460 dk ayar, 16927.19 dk çalışma); kilitli başlangıç ve sıra kilidi yönetimi (is_collision tespiti); HTTP 409 iyimser kilit ve eşzamanlı değişiklik koruması; senaryo dondurma ve geri yükleme motoru; renderWorkbench önbellek düzeltmesi ile tüm 7 ekranın hatasız çalıştığı doğrulandı.",
       "dependencies": [
         "3A.1",
         "3B"
