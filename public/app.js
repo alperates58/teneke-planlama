@@ -1672,6 +1672,22 @@ let state = {
   currentRole: localStorage.getItem('tp_current_role_v2') || 'admin',
   selectedDemandIds: ['DEM-001', 'DEM-002', 'DEM-003'],
 
+  // Faz 4A: Baskılı İhtiyaç Havuzu ve Kombinasyon Takibi State
+  printDemands: [],
+  printDemandsKpis: null,
+  printDemandsGrouped: null,
+  selectedPrintDemandIds: [],
+  printDemandScope: 'ACTIVE_PLAN', // 'ACTIVE_PLAN', 'UNPLANNED_DEMAND', 'ALL'
+  printDemandStatus: 'ALL',
+  printDemandSize: 'ALL',
+  printDemandSearch: '',
+  printDemandViewMode: 'list', // 'list' or 'grouped'
+  selectedPrintDemandDetailId: null,
+  combinationsList: [],
+  activeCombinationDetail: null,
+  isLoadingPrintDemands: false,
+  isSavingCombination: false,
+
   // Workbench state
   sheetCount: 1250,
   minPrintSheets: 1250,
@@ -1767,6 +1783,20 @@ function formatNum(n, forceDecimals = null) {
   });
 }
 
+function formatDate(d, includeTime = false) {
+  if (!d) return '—';
+  try {
+    const dateObj = typeof d === 'string' || typeof d === 'number' ? new Date(d) : d;
+    if (isNaN(dateObj.getTime())) return String(d);
+    if (includeTime) {
+      return dateObj.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' });
+    }
+    return dateObj.toLocaleDateString('tr-TR');
+  } catch (e) {
+    return String(d);
+  }
+}
+
 function logAudit(entity, entityId, action, details) {
   const newLog = {
     id: 'LOG-' + Date.now(),
@@ -1826,6 +1856,8 @@ function getSvgIcon(name, cls = 'w-4 h-4') {
       return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 13h4v8H3v-8zm7-8h4v16h-4V5zm7 4h4v12h-4V9z"/></svg>`;
     case 'demands':
       return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-4a2 2 0 01-2-2V9a2 2 0 00-2-2H8a2 2 0 00-2 2v2a2 2 0 01-2 2H4"/></svg>`;
+    case 'print_demands':
+      return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>`;
     case 'workbench':
       return `<svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm0 5h16M10 4v16"/></svg>`;
     case 'printing_rules':
@@ -1861,6 +1893,7 @@ function getSvgIcon(name, cls = 'w-4 h-4') {
 const NAV_ITEMS = [
   { id: 'overview', label: 'Planlama Özeti', iconName: 'overview' },
   { id: 'demands', label: 'İhtiyaç Havuzu', iconName: 'demands' },
+  { id: 'print_demands', label: 'Baskılı İhtiyaç Havuzu', iconName: 'print_demands' },
   { id: 'workbench', label: 'Kombinasyon Masası', iconName: 'workbench' },
   { id: 'printing_rules', label: 'Matbaa & Kombinasyon Kuralları', iconName: 'printing_rules' },
   { id: 'technical', label: 'Teknik Tanımlar & Parametreler', iconName: 'technical' },
@@ -2267,19 +2300,12 @@ function renderDemands() {
           </button>
 
           <button
-            ${selectedCount > 0 ? `onclick="transferSelectedDemandsToWorkbench();"` : 'disabled'}
-            class="px-3.5 py-2 text-xs font-semibold rounded transition-colors flex items-center gap-2 shadow-xs ${
-              selectedCount > 0
-                ? 'bg-sky-700 hover:bg-sky-800 text-white cursor-pointer'
-                : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-            }"
-            title="${selectedCount > 0 ? 'Doğrulanmış net baskı ihtiyacı olan seçili talepleri montaj masasına aktar' : 'Lütfen tablodan en az bir talep seçin'}"
+            onclick="navigateTo('print_demands');"
+            class="px-3.5 py-2 text-xs font-semibold rounded bg-sky-700 hover:bg-sky-800 text-white cursor-pointer transition-colors flex items-center gap-2 shadow-xs"
+            title="Tüp üretim planı ve ambar stoklarından netlenen yeni baskı ihtiyaçlarını incele ve kombinasyona aktar"
           >
-            ${getSvgIcon('arrow-right', 'w-4 h-4')}
-            <span>Kombinasyona Aktar</span>
-            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${selectedCount > 0 ? 'bg-sky-900/60 text-white' : 'bg-slate-200 text-slate-500'}">
-              ${selectedCount}
-            </span>
+            ${getSvgIcon('print_demands', 'w-4 h-4')}
+            <span>Baskılı İhtiyaç Havuzuna Git</span>
           </button>
 
           <button
@@ -2939,6 +2965,683 @@ function renderDemandDetailDrawer() {
     </div>
   `;
 }
+
+// ============================================================================
+// FAZ 4A: BASKILI İHTİYAÇ HAVUZU VE KOMBİNASYON TAKİBİ
+// ============================================================================
+
+async function fetchPrintDemands() {
+  state.isLoadingPrintDemands = true;
+  try {
+    const params = new URLSearchParams({
+      scope: state.printDemandScope || 'ACTIVE_PLAN',
+      status: state.printDemandStatus || 'ALL',
+      tubeSize: state.printDemandSize || 'ALL',
+      search: state.printDemandSearch || '',
+      grouped: state.printDemandViewMode === 'grouped' ? 'true' : 'false'
+    });
+    const res = await apiRequest(`/api/print-demands?${params.toString()}`);
+    if (res && res.success) {
+      state.printDemands = res.data || [];
+      state.printDemandsKpis = res.kpis || null;
+      state.printDemandsGrouped = res.groupedData || null;
+    }
+  } catch (err) {
+    console.error('[PrintDemands] Veri çekme hatası:', err);
+  } finally {
+    state.isLoadingPrintDemands = false;
+  }
+}
+
+async function syncPrintDemands() {
+  state.isLoadingPrintDemands = true;
+  renderApp();
+  try {
+    const res = await apiRequest('/api/print-demands/sync', { method: 'POST' });
+    if (res && res.success) {
+      await fetchPrintDemands();
+      renderApp();
+    } else {
+      alert('Senkronizasyon Hatası:\n' + (res?.error?.message || 'Bilinmeyen hata'));
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  } finally {
+    state.isLoadingPrintDemands = false;
+    renderApp();
+  }
+}
+
+async function fetchCombinationsList() {
+  try {
+    const res = await apiRequest('/api/combinations');
+    if (res && res.success) {
+      state.combinationsList = res.data || [];
+    }
+  } catch (err) {
+    console.warn('[Combinations] Liste çekme hatası:', err.message);
+  }
+}
+
+function toggleSelectPrintDemand(id) {
+  if (!state.selectedPrintDemandIds) state.selectedPrintDemandIds = [];
+  if (state.selectedPrintDemandIds.includes(id)) {
+    state.selectedPrintDemandIds = state.selectedPrintDemandIds.filter(x => x !== id);
+  } else {
+    state.selectedPrintDemandIds.push(id);
+  }
+  renderApp();
+}
+
+function toggleSelectAllPrintDemands(checked, filteredIds = null) {
+  if (!state.selectedPrintDemandIds) state.selectedPrintDemandIds = [];
+  if (checked) {
+    if (filteredIds && Array.isArray(filteredIds) && filteredIds.length > 0) {
+      state.selectedPrintDemandIds = Array.from(new Set([...state.selectedPrintDemandIds, ...filteredIds]));
+    } else {
+      state.selectedPrintDemandIds = (state.printDemands || []).map(d => d.id);
+    }
+  } else {
+    if (filteredIds && Array.isArray(filteredIds) && filteredIds.length > 0) {
+      state.selectedPrintDemandIds = state.selectedPrintDemandIds.filter(id => !filteredIds.includes(id));
+    } else {
+      state.selectedPrintDemandIds = [];
+    }
+  }
+  renderApp();
+}
+
+function transferSelectedPrintDemandsToWorkbench() {
+  if (!state.selectedPrintDemandIds || state.selectedPrintDemandIds.length === 0) return;
+  const items = state.printDemandViewMode === 'grouped' && state.printDemandsGrouped
+    ? state.printDemandsGrouped
+    : state.printDemands;
+  const selectedItems = (items || []).filter(d => state.selectedPrintDemandIds.includes(d.id || d.print_stock_code));
+
+  // Kontrol 1: Kalan açık sıfır olanlar
+  const zeroOpen = selectedItems.filter(d => Number(d.remaining_open_quantity || 0) <= 0);
+  if (zeroOpen.length === selectedItems.length && selectedItems.length > 0) {
+    alert('KOMBİNASYONA AKTARILACAK AÇIK BASKI İHTİYACI YOK:\n\nSeçilen tüm talepler kombinasyonlarla tamamen karşılanmış veya rezerve edilmiştir (Kalan Açık: 0).');
+    return;
+  }
+
+  // Kontrol 2: Ebat bütünlüğü kontrolü (Farklı ebatlar aynı montaja giremez)
+  const sizes = Array.from(new Set(selectedItems.map(d => d.tube_size)));
+  if (sizes.length > 1) {
+    alert(`EBAT UYUŞMAZLIĞI:\n\nSeçilen talepler birden fazla ebat içermektedir (${sizes.join(', ')}).\n\nLütfen aynı montaj masasında birleştirmek için yalnızca tek bir ebada ait talepleri seçiniz.`);
+    return;
+  }
+
+  const activeSize = sizes[0] || '52x195';
+  const capRule = CAPACITY_RULES[activeSize] || { capacity: 20, repeatStep: 4 };
+
+  // Aktar
+  state.workbenchItems = [];
+  selectedItems.forEach(d => {
+    const openQty = Number(d.remaining_open_quantity || 0);
+    if (openQty > 0) {
+      state.workbenchItems.push({
+        productId: d.id || `PSD-${d.print_stock_code}`,
+        printDemandId: d.id || null,
+        stockCode: d.tube_stock_code,
+        stockName: d.print_stock_name || d.tube_stock_name,
+        printStockCode: d.print_stock_code,
+        tubeSize: d.tube_size,
+        printSurface: d.print_surface || 'EMAYE',
+        varnish: d.varnish || 'BELİRTİLMEMİŞ',
+        lacquer: d.lacquer || 'BELİRTİLMEMİŞ',
+        inside_coating: d.inside_coating || 'BELİRTİLMEMİŞ',
+        rawSheetCode: d.raw_sheet_code || '500011000004-1206',
+        colors: Array.isArray(d.colors) ? d.colors : ['C', 'M', 'Y', 'K'],
+        netDemand: openQty,
+        repeatsPerSheet: capRule.repeatStep,
+        record_kind: 'live_print_demand'
+      });
+    }
+  });
+
+  state.activePage = 'workbench';
+  renderApp();
+}
+
+async function saveCombinationDraft() {
+  const wb = calculateCombinationState();
+  if (!wb.isValid) {
+    alert('KOMBİNASYON KAYDEDİLEMEZ:\n\nMontaj kuralları sağlanamamıştır:\n- ' + wb.messages.filter(m => m.type === 'error').map(m => m.text).join('\n- '));
+    return;
+  }
+
+  state.isSavingCombination = true;
+  renderApp();
+  try {
+    const body = {
+      tube_size: wb.items[0]?.tubeSize || '52x195',
+      raw_sheet_code: wb.rawSheet?.stock_code || '500011000004-1206',
+      sheets_to_print: state.sheetCount || 1250,
+      items: wb.items.map(it => ({
+        print_demand_id: it.printDemandId || null,
+        print_stock_code: it.printStockCode || it.stockCode,
+        tube_stock_code: it.stockCode,
+        repeats_count: it.repeatsPerSheet,
+        colors: it.colors || ['C', 'M', 'Y', 'K'],
+        varnish: it.varnish,
+        lacquer: it.lacquer
+      }))
+    };
+
+    const res = await apiRequest('/api/combinations/draft', {
+      method: 'POST',
+      body
+    });
+
+    if (res && res.success) {
+      alert(`KOMBİNASYON TASLAĞI OLUŞTURULDU:\n\nNumara: ${res.data.combinationNo}\nKarşılanan İhtiyaç: ${formatNum(res.data.totalCoveredDemand)} Adet\nFazla Üretim: ${formatNum(res.data.totalOverproduction)} Adet\n\nİlgili miktarlar Baskılı İhtiyaç Havuzunda rezerve edilmiştir.`);
+      await fetchCombinationsList();
+      await fetchPrintDemands();
+      renderApp();
+    } else {
+      alert('Kayıt Hatası:\n' + (res?.error?.message || 'Bilinmeyen hata'));
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  } finally {
+    state.isSavingCombination = false;
+    renderApp();
+  }
+}
+
+async function confirmCombinationFromUI(combId) {
+  if (!confirm(`Kombinasyon #${combId} onaylanacak ve rezerve edilen miktarlar kesinleştirilecektir.\n\nOnaylıyor musunuz?`)) return;
+  try {
+    const res = await apiRequest(`/api/combinations/${combId}/confirm`, { method: 'POST' });
+    if (res && res.success) {
+      alert('Kombinasyon başarıyla onaylandı.');
+      await fetchCombinationsList();
+      await fetchPrintDemands();
+      renderApp();
+    } else {
+      alert('Onay Hatası:\n' + (res?.error?.message || 'Bilinmeyen hata'));
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
+async function cancelCombinationFromUI(combId) {
+  if (!confirm(`Kombinasyon #${combId} iptal edilecek ve rezerve edilen/karşılanan tüm miktarlar Baskılı İhtiyaç Havuzu'na serbest bırakılacaktır.\n\nİptal etmek istediğinize emin misiniz?`)) return;
+  try {
+    const res = await apiRequest(`/api/combinations/${combId}/cancel`, { method: 'POST' });
+    if (res && res.success) {
+      alert('Kombinasyon iptal edildi ve miktarlar serbest bırakıldı.');
+      await fetchCombinationsList();
+      await fetchPrintDemands();
+      renderApp();
+    } else {
+      alert('İptal Hatası:\n' + (res?.error?.message || 'Bilinmeyen hata'));
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
+function openPrintDemandDetail(id) {
+  state.selectedPrintDemandDetailId = id;
+  renderApp();
+}
+
+function closePrintDemandDetail() {
+  state.selectedPrintDemandDetailId = null;
+  renderApp();
+}
+
+// ----------------------------------------------------------------------------
+// EKRAN: BASKILI İHTİYAÇ HAVUZU (renderPrintDemands)
+// ----------------------------------------------------------------------------
+function renderPrintDemands() {
+  const kpis = state.printDemandsKpis || {
+    total_planned_tubes: 0,
+    total_cutting_allocated: 0,
+    total_print_allocated: 0,
+    total_net_print_demand: 0,
+    total_allocated_to_draft: 0,
+    total_covered_by_confirmed: 0,
+    total_remaining_open: 0,
+    unique_print_codes: 0,
+    total_items: 0
+  };
+
+  const isGrouped = state.printDemandViewMode === 'grouped';
+  const displayItems = isGrouped ? (state.printDemandsGrouped || []) : (state.printDemands || []);
+  const selectedCount = (state.selectedPrintDemandIds || []).length;
+
+  return `
+    <div class="space-y-4">
+      <!-- Breadcrumb & Başlık -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
+        <div>
+          <div class="flex items-center gap-1.5 text-xs text-slate-500 font-medium mb-1">
+            <span>Teneke Planlama</span>
+            <span>/</span>
+            <span class="text-slate-900 font-semibold">Baskılı İhtiyaç Havuzu (Faz 4A)</span>
+          </div>
+          <h1 class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <span>Baskılı İhtiyaç Havuzu & Kombinasyon Takibi</span>
+            <span class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-sky-100 text-sky-800 border border-sky-200">
+              ${displayItems.length} ${isGrouped ? 'Grup' : 'Kalem'}
+            </span>
+          </h1>
+          <p class="text-xs text-slate-500 mt-0.5">
+            İş Akışı: Dolum Talebi → Tüp Üretim Planı → Kesik/Baskılı Stok Kontrolü → <b>Baskılı İhtiyaç Havuzu</b> → Kombinasyon
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            onclick="syncPrintDemands();"
+            ${state.isLoadingPrintDemands ? 'disabled' : ''}
+            class="px-3.5 py-2 text-xs font-medium rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+            title="Aktif tüp üretim planı ve ambar stoklarından havuzu yeniden hesapla"
+          >
+            ${state.isLoadingPrintDemands ? `
+              <svg class="animate-spin h-3.5 w-3.5 text-slate-700" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+              <span>Hesaplanıyor...</span>
+            ` : `
+              <span>🔄</span>
+              <span>Plandan Yeniden Hesapla</span>
+            `}
+          </button>
+
+          <button
+            ${selectedCount > 0 ? `onclick="transferSelectedPrintDemandsToWorkbench();"` : 'disabled'}
+            class="px-3.5 py-2 text-xs font-semibold rounded transition-colors flex items-center gap-2 shadow-xs ${
+              selectedCount > 0
+                ? 'bg-sky-700 hover:bg-sky-800 text-white cursor-pointer'
+                : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+            }"
+            title="${selectedCount > 0 ? 'Seçili baskılı ihtiyaçları kombinasyon masasına aktar' : 'Lütfen tablodan en az bir ihtiyaç seçin'}"
+          >
+            ${getSvgIcon('arrow-right', 'w-4 h-4')}
+            <span>Kombinasyon Masasına Aktar</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${selectedCount > 0 ? 'bg-sky-900/60 text-white' : 'bg-slate-200 text-slate-500'}">
+              ${selectedCount}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Kademeli İhtiyaç & Kombinasyon KPI Çubuğu -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+        <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-xs">
+          <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Planlanan Tüp</div>
+          <div class="text-base font-bold font-mono text-slate-900 mt-0.5 tabular-nums">${formatNum(kpis.total_planned_tubes)}</div>
+          <div class="text-[10px] text-slate-400 font-mono">Tüp Hat Hedefi</div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-xs">
+          <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Kesikten Karşılanan</div>
+          <div class="text-base font-bold font-mono text-emerald-700 mt-0.5 tabular-nums">${formatNum(kpis.total_cutting_allocated)}</div>
+          <div class="text-[10px] text-slate-400 font-mono">Kesik Ambar Stoğu</div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-xs">
+          <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Baskılıdan Karşılanan</div>
+          <div class="text-base font-bold font-mono text-emerald-700 mt-0.5 tabular-nums">${formatNum(kpis.total_print_allocated)}</div>
+          <div class="text-[10px] text-slate-400 font-mono">Baskılı Ambar Stoğu</div>
+        </div>
+
+        <div class="bg-sky-50/60 border border-sky-200 rounded-lg p-2.5 shadow-xs">
+          <div class="text-[10px] uppercase font-bold text-sky-800 tracking-wider">Net Yeni Baskı İhtiyacı</div>
+          <div class="text-base font-bold font-mono text-sky-900 mt-0.5 tabular-nums">${formatNum(kpis.total_net_print_demand)}</div>
+          <div class="text-[10px] text-sky-700 font-mono">Kombinasyona Girecek</div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-xs">
+          <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Taslağa Ayrılan</div>
+          <div class="text-base font-bold font-mono text-amber-700 mt-0.5 tabular-nums">${formatNum(kpis.total_allocated_to_draft)}</div>
+          <div class="text-[10px] text-slate-400 font-mono">Rezerve Edilmiş</div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-xs">
+          <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Onaylı Karşılanan</div>
+          <div class="text-base font-bold font-mono text-emerald-800 mt-0.5 tabular-nums">${formatNum(kpis.total_covered_by_confirmed)}</div>
+          <div class="text-[10px] text-slate-400 font-mono">Onaylı Kombinasyon</div>
+        </div>
+
+        <div class="bg-amber-50/60 border border-amber-200 rounded-lg p-2.5 shadow-xs">
+          <div class="text-[10px] uppercase font-bold text-amber-900 tracking-wider">Kalan Açık İhtiyaç</div>
+          <div class="text-base font-bold font-mono text-amber-900 mt-0.5 tabular-nums">${formatNum(kpis.total_remaining_open)}</div>
+          <div class="text-[10px] text-amber-800 font-mono">Montaj Bekliyor</div>
+        </div>
+      </div>
+
+      <!-- Filtreler ve Görünüm Kontrolleri -->
+      <div class="bg-white border border-slate-200 rounded-lg p-3 shadow-xs space-y-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Arama Kutusu -->
+          <div class="relative flex-1 min-w-[240px]">
+            <input
+              type="text"
+              placeholder="Baskılı kod, ad, tüp kodu veya sipariş no ile ara..."
+              value="${state.printDemandSearch || ''}"
+              oninput="state.printDemandSearch = this.value; fetchPrintDemands().then(renderApp);"
+              class="w-full bg-slate-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-sans"
+            />
+            ${state.printDemandSearch ? `
+              <button onclick="state.printDemandSearch=''; fetchPrintDemands().then(renderApp);" class="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600">
+                ${getSvgIcon('x', 'w-3.5 h-3.5')}
+              </button>
+            ` : ''}
+          </div>
+
+          <!-- Kapsam Filtresi -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] font-semibold text-slate-500">Kapsam:</span>
+            <select
+              onchange="state.printDemandScope = this.value; fetchPrintDemands().then(renderApp);"
+              class="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:bg-white focus:outline-none"
+            >
+              <option value="ACTIVE_PLAN" ${state.printDemandScope === 'ACTIVE_PLAN' ? 'selected' : ''}>Aktif Tüp Planı (${kpis.total_items} Kalem)</option>
+              <option value="UNPLANNED_DEMAND" ${state.printDemandScope === 'UNPLANNED_DEMAND' ? 'selected' : ''}>Plansız Dolum Talepleri</option>
+              <option value="ALL" ${state.printDemandScope === 'ALL' ? 'selected' : ''}>Tümü</option>
+            </select>
+          </div>
+
+          <!-- Durum Filtresi -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] font-semibold text-slate-500">Durum:</span>
+            <select
+              onchange="state.printDemandStatus = this.value; fetchPrintDemands().then(renderApp);"
+              class="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:bg-white focus:outline-none"
+            >
+              <option value="ALL" ${state.printDemandStatus === 'ALL' ? 'selected' : ''}>Tümü</option>
+              <option value="WAITING" ${state.printDemandStatus === 'WAITING' ? 'selected' : ''}>Kombinasyon Bekliyor</option>
+              <option value="RESERVED" ${state.printDemandStatus === 'RESERVED' ? 'selected' : ''}>Taslağa Ayrıldı</option>
+              <option value="PARTIAL" ${state.printDemandStatus === 'PARTIAL' ? 'selected' : ''}>Kısmen Kombine</option>
+              <option value="COMPLETED" ${state.printDemandStatus === 'COMPLETED' ? 'selected' : ''}>Tamamlandı</option>
+              <option value="NEEDS_REVIEW" ${state.printDemandStatus === 'NEEDS_REVIEW' ? 'selected' : ''}>İnceleme Gerekli</option>
+            </select>
+          </div>
+
+          <!-- Görünüm Modu Toggle (Detaylı vs Gruplu) -->
+          <div class="flex items-center border border-slate-200 rounded p-0.5 bg-slate-100 text-xs">
+            <button
+              onclick="state.printDemandViewMode='list'; fetchPrintDemands().then(renderApp);"
+              class="px-2.5 py-1 rounded font-medium transition-colors ${state.printDemandViewMode !== 'grouped' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}"
+            >
+              Detaylı Liste (${state.printDemands?.length || 0})
+            </button>
+            <button
+              onclick="state.printDemandViewMode='grouped'; fetchPrintDemands().then(renderApp);"
+              class="px-2.5 py-1 rounded font-medium transition-colors ${state.printDemandViewMode === 'grouped' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}"
+            >
+              Baskılı Koda Göre Gruplu (${kpis.unique_print_codes || 0})
+            </button>
+          </div>
+        </div>
+
+        <!-- Alt Seçim Çubuğu -->
+        <div class="flex items-center justify-between text-xs text-slate-600 border-t border-slate-100 pt-2 font-mono">
+          <div class="flex items-center gap-2">
+            <span>${selectedCount} / ${displayItems.length} satır seçili</span>
+            ${selectedCount > 0 ? `
+              <button onclick="state.selectedPrintDemandIds=[]; renderApp();" class="text-sky-700 hover:underline">Seçimi Temizle</button>
+            ` : `
+              <button onclick="toggleSelectAllPrintDemands(true, ${JSON.stringify(displayItems.map(d=>d.id || d.print_stock_code))});" class="text-sky-700 hover:underline">Tümünü Seç</button>
+            `}
+          </div>
+          <div class="text-[11px] text-slate-500 font-sans">
+            ℹ Malzeme ihtiyaç tarihi, tüp üretim başlangıç anıdır. Termin süresi henüz kesinleşmemiş kayıtlar ikaz ile gösterilir.
+          </div>
+        </div>
+      </div>
+
+      <!-- Baskılı İhtiyaçlar Tablosu -->
+      <div class="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
+        <div class="overflow-x-auto max-h-[650px] overflow-y-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10 select-none">
+              <tr>
+                <th class="p-2.5 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    ${selectedCount > 0 && selectedCount === displayItems.length ? 'checked' : ''}
+                    onchange="toggleSelectAllPrintDemands(this.checked, ${JSON.stringify(displayItems.map(d=>d.id || d.print_stock_code))});"
+                    class="rounded border-slate-300 text-sky-600"
+                  />
+                </th>
+                <th class="p-2.5 font-mono min-w-[220px]">BASKILI KOD & ADI</th>
+                <th class="p-2.5 font-mono min-w-[180px]">İLİŞKİLİ TÜP</th>
+                <th class="p-2.5 text-center w-20">EBAT</th>
+                <th class="p-2.5 text-center min-w-[110px]">İHTİYAÇ TARİHİ</th>
+                <th class="p-2.5 text-right font-mono min-w-[90px]">PLANLANAN TÜP</th>
+                <th class="p-2.5 text-right font-mono min-w-[90px]">KESİKTEN KARŞ.</th>
+                <th class="p-2.5 text-right font-mono min-w-[90px]">BASKILIDAN KARŞ.</th>
+                <th class="p-2.5 text-right font-mono min-w-[110px] bg-sky-50/60 text-sky-900 font-bold">NET YENİ BASKI</th>
+                <th class="p-2.5 text-right font-mono min-w-[90px] text-amber-700">TASLAĞA AYR.</th>
+                <th class="p-2.5 text-right font-mono min-w-[90px] text-emerald-800">ONAYLI KARŞ.</th>
+                <th class="p-2.5 text-right font-mono min-w-[100px] bg-amber-50/40 text-amber-900 font-bold">KALAN AÇIK</th>
+                <th class="p-2.5 text-center w-24">DURUM</th>
+                <th class="p-2.5 min-w-[120px]">KOMBİNASYONLAR</th>
+                <th class="p-2.5 text-center w-16">DETAY</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-sans">
+              ${displayItems.length === 0 ? `
+                <tr>
+                  <td colspan="15" class="p-8 text-center text-slate-400 font-mono text-xs">
+                    Filtrelere uygun baskılı ihtiyaç kaydı bulunamadı.
+                  </td>
+                </tr>
+              ` : displayItems.map((d, idx) => {
+                const itemId = d.id || d.print_stock_code;
+                const isSelected = (state.selectedPrintDemandIds || []).includes(itemId);
+                const openVal = Number(d.remaining_open_quantity || 0);
+                const netPrintVal = Number(d.net_print_demand || 0);
+                const combList = Array.isArray(d.combinations) ? d.combinations : [];
+
+                return `
+                  <tr class="hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-sky-50/40' : ''}">
+                    <td class="p-2.5 text-center">
+                      <input
+                        type="checkbox"
+                        ${isSelected ? 'checked' : ''}
+                        onchange="toggleSelectPrintDemand('${itemId}');"
+                        class="rounded border-slate-300 text-sky-600"
+                      />
+                    </td>
+                    <td class="p-2.5">
+                      <div class="font-bold text-slate-900">${d.print_stock_name || 'B-TANIMSIZ'}</div>
+                      <div class="font-mono text-[10px] text-slate-500">${d.print_stock_code}</div>
+                    </td>
+                    <td class="p-2.5">
+                      <div class="text-slate-800 truncate max-w-[200px]" title="${d.tube_stock_name || ''}">${d.tube_stock_name || '—'}</div>
+                      <div class="font-mono text-[10px] text-slate-500">${d.tube_stock_code || ''} ${d.order_no ? `(İş:${d.order_no})` : ''}</div>
+                    </td>
+                    <td class="p-2.5 text-center">
+                      <span class="px-1.5 py-0.5 rounded text-[11px] font-mono bg-slate-100 text-slate-700 border border-slate-200">
+                        ${d.tube_size || '—'}
+                      </span>
+                    </td>
+                    <td class="p-2.5 text-center font-mono text-[11px]">
+                      <div class="flex items-center justify-center gap-1">
+                        <span>${d.material_due_date ? formatDate(d.material_due_date) : (d.earliest_material_date ? formatDate(d.earliest_material_date) : '—')}</span>
+                        <span title="${d.lead_time_warning || 'Tedarik süresi belirsiz; tüp başlangıç anı'}" class="text-amber-500 cursor-help text-[10px]">⚠️</span>
+                      </div>
+                    </td>
+                    <td class="p-2.5 text-right font-mono tabular-nums text-slate-700">
+                      ${formatNum(d.planned_tube_quantity)}
+                    </td>
+                    <td class="p-2.5 text-right font-mono tabular-nums text-emerald-700">
+                      ${Number(d.allocated_cutting_stock) > 0 ? formatNum(d.allocated_cutting_stock) : '<span class="text-slate-300">0</span>'}
+                    </td>
+                    <td class="p-2.5 text-right font-mono tabular-nums text-emerald-700">
+                      ${Number(d.allocated_print_stock) > 0 ? formatNum(d.allocated_print_stock) : '<span class="text-slate-300">0</span>'}
+                    </td>
+                    <td class="p-2.5 text-right font-mono tabular-nums bg-sky-50/40 font-bold text-sky-900">
+                      <div>${formatNum(netPrintVal)}</div>
+                      <div class="text-[9px] font-normal text-slate-400 font-mono">${formatNum(d.net_print_physical || netPrintVal)} ${d.print_stock_unit || 'ADET'}</div>
+                    </td>
+                    <td class="p-2.5 text-right font-mono tabular-nums text-amber-700 font-medium">
+                      ${Number(d.allocated_to_draft) > 0 ? formatNum(d.allocated_to_draft) : '<span class="text-slate-300">0</span>'}
+                    </td>
+                    <td class="p-2.5 text-right font-mono tabular-nums text-emerald-800 font-medium">
+                      ${Number(d.covered_by_confirmed) > 0 ? formatNum(d.covered_by_confirmed) : '<span class="text-slate-300">0</span>'}
+                    </td>
+                    <td class="p-2.5 text-right font-mono tabular-nums bg-amber-50/20 font-bold ${openVal > 0 ? 'text-amber-800' : 'text-slate-400'}">
+                      ${formatNum(openVal)}
+                    </td>
+                    <td class="p-2.5 text-center">
+                      ${renderPrintDemandStatusBadge(d.status || 'WAITING')}
+                    </td>
+                    <td class="p-2.5">
+                      <div class="flex flex-wrap gap-1">
+                        ${combList.length === 0 ? '<span class="text-slate-300 font-mono text-[10px]">—</span>' : combList.map(c => `
+                          <span
+                            onclick="state.activePage='workbench'; renderApp();"
+                            class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition-colors ${
+                              c.status === 'CONFIRMED'
+                                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                : c.status === 'CANCELLED'
+                                ? 'bg-slate-100 text-slate-500 line-through'
+                                : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                            }"
+                            title="${c.combination_no} (${c.status}) - ${formatNum(c.reserved_quantity)} Adet"
+                          >
+                            ${c.combination_no}
+                          </span>
+                        `).join('')}
+                      </div>
+                    </td>
+                    <td class="p-2.5 text-center">
+                      <button
+                        onclick="openPrintDemandDetail('${d.id}');"
+                        class="px-2 py-1 text-[11px] font-medium rounded border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors"
+                      >
+                        İncele
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPrintDemandStatusBadge(status) {
+  switch (status) {
+    case 'WAITING':
+      return `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-300">BEKLİYOR</span>`;
+    case 'RESERVED':
+      return `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300">TASLAKTA</span>`;
+    case 'PARTIAL':
+      return `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-50 text-sky-800 border border-sky-300">KISMEN</span>`;
+    case 'COMPLETED':
+      return `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">TAMAMLANDI</span>`;
+    case 'NEEDS_REVIEW':
+      return `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-50 text-rose-800 border border-rose-300">İNCELEME</span>`;
+    default:
+      return `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600">${status}</span>`;
+  }
+}
+
+function renderPrintDemandDetailDrawer() {
+  const d = (state.printDemands || []).find(x => x.id === state.selectedPrintDemandDetailId);
+  if (!d) return '';
+
+  return `
+    <div class="fixed inset-0 bg-slate-900/40 z-50 flex justify-end backdrop-blur-xs font-sans">
+      <div class="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col overflow-hidden border-l border-slate-200">
+        <div class="h-14 flex items-center justify-between px-5 border-b border-slate-200 bg-slate-50">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">Baskılı İhtiyaç Detayı</h3>
+            <p class="text-[11px] text-slate-500 font-mono">${d.id} • ${d.tube_size || '—'}</p>
+          </div>
+          <button onclick="closePrintDemandDetail();" class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200">
+            ${getSvgIcon('x', 'w-4 h-4')}
+          </button>
+        </div>
+
+        <div class="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
+          <!-- Ürün Başlığı -->
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
+            <div class="text-[10px] uppercase font-bold text-slate-500 font-mono">BASKILI LEVHA / ÜRÜN</div>
+            <div class="font-bold text-slate-900 text-sm">${d.print_stock_name || '—'}</div>
+            <div class="font-mono text-slate-500 text-[11px]">${d.print_stock_code}</div>
+          </div>
+
+          <!-- İlişkili Tüp Planı -->
+          <div class="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+            <div class="text-[10px] uppercase font-bold text-slate-500 font-mono">KAYNAK TÜP ÜRETİM PLANI</div>
+            <div class="font-semibold text-slate-800">${d.tube_stock_name || '—'}</div>
+            <div class="font-mono text-slate-500 text-[11px]">${d.tube_stock_code} ${d.order_no ? `| İş No: ${d.order_no}` : ''}</div>
+            <div class="text-[11px] text-slate-600 mt-1">
+              Malzeme İhtiyaç Tarihi: <b class="font-mono">${d.material_due_date ? formatDate(d.material_due_date) : 'Tanımsız'}</b>
+            </div>
+            <div class="text-[10px] text-amber-700 bg-amber-50 p-1.5 rounded mt-1 border border-amber-200">
+              ⚠️ ${d.lead_time_warning || 'Tedarik süresi belirsizdir.'}
+            </div>
+          </div>
+
+          <!-- Miktar Kademeleri -->
+          <div class="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50/50">
+            <div class="text-[10px] uppercase font-bold text-slate-500 font-mono">KADEMELİ TAHSİS HESABI</div>
+            <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+              <div class="p-2 bg-white rounded border border-slate-200">
+                <span class="text-slate-500 block text-[10px]">1. Planlanan Tüp:</span>
+                <span class="font-bold text-slate-800">${formatNum(d.planned_tube_quantity)} ADET</span>
+              </div>
+              <div class="p-2 bg-white rounded border border-slate-200">
+                <span class="text-slate-500 block text-[10px]">2. Kesikten Karşılanan:</span>
+                <span class="font-bold text-emerald-700">${formatNum(d.allocated_cutting_stock)} ADET</span>
+              </div>
+              <div class="p-2 bg-white rounded border border-slate-200">
+                <span class="text-slate-500 block text-[10px]">3. Baskılıdan Karşılanan:</span>
+                <span class="font-bold text-emerald-700">${formatNum(d.allocated_print_stock)} ADET</span>
+              </div>
+              <div class="p-2 bg-sky-50 rounded border border-sky-200">
+                <span class="text-sky-700 block text-[10px]">4. Net Yeni Baskı:</span>
+                <span class="font-bold text-sky-900">${formatNum(d.net_print_demand)} ADET</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kombinasyon Rezervasyonları -->
+          <div class="border border-slate-200 rounded-lg p-3 space-y-2">
+            <div class="text-[10px] uppercase font-bold text-slate-500 font-mono">KOMBİNASYON DURUMU</div>
+            <div class="grid grid-cols-3 gap-2 text-xs font-mono">
+              <div class="p-2 bg-amber-50 rounded border border-amber-200">
+                <span class="text-amber-700 block text-[10px]">Taslağa Ayrılan:</span>
+                <span class="font-bold text-amber-900">${formatNum(d.allocated_to_draft)}</span>
+              </div>
+              <div class="p-2 bg-emerald-50 rounded border border-emerald-200">
+                <span class="text-emerald-700 block text-[10px]">Onaylı Karşılanan:</span>
+                <span class="font-bold text-emerald-900">${formatNum(d.covered_by_confirmed)}</span>
+              </div>
+              <div class="p-2 bg-slate-100 rounded border border-slate-200">
+                <span class="text-slate-600 block text-[10px]">Kalan Açık:</span>
+                <span class="font-bold text-slate-900">${formatNum(d.remaining_open_quantity)}</span>
+              </div>
+            </div>
+            ${d.review_reason ? `
+              <div class="p-2 bg-rose-50 border border-rose-200 rounded text-rose-800 text-[11px]">
+                <b>İnceleme Gerekçesi:</b> ${d.review_reason}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
+          <button onclick="closePrintDemandDetail();" class="px-4 py-2 text-xs font-medium rounded border border-slate-300 hover:bg-slate-100 text-slate-700">Kapat</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 
 // ============================================================================
 // MATBAA YERLEŞİM KURALLARI ÇÖZÜMLEME VE DOĞRULAMA MOTORU
@@ -4329,6 +5032,147 @@ function renderWorkbench() {
             </div>
             <p class="text-[11px] text-slate-500">Ortak renkler (CMYK) tek sefer sayılır. Farklı Pantone'lerin birleşimi 6 benzersiz rengi aşamaz.</p>
           </div>
+
+          <!-- Kombinasyon Kaydet / Operasyon Kartı (Faz 4A) -->
+          <div class="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-sm">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-2">
+              KOMBİNASYON OPERASYONLARI (FAZ 4A)
+            </div>
+            <div class="space-y-2">
+              <button
+                onclick="saveCombinationDraft();"
+                ${!wb.isValid || state.isSavingCombination ? 'disabled' : ''}
+                class="w-full py-2.5 px-4 rounded text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors ${
+                  wb.isValid && !state.isSavingCombination
+                    ? 'bg-sky-700 hover:bg-sky-800 text-white cursor-pointer'
+                    : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                }"
+              >
+                ${state.isSavingCombination ? `
+                  <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                  <span>Kaydediliyor...</span>
+                ` : `
+                  ${getSvgIcon('check', 'w-4 h-4')}
+                  <span>Taslak Olarak Kaydet & Rezerve Et</span>
+                `}
+              </button>
+              <div class="text-[10px] text-slate-500 font-mono">
+                Taslak kaydı, seçili miktarları Baskılı İhtiyaç Havuzunda rezerve eder ve diğer kullanıcıların aynı miktarı mükerrer kullanmasını kilitler.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kayıtlı Baskı Kombinasyonları Paneli (Faz 4A) -->
+      <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-xs uppercase tracking-wider text-slate-800">KAYITLI BASKI KOMBİNASYONLARI</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-200 text-slate-700">
+              ${(state.combinationsList || []).length} Kayıt
+            </span>
+          </div>
+          <button
+            onclick="fetchCombinationsList().then(renderApp);"
+            class="text-xs text-sky-700 hover:text-sky-900 font-medium flex items-center gap-1 cursor-pointer"
+          >
+            <span>🔄</span>
+            <span>Listeyi Yenile</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="bg-slate-100/70 text-slate-700 font-semibold border-b border-slate-200 font-mono text-[11px]">
+              <tr>
+                <th class="p-2.5">KOMBİNASYON NO</th>
+                <th class="p-2.5">DURUM</th>
+                <th class="p-2.5">EBAT</th>
+                <th class="p-2.5">HAM LEVHA</th>
+                <th class="p-2.5 text-right">BASILACAK LEVHA</th>
+                <th class="p-2.5 text-right">TOPLAM ÇIKTI (TÜP)</th>
+                <th class="p-2.5 text-right text-emerald-800 font-bold">İHTİYAÇTAN KARŞ.</th>
+                <th class="p-2.5 text-right text-amber-700">FAZLA ÜRETİM</th>
+                <th class="p-2.5">KALEMLER</th>
+                <th class="p-2.5 text-center">AKSİYON</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-sans">
+              ${(state.combinationsList || []).length === 0 ? `
+                <tr>
+                  <td colspan="10" class="p-6 text-center text-slate-400 font-mono text-xs">
+                    Henüz kayıtlı bir baskı kombinasyonu bulunmamaktadır.
+                  </td>
+                </tr>
+              ` : (state.combinationsList || []).map(c => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="p-2.5 font-mono font-bold text-slate-900">
+                    ${c.combination_no}
+                  </td>
+                  <td class="p-2.5">
+                    ${c.status === 'CONFIRMED'
+                      ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">ONAYLANDI</span>'
+                      : c.status === 'CANCELLED'
+                      ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-500 line-through">İPTAL EDİLDİ</span>'
+                      : '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300">TASLAK</span>'
+                    }
+                  </td>
+                  <td class="p-2.5 font-mono">
+                    <span class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px]">
+                      ${c.tube_size}
+                    </span>
+                  </td>
+                  <td class="p-2.5 font-mono text-[11px] text-slate-600">
+                    ${c.raw_sheet_code}
+                  </td>
+                  <td class="p-2.5 text-right font-mono tabular-nums font-semibold">
+                    ${formatNum(c.sheets_to_print)}
+                  </td>
+                  <td class="p-2.5 text-right font-mono tabular-nums text-slate-800">
+                    ${formatNum(c.total_output_tubes)}
+                  </td>
+                  <td class="p-2.5 text-right font-mono tabular-nums text-emerald-700 font-bold">
+                    ${formatNum(c.total_covered_demand)}
+                  </td>
+                  <td class="p-2.5 text-right font-mono tabular-nums text-amber-700">
+                    ${formatNum(c.total_overproduction)}
+                  </td>
+                  <td class="p-2.5 font-mono text-[10px] text-slate-500">
+                    ${(c.items || []).length} Çeşit (${(c.items || []).map(i => `${(i.print_stock_code || '').split('-')[1] || i.print_stock_code}:${i.repeats_count}`).join(', ')})
+                  </td>
+                  <td class="p-2.5 text-center">
+                    <div class="flex items-center justify-center gap-1.5 font-mono">
+                      ${c.status === 'DRAFT' ? `
+                        <button
+                          onclick="confirmCombinationFromUI('${c.id}');"
+                          class="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] shadow-xs cursor-pointer"
+                        >
+                          Onayla
+                        </button>
+                        <button
+                          onclick="cancelCombinationFromUI('${c.id}');"
+                          class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] cursor-pointer"
+                        >
+                          İptal
+                        </button>
+                      ` : c.status === 'CONFIRMED' ? `
+                        <button
+                          onclick="cancelCombinationFromUI('${c.id}');"
+                          class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-[10px] cursor-pointer"
+                          title="Onaylı kombinasyonu iptal et ve miktarları serbest bırak"
+                        >
+                          İptal Et
+                        </button>
+                      ` : `
+                        <span class="text-slate-400 text-[10px]">—</span>
+                      `}
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -8663,6 +9507,7 @@ function renderApp() {
   switch (state.activePage) {
     case 'overview': pageContent = renderOverview(); break;
     case 'demands': pageContent = renderDemands(); break;
+    case 'print_demands': pageContent = renderPrintDemands(); break;
     case 'workbench': pageContent = renderWorkbench(); break;
     case 'printing_rules': pageContent = renderPrintingRules(); break;
     case 'technical': pageContent = renderTechnical(); break;
@@ -8683,19 +9528,36 @@ function renderApp() {
     ${state.isCombinationRuleModalOpen ? renderCombinationRuleModal() : ''}
     ${state.isProductModalOpen ? renderProductModal() : ''}
     ${state.isImportModalOpen ? renderImportModal() : ''}
+    ${state.selectedPrintDemandDetailId ? renderPrintDemandDetailDrawer() : ''}
   `;
 }
 
 // Global router and page functions exposed to window
 window.state = state;
+window.formatNum = formatNum;
+window.formatDate = formatDate;
 window.renderApp = renderApp;
 window.renderOverview = renderOverview;
 window.renderDemands = renderDemands;
+window.renderPrintDemands = renderPrintDemands;
 window.renderWorkbench = renderWorkbench;
 window.renderPrintingRules = renderPrintingRules;
 window.renderTechnical = renderTechnical;
 window.renderProduction = renderProduction;
 window.renderIntegration = renderIntegration;
+
+// Faz 4A Baskılı İhtiyaç Havuzu ve Kombinasyon fonksiyonları
+window.fetchPrintDemands = fetchPrintDemands;
+window.syncPrintDemands = syncPrintDemands;
+window.toggleSelectPrintDemand = toggleSelectPrintDemand;
+window.toggleSelectAllPrintDemands = toggleSelectAllPrintDemands;
+window.transferSelectedPrintDemandsToWorkbench = transferSelectedPrintDemandsToWorkbench;
+window.openPrintDemandDetail = openPrintDemandDetail;
+window.closePrintDemandDetail = closePrintDemandDetail;
+window.saveCombinationDraft = saveCombinationDraft;
+window.confirmCombinationFromUI = confirmCombinationFromUI;
+window.cancelCombinationFromUI = cancelCombinationFromUI;
+window.fetchCombinationsList = fetchCombinationsList;
 
 // Faz 5A Çizelgeleme ve Plan Yönetimi fonksiyonları
 window.previewProductionSchedule = previewProductionSchedule;

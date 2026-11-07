@@ -2,7 +2,7 @@
   "project": "Teneke Planlama",
   "package_version": "2.0",
   "updated_at": "2026-11-07",
-  "document_status": "faz_5a_single_machine_scheduling_completed",
+  "document_status": "faz_4a_printed_demand_and_combinations_completed",
   "authorized_initial_scope": [
     0,
     1,
@@ -12,10 +12,11 @@
     "2D",
     "3A.2",
     "3B",
-    "5A"
+    "5A",
+    "4A"
   ],
-  "current_phase": "5A",
-  "next_implementation_phase": "4",
+  "current_phase": "4A",
+  "next_implementation_phase": "4B",
   "phases": [
     {
       "number": 0,
@@ -80,6 +81,9 @@
       "file": "phases/FAZ-03A-AA-LIDER-SQL-SOZLESMESI.md",
       "status": "completed",
       "acceptance_verified": true,
+      "dependencies": [
+        "3A.1"
+      ],
       "verified_at": "2026-11-06",
       "evidence": "15/15 entegrasyon ve güvenlik testi başarılı: AA_LIDER üzerinde 5 sözleşme view'ı (AA_tp_vw_*) oluşturuldu ve doğrulandı; 443 talep satırı, 4.998.757 adet brüt tüp dolum talebi ve 3.755 stok seviyesi PostgreSQL staging katmanına idempotent senkronlandı; rol değiştirme yetki açığı kapatıldı (403 ROLE_SWITCH_DISABLED); rastgele oturum token'ları; kombine etme koruması ile net tüp ihtiyacının ham levha montajına aktarımı Faz 3B'ye kadar bloke edildi; negatif stok gösterimi kaldırıldı ve tekil ambar stok haritası yapıldı; 27 yerel teknik kart ve alper_tenekeuretim tüp planı eksiksiz korundu.",
       "dependencies": [
@@ -112,6 +116,40 @@
       ]
     },
     {
+      "number": "4A",
+      "name": "Baskılı İhtiyaç Havuzu ve Kombinasyon Takibi",
+      "file": "docs/FAZ-04A-BASKILI-HAVUZ-VE-KOMBINASYON-RAPORU.md",
+      "status": "completed",
+      "acceptance_verified": true,
+      "verified_at": "2026-11-07",
+      "evidence": "40/40 kabul testi başarılı (10 senaryo): 215 satırlık aktif tüp planından (3.134.665 adet) mükerrer tüp stoğu düşülmeden 499.160 kesik stok ve 771.623 baskılı stok tahsisi ile 1.863.882 adet net yeni baskı ihtiyacı ve 205 tekil baskılı stok kodu oluşturuldu; PostgreSQL 010 migration uygulandı; kalıcı rezervasyon modeli (allocated_to_draft, covered_by_confirmed, remaining_open_demand, status) devreye alındı; SELECT ... FOR UPDATE kilit koruması; 1.250 levha minimum baskı fazlası ayrımı; iptalde açığa dönüş; plan değişikliğinde NEEDS_REVIEW koruması; frontend ekran ve menü ayrımı (İhtiyaç Havuzu -> Teneke Üretim Planı -> Baskılı İhtiyaç Havuzu -> Kombinasyon Masası -> Baskı Siparişleri); backend 18 ebat kapasite/tekrar adımı ve renk kuralları doğrulandı.",
+      "dependencies": [
+        "5A",
+        "3B"
+      ]
+    },
+    {
+      "number": "4B",
+      "name": "Otomatik Kombinasyon ve Optimizasyon Motoru",
+      "file": "phases/FAZ-04-KOMBINASYON-MOTORU.md",
+      "status": "planned",
+      "acceptance_verified": false,
+      "dependencies": [
+        "4A"
+      ]
+    },
+    {
+      "number": "5B",
+      "name": "Malzeme ve Operasyon Bağlantısı + Termin Kontrolü",
+      "file": "phases/FAZ-05-URETIM-PLANLAMA.md",
+      "status": "planned",
+      "acceptance_verified": false,
+      "dependencies": [
+        "4A",
+        "5A"
+      ]
+    },
+    {
       "number": "5W",
       "name": "meltem_teneke Kontrollü Geri Yazımı (Açık Yayınlama İstisnası)",
       "file": "phases/FAZ-05-URETIM-PLANLAMA.md",
@@ -135,34 +173,14 @@
       ]
     },
     {
-      "number": 4,
-      "name": "Kombinasyon ve Baskı Montaj Motoru",
-      "file": "phases/FAZ-04-KOMBINASYON-MOTORU.md",
-      "status": "planned",
-      "acceptance_verified": false,
-      "dependencies": [
-        "3B"
-      ]
-    },
-    {
-      "number": "5B",
-      "name": "Malzeme ve Operasyon Bağlantısı + Tam Mutabakat (3C.2)",
-      "file": "phases/FAZ-05-URETIM-PLANLAMA.md",
-      "status": "planned",
-      "acceptance_verified": false,
-      "dependencies": [
-        4,
-        "5A"
-      ]
-    },
-    {
       "number": 6,
       "name": "Sipariş Formu ve İzlenebilirlik",
       "file": "phases/FAZ-06-SIPARIS-VE-TAKIP.md",
       "status": "planned",
       "acceptance_verified": false,
       "dependencies": [
-        4,
+        "4A",
+        "4B",
         "5B"
       ]
     },

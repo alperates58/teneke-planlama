@@ -251,42 +251,28 @@ Sunucu, port, veritabanı, kullanıcı, view tanımları, kolon eşleme önizlem
 - [ ] Eksik reçeteli veya eşleşmeyen kayıt havuzda görünür, onay engellenir.
 - [ ] SQL bağlantısı veya senkron kesildiğinde son başarılı snapshot korunur.
 
-## 8. Faz 4 — Kombinasyon ve baskı miktarı motoru
+## 8. Faz 4 — Baskılı İhtiyaç Havuzu ve Kombinasyon Motoru
 
-**Girdi Bağımlılığı:** Faz 3B'den gelen "Yeni Baskı Net İhtiyacı" (Örn: 50.000 brüt - 10.000 tüp - 5.000 kesik - 7.000 baskılı = 28.000 tüp eşdeğeri). Faz 4 motoruna 40.000 değil, net 28.000 yeni baskı ihtiyacı girdi olarak verilir.
+### Faz 4A — Baskılı İhtiyaç Havuzu ve Kombinasyon Takibi (Tamamlandı — 07.11.2026)
+**Girdi Bağımlılığı:** Faz 5A aktif tüp planı (`alper_tenekeuretim` kaynaklı 215 satır, 3.134.665 adet tüp) ve Faz 3B ambar stokları (`K-` kesik ve `B-` baskılı levhalar). Tüp stoğu mükerrer düşülmez.
+- 4A.1 Ekran ve menü hiyerarşisi: İhtiyaç Havuzu (dolum brüt/net tüp dengesi) → Teneke Üretim Planı (tek tüp makinesi çizelgesi) → YENİ Baskılı İhtiyaç Havuzu (`print_demands`) → Kombinasyon Masası (`workbench`) → Baskı Siparişleri (Faz 6). İhtiyaç havuzundaki baskı aksiyonları yeni baskılı havuzuna yönlendirir.
+- 4A.2 Canlı veri çözümlemesi: 215 satır, 3.134.665 planlanan tüp; 499.160 kesik stok ve 771.623 baskılı stok tahsisi sonrası 1.863.882 adet net yeni baskı ihtiyacı ve 205 tekil baskılı stok kodu oluşturuldu.
+- 4A.3 Baskılı İhtiyaç Havuzu ve Detay Çekmecesi: 15 operasyonel kolon, makine başlama saatine bağlı malzeme termin tarihi, rezervasyon ve kombinasyon izleme, detaylı satır veya baskılı koda göre gruplu görünüm.
+- 4A.4 Kalıcı Kombinasyon Rezervasyon Modeli (`printed_sheet_demands`, `sheet_combinations`, `sheet_combination_items`, `print_demand_reservations`): Miktarlı rezervasyon (`allocated_to_draft`, `covered_by_confirmed`), `SELECT ... FOR UPDATE` kilit koruması, 1.250 levha minimum baskı fazlalığının (`overproduction_quantity`) talep karşılama miktarından izole edilmesi.
+- 4A.5 İptal durumunda açığa geri dönüş, plan senkronunda onaylı rezervasyonların korunması ve ihtiyaç altına düşmede `NEEDS_REVIEW` durumuna geçiş.
+- 4A.6 Backend kural denetimi: 18 ebat için kapasite, montaj grubu sayısı ve ürün tekrar adımı kuralları (`CAPACITY_RULES`), maksimum 6 renk, zemin ve lak kuralları.
+- 4A.7 10 senaryoda 40/40 test (`tests/test-faz4a.js`) %100 başarılı; Faz 3B (65/65) ve Faz 5A (21/21) regresyon testleri tam uyumlu.
 
-### İşler
-
-- 4.1 Uygun ürün grupları: aynı çap/boy, tanımlı ham levha, zemin; ayrıca doğrulanmış vernik/lak/revizyon/özel kurallar.
-- 4.2 Benzersiz renk kodlarıyla 6 renk varsayılan sınırı. İsim benzerliğinden renk eşdeğerliği çıkarılmaz; eşdeğerlik varsa katalogda açık tanımlanır.
-- 4.3 Hazır tüp/levha kapasitesi altında tamsayı tekrar dağılımı ve baskı levha miktarı. Geometrik hesap veya alternatif levha önerisi yoktur.
-- 4.4 Fiziksel dağılıma ilişkin onaylanmış tekrar kuralları kullanılır. Belirsiz kısıt bulunan ürün için yalnız manuel/taslak senaryo üretilebilir.
-- 4.5 Minimum baskı, izin verilen boş kapasite, fire, fazla üretim ve siparişin montajlar arasında bölünebilmesi politikaları.
-- 4.6 Minimum altında kalan 500 levhalık ihtiyaç için gerçek ihtiyaç, 1.250'ye tamamlama sonucu, fazlalık ve eşleşme seçenekleri gösterilir. Otomatik sipariş veya onaysız fazla üretim yapılmaz.
-- 4.7 PL ve kendi marka politikaları: PL fazlası için tanımlı onay; kendi markasında izin verilen stok hedefi ve tüketim bilgisiyle tamamlama. Talep olmayan ürünler sınırsız üretilmez.
-- 4.8 Öncelik sırası: kesin kurallar → termin/karşılanan ihtiyaç → fazla üretim → montaj/baskı maliyeti. Kullanıcıca değiştirilebilir tercihler açık gösterilir. Güvenilir maliyet yoksa para cinsinden sahte tasarruf hesaplanmaz.
-- 4.9 Alternatif öneriler, karşılanamayan ihtiyaçlar ve nedenler. Birden çok montajın aynı ihtiyacı gereksiz karşılaması engellenir.
-- 4.10 Arka plan işi, ilerleme, iptal, süre sınırı ve sonuç kaydı. Aday çözüm ile optimal olduğu kanıtlanan çözüm ayrılır; zaman aşımı “çözüm yok” diye yorumlanmaz.
-- 4.11 Her çalıştırmada veri anlık görüntüsü, parametre/kural sürümü ve algoritma ayarları saklanır. Manuel kilitlenen atamalar yeniden hesapta korunur veya açık çatışma verir.
-- 4.12 Sonuç üretime aktarılmadan önce ayrı doğrulayıcıyla kapasite, renk, minimum, ihtiyaç ve kurallar tekrar kontrol edilir.
-
-### Hesap sözleşmesi
-
-- Teorik ürün adedi = ürünün montajdaki tekrar sayısı × basılan levha adedi.
-- Net kullanılabilir çıktı = operasyon bazında tanımlanmış kayıplardan sonraki çıktı; yuvarlama açık ve tutarlı olmalıdır.
-- İhtiyaç/fazla farkı aynı birimde ve aynı revizyon kapsamında hesaplanır.
-- Onaylı baskı siparişi miktarı, ihtiyaç değişince kendiliğinden değiştirilmez.
+### Faz 4B — Otomatik Kombinasyon ve Optimizasyon Motoru (Planlanan)
+**Girdi Bağımlılığı:** Faz 4A Baskılı İhtiyaç Havuzu'ndaki açık (`remaining_open_demand > 0`) kalemler.
+- 4B.1 Aynı ebat, onaylı ham levha, zemin ve renk uyumlu açık ihtiyaçları kümeleyen matematiksel/sezgisel gruplama algoritması.
+- 4B.2 18 ebat kuralı doğrultusunda tam kapasite doldurma, tekrar adımı tamsayı katları ve minimum baskı (1.250) fire minimizasyonu.
+- 4B.3 PL (Private Label) onay politikaları ve fabrika markası stok tamamlama stratejileri.
+- 4B.4 Alternatif öneriler sunumu ve planlamacının tek tıkla taslak kombinasyona dönüştürmesi.
 
 ### Kabul
-
-- [ ] SOFT referans hesabı doğru.
-- [ ] Ortak CMYK + iki farklı Pantone 6 renk; üçüncü farklı Pantone 7 renk olarak bulunuyor.
-- [ ] Farklı ebat/zemin/uygunsuz ham levha kesin engel.
-- [ ] Minimum altı, eşleşmeyen ve fazla üretim senaryoları açık raporlanıyor.
-- [ ] Eksik kural verisiyle sahte “üretime uygun” sonuç çıkmıyor.
-- [ ] Manuel değişiklikler yeniden doğrulanıyor.
-- [ ] İptal, yeniden başlatma ve süre sınırı sonuçları dürüst biçimde gösteriliyor.
-- [ ] En az bir gerçek ebat ve ardından farklı kapasitedeki ebatla planlamacı kabulü alındı.
+- [x] Faz 4A Baskılı İhtiyaç Havuzu ve kalıcı kombinasyon rezervasyon modeli devrede (40/40 test).
+- [ ] Faz 4B Otomatik kombinasyon ve çoklu montaj optimizasyon algoritması.
 
 ## 9. Faz 5 — Teneke üretim planlama
 
