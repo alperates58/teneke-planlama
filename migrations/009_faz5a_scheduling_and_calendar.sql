@@ -28,6 +28,10 @@ CREATE TABLE IF NOT EXISTS production_calendar_configs (
     work_start_time TIME NOT NULL DEFAULT '07:30:00',
     work_end_time TIME NOT NULL DEFAULT '17:30:00',
     shift_end_time TIME NOT NULL DEFAULT '01:30:00',
+    default_day_type VARCHAR(30) NOT NULL DEFAULT 'VARDİYA',
+    saturday_day_type VARCHAR(30) NOT NULL DEFAULT 'WORKING',
+    saturday_end_time TIME NOT NULL DEFAULT '13:00:00',
+    sunday_day_type VARCHAR(30) NOT NULL DEFAULT 'HOLIDAY',
     speed_unit VARCHAR(30) NOT NULL DEFAULT 'units_per_minute',
     setup_calendar_mode VARCHAR(30) NOT NULL DEFAULT 'WORK_HOURS', -- 'WORK_HOURS' veya 'ANYTIME'
     transit_buffer_hours NUMERIC(4, 2) NOT NULL DEFAULT 0.0,
@@ -36,9 +40,18 @@ CREATE TABLE IF NOT EXISTS production_calendar_configs (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO production_calendar_configs (id, name, work_start_time, work_end_time, shift_end_time, setup_calendar_mode)
-VALUES ('DEFAULT', 'Lider Fabrika Standart Takvimi (07:30 - 17:30 / 01:30)', '07:30:00', '17:30:00', '01:30:00', 'WORK_HOURS')
-ON CONFLICT (id) DO NOTHING;
+ALTER TABLE production_calendar_configs ADD COLUMN IF NOT EXISTS default_day_type VARCHAR(30) DEFAULT 'VARDİYA';
+ALTER TABLE production_calendar_configs ADD COLUMN IF NOT EXISTS saturday_day_type VARCHAR(30) DEFAULT 'WORKING';
+ALTER TABLE production_calendar_configs ADD COLUMN IF NOT EXISTS saturday_end_time TIME DEFAULT '13:00:00';
+ALTER TABLE production_calendar_configs ADD COLUMN IF NOT EXISTS sunday_day_type VARCHAR(30) DEFAULT 'HOLIDAY';
+
+INSERT INTO production_calendar_configs (id, name, work_start_time, work_end_time, shift_end_time, default_day_type, saturday_day_type, saturday_end_time, sunday_day_type, setup_calendar_mode)
+VALUES ('DEFAULT', 'Lider Fabrika Standart Takvimi (07:30 - 17:30 / 01:30)', '07:30:00', '17:30:00', '01:30:00', 'VARDİYA', 'WORKING', '13:00:00', 'HOLIDAY', 'WORK_HOURS')
+ON CONFLICT (id) DO UPDATE SET
+    default_day_type = EXCLUDED.default_day_type,
+    saturday_day_type = EXCLUDED.saturday_day_type,
+    saturday_end_time = EXCLUDED.saturday_end_time,
+    sunday_day_type = EXCLUDED.sunday_day_type;
 
 -- 3. Vardiya Molaları
 CREATE TABLE IF NOT EXISTS production_calendar_breaks (
@@ -117,7 +130,6 @@ VALUES
     ('65x98',  65,  98, 185.1852, 11111.11, 100000),
     ('65x99',  65,  99, 185.1852, 11111.11, 100000),
     ('65x104', 65, 104, 185.1852, 11111.11, 100000),
-    ('65x157', 65, 157, 185.1852, 11111.11, 100000),
     ('65x165', 65, 165, 185.1852, 11111.11, 100000),
     ('65x195', 65, 195, 185.1852, 11111.11, 100000),
     ('65x234', 65, 234, 185.1852, 11111.11, 100000),

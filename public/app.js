@@ -2186,15 +2186,27 @@ function renderDemands() {
   const totalNetCutting = filtered.reduce((a, b) => a + (Number(b.net_cutting_quantity !== undefined ? b.net_cutting_quantity : b.net_quantity) || 0), 0);
   const totalNetPrint = filtered.reduce((a, b) => a + (Number(b.net_print_quantity !== undefined ? b.net_print_quantity : b.net_quantity) || 0), 0);
 
-  // Tekil ürün bazlı ambar stok haritası (aynı ürün birden çok siparişte varsa stoğu mükerrer toplanmaz)
-  const uniqueStockMap = new Map();
+  // Tekil ürün bazlı ambar stok haritası (tüp, kesik, baskılı stoğu havuzda mükerrer toplanmaz)
+  const uniqueTubeStockMap = new Map();
+  const uniqueCutStockMap = new Map();
+  const uniquePrintStockMap = new Map();
+
   filtered.forEach(d => {
-    if (d.stock_code && !uniqueStockMap.has(d.stock_code)) {
-      uniqueStockMap.set(d.stock_code, Number(d.available_stock || d.physical_tube_stock) || 0);
+    if (d.stock_code && !uniqueTubeStockMap.has(d.stock_code)) {
+      uniqueTubeStockMap.set(d.stock_code, Number(d.available_stock || d.physical_tube_stock) || 0);
+    }
+    if (d.cutting_stock_code && !uniqueCutStockMap.has(d.cutting_stock_code)) {
+      uniqueCutStockMap.set(d.cutting_stock_code, Number(d.available_cutting_stock) || 0);
+    }
+    if (d.print_stock_code && !uniquePrintStockMap.has(d.print_stock_code)) {
+      uniquePrintStockMap.set(d.print_stock_code, Number(d.available_print_stock) || 0);
     }
   });
-  const totalUniqueStock = Array.from(uniqueStockMap.values()).reduce((a, b) => a + b, 0);
-  const uniqueItemsCount = uniqueStockMap.size;
+
+  const totalUniqueTubeStock = Array.from(uniqueTubeStockMap.values()).reduce((a, b) => a + b, 0);
+  const totalUniqueCutStock = Array.from(uniqueCutStockMap.values()).reduce((a, b) => a + b, 0);
+  const totalUniquePrintStock = Array.from(uniquePrintStockMap.values()).reduce((a, b) => a + b, 0);
+  const uniqueItemsCount = uniqueTubeStockMap.size;
 
   const filteredIds = filtered.map(d => d.id);
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => state.selectedDemandIds.includes(d.id));
@@ -2394,11 +2406,13 @@ function renderDemands() {
                 <span>Filtreleri Temizle</span>
               </button>
             ` : ''}
-            <div class="text-[11px] font-mono text-slate-500 flex items-center gap-2">
+            <div class="text-[11px] font-mono text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span>Brüt: <strong class="text-slate-800 tabular-nums">${formatNum(totalGross)}</strong></span>
-              <span>• Tüp Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(totalUniqueStock)}</strong></span>
+              <span>• Tüp Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(totalUniqueTubeStock)}</strong></span>
               <span>• Net Tüp: <strong class="text-blue-700 tabular-nums">${formatNum(totalNetTube)}</strong></span>
+              <span>• Kesik Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(totalUniqueCutStock)}</strong></span>
               <span>• Net Kesim: <strong class="text-amber-700 tabular-nums">${formatNum(totalNetCutting)}</strong></span>
+              <span>• Baskılı Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(totalUniquePrintStock)}</strong></span>
               <span>• Yeni Baskı: <strong class="text-sky-900 tabular-nums font-bold">${formatNum(totalNetPrint)}</strong></span>
             </div>
           </div>
@@ -2434,11 +2448,19 @@ function renderDemands() {
                   <div>Net Tüp</div>
                   <div class="text-[9px] text-blue-700 font-normal lowercase tracking-normal">tüp üretimi</div>
                 </th>
-                <th class="py-2 px-2.5 text-right min-w-[85px]">
-                  <div>Net Kesim</div>
-                  <div class="text-[9px] text-amber-700 font-normal lowercase tracking-normal">kesik stok sonrası</div>
+                <th class="py-2 px-2.5 text-right min-w-[110px]">
+                  <div>Kesik Stok</div>
+                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">kod / tahsis / stok</div>
                 </th>
-                <th class="py-2 px-2.5 text-right min-w-[90px]">
+                <th class="py-2 px-2.5 text-right min-w-[80px]">
+                  <div>Net Kesim</div>
+                  <div class="text-[9px] text-amber-700 font-normal lowercase tracking-normal">kesik sonrası</div>
+                </th>
+                <th class="py-2 px-2.5 text-right min-w-[110px]">
+                  <div>Baskılı Stok</div>
+                  <div class="text-[9px] text-slate-400 font-normal lowercase tracking-normal">kod / tahsis / stok</div>
+                </th>
+                <th class="py-2 px-2.5 text-right min-w-[85px]">
                   <div>Yeni Baskı</div>
                   <div class="text-[9px] text-sky-800 font-bold lowercase tracking-normal">baskı montajına</div>
                 </th>
@@ -2452,7 +2474,7 @@ function renderDemands() {
             <tbody class="divide-y divide-slate-100 text-slate-800">
               ${filtered.length === 0 ? `
                 <tr>
-                  <td colspan="14" class="py-12 px-4 text-center">
+                  <td colspan="16" class="py-12 px-4 text-center">
                     <div class="max-w-sm mx-auto space-y-2">
                       <div class="text-slate-400 mx-auto w-8 h-8 flex justify-center">${getSvgIcon('info', 'w-8 h-8')}</div>
                       <div class="font-medium text-slate-900 text-sm">Eşleşen talep bulunamadı</div>
@@ -2476,6 +2498,14 @@ function renderDemands() {
                 const netPrintVal = d.net_print_quantity !== undefined ? d.net_print_quantity : d.net_quantity;
                 const physStock = Number(d.physical_tube_stock || d.available_stock || 0);
                 const allocTube = Number(d.allocated_tube_stock || 0);
+
+                const allocCut = Number(d.allocated_cutting_stock || d.allocated_cutting_physical || 0);
+                const availCut = Number(d.available_cutting_stock || 0);
+                const cutUnit = d.cutting_stock_unit || 'ADET';
+
+                const allocPrint = Number(d.allocated_print_stock || d.allocated_print_physical || 0);
+                const availPrint = Number(d.available_print_stock || 0);
+                const printUnit = d.print_stock_unit || 'ADET';
 
                 return `
                   <tr class="hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-sky-50/50' : ''}">
@@ -2512,13 +2542,35 @@ function renderDemands() {
                       `}
                     </td>
                     <td class="py-2 px-2.5 text-right font-mono tabular-nums font-semibold text-blue-900 whitespace-nowrap">
-                      ${hasAlloc ? formatNum(netTubeVal) : '<span class="text-slate-400 font-normal">-</span>'}
+                      ${hasAlloc ? (netTubeVal === 0 ? '<span class="text-emerald-700 font-semibold">0</span>' : formatNum(netTubeVal)) : '<span class="text-slate-400 font-normal">-</span>'}
+                    </td>
+                    <td class="py-2 px-2.5 text-right font-mono text-xs whitespace-nowrap">
+                      ${d.cutting_stock_code ? `
+                        <div class="text-[10px] text-slate-700 font-medium truncate max-w-[120px] ml-auto" title="${escapeHtml(d.cutting_stock_name || d.cutting_stock_code)}">
+                          ${d.cutting_stock_code}
+                        </div>
+                        <div class="text-[10px] tabular-nums">
+                          ${allocCut > 0 ? `<span class="text-emerald-700 font-semibold">${formatNum(allocCut)}</span>` : `<span class="text-slate-400">0</span>`}
+                          <span class="text-[9px] text-slate-400 font-normal"> / ${formatNum(availCut)} ${cutUnit}</span>
+                        </div>
+                      ` : (hasAlloc && d.calculation_status === 'UNRESOLVED' ? `<span class="text-amber-600 text-[10px] italic">Çözümlenemedi</span>` : `<span class="text-slate-400 text-[10px] italic">Reçetesiz</span>`)}
                     </td>
                     <td class="py-2 px-2.5 text-right font-mono tabular-nums font-semibold text-amber-800 whitespace-nowrap">
-                      ${hasAlloc ? (d.cutting_stock_code ? formatNum(netCutVal) : '<span class="text-slate-400 text-[10px] font-normal italic">Reçetesiz</span>') : '<span class="text-slate-400 font-normal">-</span>'}
+                      ${hasAlloc ? (netTubeVal === 0 ? '<span class="text-emerald-700 font-semibold">0</span>' : (d.cutting_stock_code ? formatNum(netCutVal) : '<span class="text-slate-400 text-[10px] font-normal italic">Reçetesiz</span>')) : '<span class="text-slate-400 font-normal">-</span>'}
+                    </td>
+                    <td class="py-2 px-2.5 text-right font-mono text-xs whitespace-nowrap">
+                      ${d.print_stock_code ? `
+                        <div class="text-[10px] text-slate-700 font-medium truncate max-w-[120px] ml-auto" title="${escapeHtml(d.print_stock_name || d.print_stock_code)}">
+                          ${d.print_stock_code}
+                        </div>
+                        <div class="text-[10px] tabular-nums">
+                          ${allocPrint > 0 ? `<span class="text-emerald-700 font-semibold">${formatNum(allocPrint)}</span>` : `<span class="text-slate-400">0</span>`}
+                          <span class="text-[9px] text-slate-400 font-normal"> / ${formatNum(availPrint)} ${printUnit}</span>
+                        </div>
+                      ` : (hasAlloc && d.calculation_status === 'UNRESOLVED' ? `<span class="text-amber-600 text-[10px] italic">Çözümlenemedi</span>` : `<span class="text-slate-400 text-[10px] italic">Reçetesiz</span>`)}
                     </td>
                     <td class="py-2 px-2.5 text-right font-mono tabular-nums font-bold text-sky-900 whitespace-nowrap bg-sky-50/40">
-                      ${hasAlloc ? (d.print_stock_code ? formatNum(netPrintVal) : '<span class="text-slate-400 text-[10px] font-normal italic">Reçetesiz</span>') : '<span class="text-slate-400 font-normal">-</span>'}
+                      ${hasAlloc ? (netCutVal === 0 || netTubeVal === 0 ? '<span class="text-emerald-700 font-bold">0</span>' : (d.print_stock_code ? formatNum(netPrintVal) : '<span class="text-slate-400 text-[10px] font-normal italic">Reçetesiz</span>')) : '<span class="text-slate-400 font-normal">-</span>'}
                     </td>
                     <td class="py-2 px-2 text-center whitespace-nowrap">
                       <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${
@@ -2697,10 +2749,10 @@ function renderDemandDetailDrawer() {
                 </div>
                 <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-600">
                   <div>Tüp/Kesik Oranı: <span class="text-slate-800">${d.ratio_tube_to_cutting || '1.00'}</span></div>
-                  <div>Eldeki Kesik Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(availCutStock)} ${d.cutting_stock_unit || 'LEVHA'}</strong></div>
-                  <div>Tahsis Fiziksel: <strong class="text-emerald-700 tabular-nums">${formatNum(d.allocated_cutting_physical || 0)} ${d.cutting_stock_unit || 'LEVHA'}</strong></div>
+                  <div>Eldeki Kesik Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(availCutStock)} ${d.cutting_stock_unit || 'ADET'}</strong></div>
+                  <div>Tahsis Fiziksel: <strong class="text-emerald-700 tabular-nums">${formatNum(d.allocated_cutting_physical || 0)} ${d.cutting_stock_unit || 'ADET'}</strong></div>
                   <div>Tahsis Tüp Eşdeğeri: <strong class="text-blue-700 tabular-nums">${formatNum(allocCut)} adet</strong></div>
-                  <div class="col-span-2">Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(cutPool)} ${d.cutting_stock_unit || 'LEVHA'}</span></div>
+                  <div class="col-span-2">Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(cutPool)} ${d.cutting_stock_unit || 'ADET'}</span></div>
                 </div>
                 <div class="flex justify-between items-center pt-1 border-t border-slate-100 font-semibold text-amber-900 bg-amber-50/50 px-2 py-0.5 rounded">
                   <span>Net Kesim İhtiyacı:</span>
@@ -2723,10 +2775,10 @@ function renderDemandDetailDrawer() {
                 </div>
                 <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-600">
                   <div>Kesik/Baskı Oranı: <span class="text-slate-800">${d.ratio_cutting_to_print || '1.00'}</span></div>
-                  <div>Eldeki Baskılı Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(availPrintStock)} ${d.print_stock_unit || 'LEVHA'}</strong></div>
-                  <div>Tahsis Fiziksel: <strong class="text-emerald-700 tabular-nums">${formatNum(d.allocated_print_physical || 0)} ${d.print_stock_unit || 'LEVHA'}</strong></div>
+                  <div>Eldeki Baskılı Stok: <strong class="text-emerald-700 tabular-nums">${formatNum(availPrintStock)} ${d.print_stock_unit || 'ADET'}</strong></div>
+                  <div>Tahsis Fiziksel: <strong class="text-emerald-700 tabular-nums">${formatNum(d.allocated_print_physical || 0)} ${d.print_stock_unit || 'ADET'}</strong></div>
                   <div>Tahsis Tüp Eşdeğeri: <strong class="text-blue-700 tabular-nums">${formatNum(allocPrint)} adet</strong></div>
-                  <div class="col-span-2">Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(printPool)} ${d.print_stock_unit || 'LEVHA'}</span></div>
+                  <div class="col-span-2">Kalan Havuz Stoğu: <span class="text-slate-500 tabular-nums">${formatNum(printPool)} ${d.print_stock_unit || 'ADET'}</span></div>
                 </div>
                 <div class="flex justify-between items-center pt-1 border-t border-slate-100 font-bold text-sky-900 bg-sky-100/70 px-2 py-1 rounded">
                   <span>Net Yeni Baskı İhtiyacı:</span>

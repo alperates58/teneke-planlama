@@ -2,15 +2,25 @@ const { query, getClient } = require('../db');
 
 /**
  * FAZ 3B: KADEMELİ İHTİYAÇ MOTORU VE ÇOK SEVİYELİ STOK TAHSİS SERVİSİ
- * (Kabul Düzeltmeleri Sürümü)
+ * (Reçete Çözümleme & Stok Tahsisi Ayrımı)
  * 
- * Reçete Zinciri:
- *   1) TÜP: Brüt İhtiyaç -> Tüp Kullanılabilir Stok Tahsisi -> Net Tüp Üretim İhtiyacı
- *   2) KESİK LEVHA: Net Tüp Üretimi -> Birim Dönüşümü -> Kesik Stok Tahsisi -> Net Kesim İhtiyacı (Tüp Eşdeğeri)
- *   3) BASKILI LEVHA: Net Kesim -> Birim Dönüşümü -> Baskılı Stok Tahsisi -> Net Yeni Baskı İhtiyacı (Tüp Eşdeğeri)
- *   4) HAM LEVHA: Net Yeni Baskı -> Onaylı Kapasite Parametresi -> Tahmini Ham Levha Satın Alma İhtiyacı
- *   5) PLANLI ARZ: Seçilmiş tekil plan taslağı üzerinden zamanında/geç karşılama ve termin açığı
+ * İlkeler:
+ *   1) Reçete çözümleme stok tahsisinden bağımsızdır: netTubeDemand = 0 olsa bile
+ *      tüm tüplerin K- (kesik) ve B- (baskılı) reçeteleri ve eldeki stokları çözümlenir.
+ *   2) K- ve B- stok ADI önekleridir (sayısal koda LIKE 'K-%' uygulanmaz).
+ *      Kategori (KESIKLEVHA, BASKILILEVHA) ve isim önekleri kural bazlı doğrulanır.
+ *   3) Tel bakır, dip, bombe, lak, hurda gibi diğer bileşenler kesik/baskılı seçilmez.
+ *   4) Çoklu aday durumunda rastgele ilk kayıt seçilmez; durum 'UNRESOLVED' işaretlenir.
+ *   5) Tüp stoğundan tamamen karşılanan talepte net değerler 0'dır; ancak reçete
+ *      kodları ve mevcut stoklar şeffafça görünür kalır.
  */
+
+// Parametrik Reçete Önek ve Kategori Kuralları
+const RECIPE_RULES = {
+  cuttingPrefix: 'K-',
+  printPrefix: 'B-',
+  excludedCategories: ['BAKIR', 'DIP', 'BOMBE', 'LAK', 'HURDA']
+};
 
 /**
  * 1. Kademeli Hesaplamayı Çalıştır
@@ -207,8 +217,8 @@ async function runAllocationCalculation({ user, syncRunId = null, planDraftId = 
     // 9. Reçete bağlantılarını çek ve indeksle
     const recipesRes = await client.query(`
       SELECT 
-        recete_guid, parent_stock_code, parent_category,
-        child_stock_code, child_category, consumption_ratio, unit_no
+        recete_guid, parent_stock_code, parent_stock_name, parent_category,
+        child_stock_code, child_stock_name, child_category, consumption_ratio, unit_no
       FROM erp_recipe_links
       ORDER BY id ASC
     `);
@@ -219,22 +229,40 @@ async function runAllocationCalculation({ user, syncRunId = null, planDraftId = 
 
     for (const r of recipesRes.rows) {
       const ratio = parseFloat(r.consumption_ratio) || 0;
+      const childCat = (r.child_category || '').toUpperCase().trim();
+      const childName = (r.child_stock_name || '').trim();
+      const parentCat = (r.parent_category || '').toUpperCase().trim();
+
+      // Dışlanan yardımcı malzemeleri kesinlikle kesik/baskılı seçme
+      if (RECIPE_RULES.excludedCategories.includes(childCat)) {
+        continue;
+      }
+
       const item = {
         receteGuid: r.recete_guid,
         parentCode: r.parent_stock_code,
+        parentName: r.parent_stock_name,
         childCode: r.child_stock_code,
+        childName: r.child_stock_name,
         childCategory: r.child_category,
         ratio,
         unitNo: r.unit_no
       };
 
-      if (r.parent_category === 'TENEKETUP' && r.child_category === 'KESIKLEVHA') {
+      // Tüp -> Kesik Levha (K- ile başlayan stok adı veya KESIKLEVHA kategorisi)
+      const isCuttingCat = childCat === 'KESIKLEVHA';
+      const isCuttingName = childName.toUpperCase().startsWith(RECIPE_RULES.cuttingPrefix);
+      if (parentCat === 'TENEKETUP' && (isCuttingCat || isCuttingName)) {
         if (!tubeToCuttingMap.has(r.parent_stock_code)) tubeToCuttingMap.set(r.parent_stock_code, []);
         tubeToCuttingMap.get(r.parent_stock_code).push(item);
-      } else if (r.parent_category === 'KESIKLEVHA' && r.child_category === 'BASKILILEVHA') {
+      } 
+      // Kesik Levha -> Baskılı Levha (B- ile başlayan stok adı veya BASKILILEVHA kategorisi)
+      else if ((parentCat === 'KESIKLEVHA' || isCuttingCat) && (childCat === 'BASKILILEVHA' || childName.toUpperCase().startsWith(RECIPE_RULES.printPrefix))) {
         if (!cuttingToPrintMap.has(r.parent_stock_code)) cuttingToPrintMap.set(r.parent_stock_code, []);
         cuttingToPrintMap.get(r.parent_stock_code).push(item);
-      } else if (r.parent_category === 'BASKILILEVHA' && r.child_category === 'HAMLEVHA') {
+      } 
+      // Baskılı Levha -> Ham Levha
+      else if ((parentCat === 'BASKILILEVHA' || childCat === 'HAMLEVHA') && childCat === 'HAMLEVHA') {
         if (!printToSheetMap.has(r.parent_stock_code)) printToSheetMap.set(r.parent_stock_code, []);
         printToSheetMap.get(r.parent_stock_code).push(item);
       }
@@ -337,151 +365,171 @@ async function runAllocationCalculation({ user, syncRunId = null, planDraftId = 
       // Net tüp ihtiyacı (Decimal koruma: Math.round ile 2 basamak)
       const netTubeDemand = Math.round((grossDemand - allocatedTube) * 100) / 100;
 
-      // -------------------------------------------------------------
-      // SEVİYE 2: KESİK LEVHA STOK TAHSİSİ (Birim Dönüşümlü)
-      // -------------------------------------------------------------
+      // =============================================================
+      // AŞAMA 0: REÇETE VE BİLEŞEN ÇÖZÜMLEME (İhtiyaçtan Bağımsız)
+      // =============================================================
+      // İlke: Her tüp için, brüt/net ihtiyaç sıfır olsa dahi reçete zinciri çözümlenir.
+      // Kesik (K-) ve Baskılı (B-) kodları ve havuz stokları her zaman belirlenir.
       let cuttingCode = null;
       let ratioTubeToCutting = null;
-      let allocatedCuttingPhysical = 0;
-      let allocatedCuttingTubeEquiv = 0;
-      let netCuttingDemandTubeEquiv = 0;
-      let cuttingBefore = 0;
-      let cuttingAfter = 0;
-      let cuttingUnit = 'ADET';
-
-      // -------------------------------------------------------------
-      // SEVİYE 3: BASKILI LEVHA STOK TAHSİSİ (Birim Dönüşümlü)
-      // -------------------------------------------------------------
       let printCode = null;
       let ratioCuttingToPrint = null;
-      let allocatedPrintPhysical = 0;
-      let allocatedPrintTubeEquiv = 0;
-      let netPrintDemandTubeEquiv = 0;
-      let printBefore = 0;
-      let printAfter = 0;
-      let printUnit = 'ADET';
-
-      // -------------------------------------------------------------
-      // SEVİYE 4: HAM LEVHA PARAMETRESİ (Kapasite Parametresi ile)
-      // -------------------------------------------------------------
       let rawSheetCode = null;
       let ratioPrintToSheet = null;
       let rawSheetCapacity = null;
       let estimatedRawSheets = null;
 
+      let recipeStatus = 'RESOLVED'; // 'RESOLVED', 'NO_CUTTING_RECIPE', 'AMBIGUOUS_CUTTING', 'NO_PRINT_RECIPE', 'AMBIGUOUS_PRINT', 'INVALID_RATIO'
+      let recipeMessage = null;
+
+      // 1. Kesik Levha Reçetesi Çözümleme
+      const kesikCandidates = tubeToCuttingMap.get(d.tup_stok_kodu) || [];
+      if (kesikCandidates.length === 0) {
+        recipeStatus = 'NO_CUTTING_RECIPE';
+        recipeMessage = `Tüp [${d.tup_stok_kodu}] için geçerli kesik levha reçetesi bulunamadı`;
+      } else if (kesikCandidates.length > 1) {
+        recipeStatus = 'AMBIGUOUS_CUTTING';
+        recipeMessage = `Tüp [${d.tup_stok_kodu}] için birden fazla (${kesikCandidates.length}) alternatif kesik levha var`;
+      } else {
+        const kesikLink = kesikCandidates[0];
+        cuttingCode = kesikLink.childCode;
+        ratioTubeToCutting = kesikLink.ratio;
+
+        if (ratioTubeToCutting <= 0) {
+          recipeStatus = 'INVALID_RATIO';
+          recipeMessage = `Kesik levha reçete katsayısı geçersiz (${ratioTubeToCutting})`;
+        } else {
+          // 2. Baskılı Levha Reçetesi Çözümleme
+          const baskiliCandidates = cuttingToPrintMap.get(cuttingCode) || [];
+          if (baskiliCandidates.length === 0) {
+            recipeStatus = 'NO_PRINT_RECIPE';
+            recipeMessage = `Kesik Levha [${cuttingCode}] için geçerli baskılı levha reçetesi bulunamadı`;
+          } else if (baskiliCandidates.length > 1) {
+            recipeStatus = 'AMBIGUOUS_PRINT';
+            recipeMessage = `Kesik Levha [${cuttingCode}] için birden fazla (${baskiliCandidates.length}) alternatif baskılı levha var`;
+          } else {
+            const baskiliLink = baskiliCandidates[0];
+            printCode = baskiliLink.childCode;
+            ratioCuttingToPrint = baskiliLink.ratio;
+
+            if (ratioCuttingToPrint <= 0) {
+              recipeStatus = 'INVALID_RATIO';
+              recipeMessage = `Baskılı levha reçete katsayısı geçersiz (${ratioCuttingToPrint})`;
+            } else {
+              // 3. Ham Levha ve Kapasite Parametresi Çözümleme
+              const techInfo = techCardMap.get(d.tup_stok_kodu);
+              const candidateSheetCode = techInfo?.rawSheetCode || null;
+              const tubeSize = techInfo?.tubeSize || null;
+
+              if (tubeSize && capacityMap.has(tubeSize)) {
+                rawSheetCapacity = capacityMap.get(tubeSize).unitsPerSheet;
+              }
+
+              const hamCandidates = printToSheetMap.get(printCode) || [];
+              if (candidateSheetCode) {
+                rawSheetCode = candidateSheetCode;
+              } else if (hamCandidates.length === 1) {
+                rawSheetCode = hamCandidates[0].childCode;
+                ratioPrintToSheet = hamCandidates[0].ratio;
+              }
+            }
+          }
+        }
+      }
+
+      // Reçete çözümlendikten sonra stok havuzu nesnelerini al
+      let cuttingPool = null;
+      let cuttingUnit = 'ADET';
+      let cuttingBefore = 0;
+      let cuttingAfter = 0;
+      if (cuttingCode) {
+        cuttingPool = getOrCreatePool(cuttingCode, 'KESIKLEVHA', 'ADET');
+        cuttingUnit = cuttingPool.unit || 'ADET';
+        cuttingBefore = cuttingPool.remainingPool;
+        cuttingAfter = cuttingBefore;
+      }
+
+      let printPool = null;
+      let printUnit = 'ADET';
+      let printBefore = 0;
+      let printAfter = 0;
+      if (printCode) {
+        printPool = getOrCreatePool(printCode, 'BASKILILEVHA', 'ADET');
+        printUnit = printPool.unit || 'ADET';
+        printBefore = printPool.remainingPool;
+        printAfter = printBefore;
+      }
+
+      // =============================================================
+      // AŞAMA 2 & 3: ÇOK SEVİYELİ STOK TAHSİSİ
+      // =============================================================
+      let allocatedCuttingPhysical = 0;
+      let allocatedCuttingTubeEquiv = 0;
+      let netCuttingDemandTubeEquiv = 0;
+
+      let allocatedPrintPhysical = 0;
+      let allocatedPrintTubeEquiv = 0;
+      let netPrintDemandTubeEquiv = 0;
+
       let calcStatus = 'CALCULATED';
       let unresolvedReason = null;
 
       if (netTubeDemand <= 0) {
-        // Tüp stoğu tamamını karşıladı
+        // Talep tüp stoğundan tamamen karşılandı!
+        // Kesik ve baskılı net ihtiyaç 0, tahsis 0; ama reçete ve eldeki stoklar kayıtlı kalır.
         netCuttingDemandTubeEquiv = 0;
         netPrintDemandTubeEquiv = 0;
+        calcStatus = 'CALCULATED';
+        if (recipeStatus !== 'RESOLVED') {
+          // Reçetesi olmasa da tüp stoğundan karşılandığı için planlama engellenmez, bilgi verilir
+          unresolvedReason = `Tüp stoğundan karşılandı (${recipeMessage})`;
+        }
       } else {
-        // Kesik levha reçetesini bul
-        const kesikCandidates = tubeToCuttingMap.get(d.tup_stok_kodu) || [];
-        if (kesikCandidates.length === 0) {
+        // Net tüp üretimi gerekiyor: Kesik ve baskılı kademeli tahsisini çalıştır
+        if (recipeStatus === 'NO_CUTTING_RECIPE' || recipeStatus === 'AMBIGUOUS_CUTTING') {
           calcStatus = 'UNRESOLVED';
-          unresolvedReason = `Tüp [${d.tup_stok_kodu}] için geçerli kesik levha reçetesi bulunamadı`;
+          unresolvedReason = recipeMessage;
           netCuttingDemandTubeEquiv = null;
           netPrintDemandTubeEquiv = null;
-        } else if (kesikCandidates.length > 1) {
-          calcStatus = 'UNRESOLVED';
-          unresolvedReason = `Tüp [${d.tup_stok_kodu}] için birden fazla (${kesikCandidates.length}) alternatif kesik levha var`;
+        } else if (recipeStatus === 'INVALID_RATIO') {
+          calcStatus = 'ERROR';
+          unresolvedReason = recipeMessage;
           netCuttingDemandTubeEquiv = null;
           netPrintDemandTubeEquiv = null;
         } else {
-          const kesikLink = kesikCandidates[0];
-          cuttingCode = kesikLink.childCode;
-          ratioTubeToCutting = kesikLink.ratio;
+          // Kesik Levha Fiziksel İhtiyacı ve Stok Tahsisi
+          const requiredCuttingPhysical = netTubeDemand * ratioTubeToCutting;
+          allocatedCuttingPhysical = Math.min(requiredCuttingPhysical, cuttingPool.remainingPool);
+          cuttingPool.remainingPool -= allocatedCuttingPhysical;
+          cuttingPool.allocatedTotal += allocatedCuttingPhysical;
+          cuttingAfter = cuttingPool.remainingPool;
 
-          if (ratioTubeToCutting <= 0) {
-            calcStatus = 'ERROR';
-            unresolvedReason = `Kesik levha reçete katsayısı geçersiz (${ratioTubeToCutting})`;
-            netCuttingDemandTubeEquiv = null;
-            netPrintDemandTubeEquiv = null;
+          allocatedCuttingTubeEquiv = Math.round((allocatedCuttingPhysical / ratioTubeToCutting) * 100) / 100;
+          netCuttingDemandTubeEquiv = Math.round((netTubeDemand - allocatedCuttingTubeEquiv) * 100) / 100;
+
+          const remainingCuttingPhysical = Math.round((requiredCuttingPhysical - allocatedCuttingPhysical) * 100) / 100;
+
+          // Baskılı Levha Fiziksel İhtiyacı ve Stok Tahsisi
+          if (remainingCuttingPhysical <= 0 || netCuttingDemandTubeEquiv <= 0) {
+            netPrintDemandTubeEquiv = 0;
           } else {
-            // Kesik levha fiziksel ihtiyacı (Birim dönüşümü: 1 tüp = ratio kesik)
-            const requiredCuttingPhysical = netTubeDemand * ratioTubeToCutting;
-            const cuttingPool = getOrCreatePool(cuttingCode, 'KESIKLEVHA', 'ADET');
-            cuttingUnit = cuttingPool.unit || 'ADET';
-            cuttingBefore = cuttingPool.remainingPool;
-
-            allocatedCuttingPhysical = Math.min(requiredCuttingPhysical, cuttingPool.remainingPool);
-            cuttingPool.remainingPool -= allocatedCuttingPhysical;
-            cuttingPool.allocatedTotal += allocatedCuttingPhysical;
-            cuttingAfter = cuttingPool.remainingPool;
-
-            // Tahsis edilen fiziksel kesiğin tüp eşdeğeri
-            allocatedCuttingTubeEquiv = Math.round((allocatedCuttingPhysical / ratioTubeToCutting) * 100) / 100;
-            netCuttingDemandTubeEquiv = Math.round((netTubeDemand - allocatedCuttingTubeEquiv) * 100) / 100;
-
-            const remainingCuttingPhysical = Math.round((requiredCuttingPhysical - allocatedCuttingPhysical) * 100) / 100;
-
-            // Seviye 3: Baskılı Levha
-            if (remainingCuttingPhysical <= 0 || netCuttingDemandTubeEquiv <= 0) {
-              netPrintDemandTubeEquiv = 0;
+            if (recipeStatus === 'NO_PRINT_RECIPE' || recipeStatus === 'AMBIGUOUS_PRINT') {
+              calcStatus = 'UNRESOLVED';
+              unresolvedReason = recipeMessage;
+              netPrintDemandTubeEquiv = null;
             } else {
-              const baskiliCandidates = cuttingToPrintMap.get(cuttingCode) || [];
-              if (baskiliCandidates.length === 0) {
-                calcStatus = 'UNRESOLVED';
-                unresolvedReason = `Kesik Levha [${cuttingCode}] için geçerli baskılı levha reçetesi bulunamadı`;
-                netPrintDemandTubeEquiv = null;
-              } else if (baskiliCandidates.length > 1) {
-                calcStatus = 'UNRESOLVED';
-                unresolvedReason = `Kesik Levha [${cuttingCode}] için birden fazla (${baskiliCandidates.length}) alternatif baskılı levha var`;
-                netPrintDemandTubeEquiv = null;
-              } else {
-                const baskiliLink = baskiliCandidates[0];
-                printCode = baskiliLink.childCode;
-                ratioCuttingToPrint = baskiliLink.ratio;
+              const requiredPrintPhysical = remainingCuttingPhysical * ratioCuttingToPrint;
+              allocatedPrintPhysical = Math.min(requiredPrintPhysical, printPool.remainingPool);
+              printPool.remainingPool -= allocatedPrintPhysical;
+              printPool.allocatedTotal += allocatedPrintPhysical;
+              printAfter = printPool.remainingPool;
 
-                if (ratioCuttingToPrint <= 0) {
-                  calcStatus = 'ERROR';
-                  unresolvedReason = `Baskılı levha reçete katsayısı geçersiz (${ratioCuttingToPrint})`;
-                  netPrintDemandTubeEquiv = null;
-                } else {
-                  // Baskılı levha fiziksel ihtiyacı (Birim dönüşümü: 1 kesik = ratio baskılı)
-                  const requiredPrintPhysical = remainingCuttingPhysical * ratioCuttingToPrint;
-                  const printPool = getOrCreatePool(printCode, 'BASKILILEVHA', 'ADET');
-                  printUnit = printPool.unit || 'ADET';
-                  printBefore = printPool.remainingPool;
+              allocatedPrintTubeEquiv = Math.round((allocatedPrintPhysical / (ratioTubeToCutting * ratioCuttingToPrint)) * 100) / 100;
+              netPrintDemandTubeEquiv = Math.round((netCuttingDemandTubeEquiv - allocatedPrintTubeEquiv) * 100) / 100;
 
-                  allocatedPrintPhysical = Math.min(requiredPrintPhysical, printPool.remainingPool);
-                  printPool.remainingPool -= allocatedPrintPhysical;
-                  printPool.allocatedTotal += allocatedPrintPhysical;
-                  printAfter = printPool.remainingPool;
-
-                  // Tahsis edilen fiziksel baskılının tüp eşdeğeri
-                  allocatedPrintTubeEquiv = Math.round((allocatedPrintPhysical / (ratioTubeToCutting * ratioCuttingToPrint)) * 100) / 100;
-                  netPrintDemandTubeEquiv = Math.round((netCuttingDemandTubeEquiv - allocatedPrintTubeEquiv) * 100) / 100;
-
-                  // -------------------------------------------------------------
-                  // SEVİYE 4: HAM LEVHA PARAMETRESİ VE KAPASİTE
-                  // -------------------------------------------------------------
-                  // İlke: Kapasite parametredir (tube_capacities); reçete oranından uydurulamaz.
-                  // Onaylı ham levha bağlantısı teknik karttan veya tekil reçeteden okunur.
-                  const techInfo = techCardMap.get(d.tup_stok_kodu);
-                  const candidateSheetCode = techInfo?.rawSheetCode || null;
-                  const tubeSize = techInfo?.tubeSize || null;
-
-                  // Ebat kapasite parametresi
-                  if (tubeSize && capacityMap.has(tubeSize)) {
-                    rawSheetCapacity = capacityMap.get(tubeSize).unitsPerSheet;
-                  }
-
-                  // Reçetedeki ham levha bağlantısı
-                  const hamCandidates = printToSheetMap.get(printCode) || [];
-                  if (candidateSheetCode) {
-                    rawSheetCode = candidateSheetCode;
-                  } else if (hamCandidates.length === 1) {
-                    rawSheetCode = hamCandidates[0].childCode;
-                    ratioPrintToSheet = hamCandidates[0].ratio;
-                  }
-
-                  if (rawSheetCapacity && rawSheetCapacity > 0 && netPrintDemandTubeEquiv > 0) {
-                    estimatedRawSheets = Math.ceil(netPrintDemandTubeEquiv / rawSheetCapacity);
-                  }
-                }
+              // Ham Levha Satın Alma İhtiyacı Tahmini (Kapasite Parametresi ile)
+              if (rawSheetCapacity && rawSheetCapacity > 0 && netPrintDemandTubeEquiv > 0) {
+                estimatedRawSheets = Math.ceil(netPrintDemandTubeEquiv / rawSheetCapacity);
               }
             }
           }
@@ -812,7 +860,7 @@ async function getAllocatedDemands(calculationRunId = null) {
       
       -- Seviye 2: Kesik Levha
       da.cutting_stock_code,
-      sc.stock_name as cutting_stock_name,
+      COALESCE(sc.stock_name, cat_c.stock_name, da.cutting_stock_code) as cutting_stock_name,
       da.ratio_tube_to_cutting,
       da.allocated_cutting_stock as allocated_cutting_physical,
       da.allocated_cutting_tube_equiv as allocated_cutting_stock,
@@ -823,7 +871,7 @@ async function getAllocatedDemands(calculationRunId = null) {
       
       -- Seviye 3: Baskılı Levha
       da.print_stock_code,
-      sp.stock_name as print_stock_name,
+      COALESCE(sp.stock_name, cat_p.stock_name, da.print_stock_code) as print_stock_name,
       da.ratio_cutting_to_print,
       da.allocated_print_stock as allocated_print_physical,
       da.allocated_print_tube_equiv as allocated_print_stock,
@@ -834,11 +882,11 @@ async function getAllocatedDemands(calculationRunId = null) {
       
       -- Seviye 4: Ham Levha Parametresi
       da.raw_sheet_code,
-      sh.stock_name as raw_sheet_name,
+      COALESCE(sh.stock_name, cat_h.stock_name, da.raw_sheet_code) as raw_sheet_name,
       da.ratio_print_to_sheet,
       da.raw_sheet_capacity,
       da.estimated_raw_sheets,
-      sh.physical_stock as available_raw_sheet_stock,
+      COALESCE(sh.physical_stock, 0) as available_raw_sheet_stock,
       
       -- Mevcut Planlı Arz & Termin Açığı
       da.planned_cover_quantity,
@@ -877,8 +925,11 @@ async function getAllocatedDemands(calculationRunId = null) {
     JOIN erp_gross_demands d ON da.demand_id = d.id
     LEFT JOIN erp_stock_levels s ON d.tup_stok_kodu = s.stock_code
     LEFT JOIN erp_stock_levels sc ON da.cutting_stock_code = sc.stock_code
+    LEFT JOIN erp_stock_catalog cat_c ON da.cutting_stock_code = cat_c.stock_code
     LEFT JOIN erp_stock_levels sp ON da.print_stock_code = sp.stock_code
+    LEFT JOIN erp_stock_catalog cat_p ON da.print_stock_code = cat_p.stock_code
     LEFT JOIN erp_stock_levels sh ON da.raw_sheet_code = sh.stock_code
+    LEFT JOIN erp_stock_catalog cat_h ON da.raw_sheet_code = cat_h.stock_code
     LEFT JOIN product_technicals pt ON d.tup_stok_kodu = pt.stock_code
     WHERE da.calculation_run_id = $1
     ORDER BY da.sort_order ASC

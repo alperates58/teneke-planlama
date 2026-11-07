@@ -22,13 +22,10 @@ const {
   runAllocationCalculation 
 } = require(servicePath);
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  database: process.env.DB_NAME || 'teneke_planlama',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgrespassword'
-});
+const dbPath = fs.existsSync('./server/db')
+  ? './server/db'
+  : (fs.existsSync('/app/server/db') ? '/app/server/db' : '../server/db');
+const { query: dbQuery, pool } = require(dbPath);
 
 let passedCount = 0;
 let failedCount = 0;
@@ -298,6 +295,62 @@ async function runTests() {
       // 4. Zamanında + Geç + İlave = Net Tüp
       const diff4 = Math.abs((onTime + delayed + additional) - netTube);
       assert(diff4 < 0.01, `Zamanında + Geç + İlave = Net Tüp eşitliği tam olmalı (Fark: ${diff4})`);
+    }
+
+    // -------------------------------------------------------------
+    // TEST 11: Gerçek Ürün Kabulü (511112011210-8709) ve Reçete-Stok Ayrımı
+    // -------------------------------------------------------------
+    console.log('\n--- TEST 11: Gerçek Ürün Kabulü (511112011210-8709) ve Reçete-Stok Ayrımı ---');
+    {
+      // 1. Canlı Reçete Bağlantısını Doğrula
+      const recipeRes = await dbQuery(`
+        SELECT parent_stock_code, child_stock_code, child_category, child_stock_name, consumption_ratio
+        FROM erp_recipe_links
+        WHERE parent_stock_code IN ('511112011210-8709', '511112011211-8709')
+        ORDER BY id ASC
+      `);
+
+      const kesikLink = recipeRes.rows.find(r => r.parent_stock_code === '511112011210-8709' && r.child_category === 'KESIKLEVHA');
+      assert(kesikLink !== undefined, '511112011210-8709 için KESIKLEVHA reçetesi bulunmalı');
+      assert(kesikLink?.child_stock_code === '511112011211-8709', `K- bileşeni 511112011211-8709 olmalı (Bulunan: ${kesikLink?.child_stock_code})`);
+      assert(kesikLink?.child_stock_name?.startsWith('K-'), `Kesik stok adı K- ile başlamalı (Adı: ${kesikLink?.child_stock_name})`);
+
+      const baskiliLink = recipeRes.rows.find(r => r.parent_stock_code === '511112011211-8709' && r.child_category === 'BASKILILEVHA');
+      assert(baskiliLink !== undefined, '511112011211-8709 için BASKILILEVHA reçetesi bulunmalı');
+      assert(baskiliLink?.child_stock_code === '511112001211-8709', `B- bileşeni 511112001211-8709 olmalı (Bulunan: ${baskiliLink?.child_stock_code})`);
+      assert(baskiliLink?.child_stock_name?.startsWith('B-'), `Baskılı stok adı B- ile başlamalı (Adı: ${baskiliLink?.child_stock_name})`);
+
+      // 2. Canlı Tahsis Sonucunda 4.800 Talep için Kontrol (Stoktan Karşılandı ama Reçete Görünür)
+      const latestCalc = await getLatestCalculation();
+      const allocatedDemands = await getAllocatedDemands(latestCalc.id);
+      const demand4800 = allocatedDemands.find(d => d.stock_code === '511112011210-8709' && parseFloat(d.gross_quantity) === 4800);
+
+      assert(demand4800 !== undefined, '4.800 adetlik 511112011210-8709 talebi (EH260205A048) bulunmalı');
+      assert(parseFloat(demand4800?.net_tube_quantity) === 0, 'Tüp stoğundan karşılandığı için Net Tüp = 0 olmalı');
+      assert(parseFloat(demand4800?.net_cutting_quantity) === 0, 'Net Kesim = 0 olmalı');
+      assert(parseFloat(demand4800?.net_print_quantity) === 0, 'Yeni Baskı = 0 olmalı');
+      assert(demand4800?.cutting_stock_code === '511112011211-8709', `İhtiyaç 0 olsa da K- kodu (511112011211-8709) görünür olmalı (Bulunan: ${demand4800?.cutting_stock_code})`);
+      assert(demand4800?.print_stock_code === '511112001211-8709', `İhtiyaç 0 olsa da B- kodu (511112001211-8709) görünür olmalı (Bulunan: ${demand4800?.print_stock_code})`);
+      assert(demand4800?.calculation_status === 'CALCULATED', 'Durum CALCULATED (Hesaplandı) olmalı, Reçetesiz kalmamalı');
+
+      // 3. İzole Test: Aynı Ürün İçin Stok Yetersiz Senaryosu (Tüp -> K Stoğu -> B Stoğu -> Yeni Baskı)
+      // Canlı veri değiştirilmeden pure çekirdek ile doğrulanır
+      const isolatedScenario = calculateSingleDemandPure({
+        grossDemand: 5000,
+        tubeStock: 0,       // Tüp stoğu yok
+        cuttingStock: 1000, // 1.000 kesik stok var
+        ratioTubeToCutting: 1.0,
+        printStock: 1000,   // 1.000 baskılı stok var
+        ratioCuttingToPrint: 1.0,
+        rawSheetCapacity: 20
+      });
+
+      assert(isolatedScenario.netTubeDemand === 5000, 'Tüp stoğu yokken Net Tüp = 5.000');
+      assert(isolatedScenario.allocatedCuttingPhysical === 1000, 'Kesik stoktan 1.000 tahsis edilmeli');
+      assert(isolatedScenario.netCuttingDemandTubeEquiv === 4000, 'Net Kesim İhtiyacı 4.000 kalmalı');
+      assert(isolatedScenario.allocatedPrintPhysical === 1000, 'Baskılı stoktan 1.000 tahsis edilmeli');
+      assert(isolatedScenario.netPrintDemandTubeEquiv === 3000, 'Net Yeni Baskı İhtiyacı 3.000 kalmalı');
+      assert(isolatedScenario.estimatedRawSheets === 150, 'Tahmini Ham Levha: 3.000 / 20 = 150 levha');
     }
 
     console.log('\n================================================================');

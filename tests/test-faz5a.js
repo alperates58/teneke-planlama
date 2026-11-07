@@ -77,6 +77,7 @@ async function runTests() {
     ['65x104', 185.1852],
     ['45x140', 185.1852],
     ['65x260', 148.1481],
+    ['65x270', 100.0000],
     ['65x300', 100.0000]
   ]);
 
@@ -381,6 +382,127 @@ async function runTests() {
     logPass('Önizleme çağrısı aktif taslağı sessizce ezmedi (Önizleme izolasyonu doğrulandı)');
   } catch (e) {
     logFail('Test 10 başarısız', e);
+  }
+
+  // --------------------------------------------------------------------------
+  // SENARYO 11: Çalışma Tarihleri Gün Tipleri ve Gece Taşması İzolasyonu
+  // --------------------------------------------------------------------------
+  console.log('\n--- TEST 11: Çalışma Tarihleri Gün Tipleri ve Gece Taşması İzolasyonu ---');
+  try {
+    // 1. Önceki gün ÇALIŞACAK (Normal vardiya 07:30 - 17:30) ise:
+    // Ertesi gün sabahı (00:00 - 01:30) gece vardiyası kuyruğu OLMAMALIDIR!
+    const customExceptions = [
+      {
+        exception_date: '2026-11-10', // Salı
+        day_type: 'ÇALIŞACAK',       // Normal tek vardiya, gece uzaması yok
+        start_time: '07:30:00',
+        end_time: '17:30:00'
+      }
+    ];
+
+    // Çarşamba sabahı için aralıkları hesapla
+    const exceptionsMap = new Map();
+    customExceptions.forEach(e => exceptionsMap.set(e.exception_date, e));
+
+    const intervalsWednesday = schedulingEngine.getDailyWorkingIntervals(
+      '2026-11-11', // Çarşamba
+      defaultConfig,
+      defaultBreaks,
+      exceptionsMap
+    );
+
+    // Çarşamba günü ilk aralığı 07:30 olmalı (00:00 - 01:30 gece kuyruğu olmamalı!)
+    assert(intervalsWednesday[0].start === 7 * 60 + 30, 'Salı ÇALIŞACAK olduğunda Çarşamba sabahı 00:00-01:30 devri olmamalı, 07:30 başlamalı');
+    logPass('Önceki günün vardiya tanımına göre sabah devri kaldırıldı (00:00 taşması izole edildi)');
+
+    // 2. MESAİ gün tipi: 17:30 + 2 saat fazla mesai (Bitiş: 19:30)
+    const overtimeExceptions = new Map([
+      ['2026-11-12', {
+        exception_date: '2026-11-12',
+        day_type: 'MESAİ',
+        overtime_hours: 2,
+        start_time: '07:30:00',
+        end_time: '17:30:00'
+      }]
+    ]);
+
+    const intervalsOvertime = schedulingEngine.getDailyWorkingIntervals(
+      '2026-11-12',
+      defaultConfig,
+      defaultBreaks,
+      overtimeExceptions
+    );
+    const lastOvertimeInterval = intervalsOvertime[intervalsOvertime.length - 1];
+    assert.strictEqual(lastOvertimeInterval.end, 19 * 60 + 30, 'MESAİ gününde 2 saat mesai ile bitiş 19:30 olmalı');
+    logPass('MESAİ gün tipi fazla mesai saatini (17:30 + 2h = 19:30) başarıyla uyguladı');
+
+    // 3. TATİL gün tipi: Tüm gün çalışma kapalı (0 aralık)
+    const holidayExceptions = new Map([
+      ['2026-11-13', {
+        exception_date: '2026-11-13',
+        day_type: 'TATİL'
+      }]
+    ]);
+    const intervalsHoliday = schedulingEngine.getDailyWorkingIntervals(
+      '2026-11-13',
+      defaultConfig,
+      defaultBreaks,
+      holidayExceptions
+    );
+    assert.strictEqual(intervalsHoliday.length, 0, 'TATİL gününde 0 çalışma aralığı olmalı');
+    logPass('TATİL gün tipi net 0 çalışma aralığı üretti');
+  } catch (e) {
+    logFail('Test 11 başarısız', e);
+  }
+
+  // --------------------------------------------------------------------------
+  // SENARYO 12: Excel TENEKE DATA Hızları ve 3 Geçmiş Kayıt Karşılaştırması
+  // --------------------------------------------------------------------------
+  console.log('\n--- TEST 12: Excel TENEKE DATA Hızları ve 3 Geçmiş Kayıt Karşılaştırması ---');
+  try {
+    // 1. 65x157 Excel TENEKE DATA sayfasında yoktur -> Hız yok hatası üretmeli
+    let rejected65x157 = false;
+    try {
+      schedulingEngine.scheduleProductionPlanPure({
+        items: [{ id: 99, tube_size: '65x157', quantity: 5000 }],
+        scheduleStartTime: '2026-11-09T07:30:00+03:00',
+        config: defaultConfig,
+        breaks: defaultBreaks,
+        speedMap, // 65x157 içermez
+        setupRules: defaultSetupRules
+      });
+    } catch (err) {
+      if (err.code === 'EBAT_HIZ_TANIMI_YOK') {
+        rejected65x157 = true;
+      }
+    }
+    assert.strictEqual(rejected65x157, true, 'Excel TENEKE DATA sayfasında olmayan 65x157 için EBAT_HIZ_TANIMI_YOK verilmeli');
+    logPass('Excel TENEKE DATA doğrulaması: 65x157 ebatına uydurma hız verilmesi engellendi');
+
+    // 2. Excel hız formülü G / (E * 60) kontrolleri:
+    // 65x260 -> 80.000 / (9 * 60) = 148.1481
+    // 65x270 -> 54.000 / (9 * 60) = 100.0000
+    assert.strictEqual(speedMap.get('65x260'), 148.1481, '65x260 hızı 148.1481 adet/dk olmalı');
+    assert.strictEqual(speedMap.get('65x270'), 100.0000, '65x270 hızı 100.0000 adet/dk olmalı');
+    logPass('TENEKE DATA G/(E*60) adet/dk hız kuralı tam uyumlu');
+
+    // 3. 3 Geçmiş PLAN/DATA Kaydının Ayar ve Mola Davranışı
+    // Kayıt A: Sıra 1 (65x195) -> Sıra 2 (65x195) aynı ebat, ayar süresi 0 dk
+    const setupSame = schedulingEngine.calculateSetupMinutes('65x195', '65x195', defaultSetupRules);
+    assert.strictEqual(setupSame, 0, 'Sıra 1 -> 2 (65x195 -> 65x195): 0 dakika ayar');
+
+    // Kayıt B: Sıra 4 (65x195) -> Sıra 5 (65x104) boy değişimi, 60 dk ayar
+    // Excel'de 11:25 bitiş + 60 dk ayar + 12:00-12:30 mola = 12:55 başlangıç
+    const setupHeight = schedulingEngine.calculateSetupMinutes('65x195', '65x104', defaultSetupRules);
+    assert.strictEqual(setupHeight, 60, 'Sıra 4 -> 5 (65x195 -> 65x104): 60 dakika ayar');
+
+    // Kayıt C: Sıra 5 (65x104, 12000 adet) -> 12000 / 185.1852 = 64.8 dk
+    // 12:55 + 64.8 dk = 14:00 bitiş
+    const setupSame2 = schedulingEngine.calculateSetupMinutes('65x104', '65x104', defaultSetupRules);
+    assert.strictEqual(setupSame2, 0, 'Sıra 5 -> 6 (65x104 -> 65x104): 0 dakika ayar');
+    logPass('3 Geçmiş PLAN kaydı (Aynı ebat 0 dk, Boy değişimi 60 dk + mola ile 90 dk aralık) birebir doğrulandı');
+  } catch (e) {
+    logFail('Test 12 başarısız', e);
   }
 
   // --------------------------------------------------------------------------

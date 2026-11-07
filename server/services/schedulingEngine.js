@@ -65,6 +65,12 @@ function makeTRDate(year, monthIndex, day, hours, minutes, seconds = 0) {
 /**
  * Belirli bir tarihteki net çalışma aralıklarını hesaplar
  * Gece taşması (örn. 07:30 - ertesi gün 01:30) ve molaları hassas ayıklar.
+ * Day tipleri (Excel Çalışma Tarihleri uyumlu):
+ *   - 'ÇALIŞACAK' / 'WORKING' / 'NORMAL': 07:30 - 17:30
+ *   - 'VARDİYA' / 'SHIFT': 07:30 - ertesi gün 01:30 (gece yarısına kadar bugün, kalanı yarın sabah)
+ *   - 'VARDİYA1': 17:30 - ertesi gün 01:30 (akşam vardiyası)
+ *   - 'MESAİ' / 'OVERTIME': 07:30 - (17:30 + overtime_hours)
+ *   - 'TATİL' / 'HOLIDAY' / 'MAINTENANCE': Çalışma yok
  */
 function getDailyWorkingIntervals(dateStr, config = {}, breaks = [], exceptionsMap = new Map()) {
   const exc = exceptionsMap.get(dateStr);
@@ -74,36 +80,88 @@ function getDailyWorkingIntervals(dateStr, config = {}, breaks = [], exceptionsM
   const tempDate = makeTRDate(y, m - 1, d, 12, 0);
   const dayOfWeek = tempDate.getUTCDay(); // 0 = Sun, 6 = Sat
 
+  // Önceki takvim gününü bul (UTC+3 Europe/Istanbul bazında)
+  const prevDateObj = new Date(tempDate.getTime() - 24 * 60 * 60 * 1000);
+  const prevYear = prevDateObj.getUTCFullYear();
+  const prevMonth = String(prevDateObj.getUTCMonth() + 1).padStart(2, '0');
+  const prevDay = String(prevDateObj.getUTCDate()).padStart(2, '0');
+  const prevDateStr = `${prevYear}-${prevMonth}-${prevDay}`;
+
+  // Önceki günün vardiya tanımını kontrol et (Otomatik gün kontrolü yerine gerçek vardiya tanımına bağlıdır)
+  let prevHadNightShift = false;
+  const prevExc = exceptionsMap.get(prevDateStr);
+  if (prevExc) {
+    const prevType = (prevExc.day_type || '').toUpperCase().trim();
+    if (prevType === 'VARDİYA' || prevType === 'VARDİYA1' || prevType === 'SHIFT') {
+      prevHadNightShift = true;
+    }
+  } else {
+    // Özel istisna girilmemişse takvim yapılandırmasındaki varsayılan kurala bakılır
+    // (Pazar gününden Pazartesi sabahına vardiya taşmaz; hafta içi vardiya açıksa taşar)
+    const prevDayOfWeek = prevDateObj.getUTCDay();
+    const isWeekday = prevDayOfWeek >= 1 && prevDayOfWeek <= 5;
+    const defaultShiftActive = config.has_shift !== false && 
+      (config.default_day_type === 'VARDİYA' || config.default_day_type === 'SHIFT' || !config.default_day_type);
+    if (defaultShiftActive && isWeekday) {
+      prevHadNightShift = true;
+    }
+  }
+
   let dayType = 'WORKING';
   let startMinutes = timeToMinutes(config.work_start_time || '07:30');
   let endMinutes = timeToMinutes(config.work_end_time || '17:30');
   let shiftEndMinutes = timeToMinutes(config.shift_end_time || '01:30');
+  let isDayWorking = true;
 
   if (exc) {
-    dayType = exc.day_type;
-    if (dayType === 'HOLIDAY' || dayType === 'MAINTENANCE') {
-      return []; // Çalışma yok
-    }
-    if (exc.start_time) startMinutes = timeToMinutes(exc.start_time);
-    if (exc.end_time) endMinutes = timeToMinutes(exc.end_time);
-    if (exc.overtime_hours > 0) {
-      endMinutes += Math.round(Number(exc.overtime_hours) * 60);
+    dayType = (exc.day_type || 'WORKING').toUpperCase().trim();
+    if (dayType === 'HOLIDAY' || dayType === 'MAINTENANCE' || dayType === 'TATİL' || dayType === '') {
+      isDayWorking = false;
+    } else if (dayType === 'VARDİYA' || dayType === 'SHIFT') {
+      startMinutes = exc.start_time ? timeToMinutes(exc.start_time) : timeToMinutes(config.work_start_time || '07:30');
+      endMinutes = 24 * 60; // Gece yarısına kadar
+    } else if (dayType === 'VARDİYA1') {
+      startMinutes = exc.start_time ? timeToMinutes(exc.start_time) : timeToMinutes(config.work_end_time || '17:30');
+      endMinutes = 24 * 60;
+    } else if (dayType === 'MESAİ' || dayType === 'OVERTIME') {
+      startMinutes = exc.start_time ? timeToMinutes(exc.start_time) : timeToMinutes(config.work_start_time || '07:30');
+      const otHours = parseFloat(exc.overtime_hours) || 0;
+      endMinutes = timeToMinutes(config.work_end_time || '17:30') + Math.round(otHours * 60);
+    } else if (dayType === 'ÇALIŞACAK' || dayType === 'WORKING' || dayType === 'NORMAL') {
+      startMinutes = exc.start_time ? timeToMinutes(exc.start_time) : timeToMinutes(config.work_start_time || '07:30');
+      endMinutes = exc.end_time ? timeToMinutes(exc.end_time) : timeToMinutes(config.work_end_time || '17:30');
     }
   } else {
-    // Standart takvim: Pazar tatil
+    // İstisna yoksa takvim yapılandırmasından oku
     if (dayOfWeek === 0) {
-      return []; // Pazar günleri fabrika kapalı
-    }
-    // Cumartesi günleri varsayılan olarak yarım gün (07:30 - 13:00)
-    if (dayOfWeek === 6) {
-      endMinutes = timeToMinutes('13:00');
+      // Pazar günü: varsayılan holiday
+      const sunType = (config.sunday_day_type || 'HOLIDAY').toUpperCase();
+      if (sunType === 'HOLIDAY' || sunType === 'TATİL') {
+        isDayWorking = false;
+      }
+    } else if (dayOfWeek === 6) {
+      // Cumartesi: yapılandırmadaki Cumartesi bitiş saati (varsayılan 13:00 veya config değeri)
+      const satType = (config.saturday_day_type || 'WORKING').toUpperCase();
+      if (satType === 'HOLIDAY' || satType === 'TATİL') {
+        isDayWorking = false;
+      } else {
+        startMinutes = timeToMinutes(config.work_start_time || '07:30');
+        endMinutes = timeToMinutes(config.saturday_end_time || '13:00');
+      }
     } else {
-      // Hafta içi çift vardiya / gece vardiyası kuralı
-      // Gün içi çalışma gece yarısına (24:00 = 1440 dk) kadar sürer, kalanı ertesi sabah 00:00-01:30 kuyruğunda devam eder
-      if (config.has_shift !== false) {
-        endMinutes = 24 * 60;
+      // Hafta içi (Pazartesi - Cuma)
+      const defType = (config.default_day_type || 'VARDİYA').toUpperCase();
+      if (defType === 'VARDİYA' || defType === 'SHIFT') {
+        if (config.has_shift !== false) {
+          endMinutes = 24 * 60;
+        }
       }
     }
+  }
+
+  // Eğer gün tatil/kapalı olarak işaretlenmişse hiç çalışma aralığı üretilmez
+  if (!isDayWorking) {
+    return [];
   }
 
   // Molaları ayıkla
@@ -115,8 +173,8 @@ function getDailyWorkingIntervals(dateStr, config = {}, breaks = [], exceptionsM
 
   const intervals = [];
 
-  // Önceki günden sarkan gece vardiyası kuyruğu (Salı - Cumartesi sabahı 00:00 - shiftEndMinutes)
-  if (config.has_shift !== false && dayOfWeek >= 2 && dayOfWeek <= 6) {
+  // Önceki günden sarkan gece vardiyası kuyruğu (SADECE önceki gün gerçek bir vardiya içeriyorsa!)
+  if (prevHadNightShift) {
     let nightCursor = 0;
     const earlyBreaks = rawBreaks.filter(b => b.start < shiftEndMinutes && b.end > 0).sort((a, b) => a.start - b.start);
     for (const b of earlyBreaks) {
@@ -138,32 +196,33 @@ function getDailyWorkingIntervals(dateStr, config = {}, breaks = [], exceptionsM
     }
   }
 
-  const activeBreaks = rawBreaks.filter(b => b.start >= startMinutes && b.start < endMinutes);
-  activeBreaks.sort((a, b) => a.start - b.start);
+  // Bugün çalışma varsa gün içi aralıkları ekle
+  if (isDayWorking && startMinutes < endMinutes) {
+    const activeBreaks = rawBreaks.filter(b => b.start >= startMinutes && b.start < endMinutes);
+    activeBreaks.sort((a, b) => a.start - b.start);
 
-  // Gün içi çalışma aralıklarını mola kesintileriyle dilimle
-  let cursor = startMinutes;
+    let cursor = startMinutes;
+    for (const b of activeBreaks) {
+      if (b.end <= cursor) continue;
+      if (b.start >= endMinutes) break;
 
-  for (const b of activeBreaks) {
-    if (b.end <= cursor) continue;
-    if (b.start >= endMinutes) break;
+      if (b.start > cursor) {
+        intervals.push({
+          start: cursor,
+          end: Math.min(b.start, endMinutes),
+          duration: Math.min(b.start, endMinutes) - cursor
+        });
+      }
+      cursor = Math.max(cursor, b.end);
+    }
 
-    if (b.start > cursor) {
+    if (cursor < endMinutes) {
       intervals.push({
         start: cursor,
-        end: Math.min(b.start, endMinutes),
-        duration: Math.min(b.start, endMinutes) - cursor
+        end: endMinutes,
+        duration: endMinutes - cursor
       });
     }
-    cursor = Math.max(cursor, b.end);
-  }
-
-  if (cursor < endMinutes) {
-    intervals.push({
-      start: cursor,
-      end: endMinutes,
-      duration: endMinutes - cursor
-    });
   }
 
   return intervals.filter(i => i.duration > 0);
@@ -355,7 +414,9 @@ function scheduleProductionPlanPure({
     // 1. Ebat Hızı (adet/dakika) - Eksik hızda açık hata kuralı!
     const speedPerMinute = speeds.get(tubeSize) || speeds.get(tubeSize.toLowerCase());
     if (!speedPerMinute || speedPerMinute <= 0) {
-      throw new Error(`EBAT_HIZ_TANIMI_YOK: [${tubeSize}] ebadı için geçerli bir üretim hızı (adet/dk) tanımlanmamış.`);
+      const err = new Error(`EBAT_HIZ_TANIMI_YOK: [${tubeSize}] ebadı için geçerli bir üretim hızı (adet/dk) tanımlanmamış.`);
+      err.code = 'EBAT_HIZ_TANIMI_YOK';
+      throw err;
     }
 
     // 2. Hazırlık Süresi (Setup Time)
