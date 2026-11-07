@@ -16,6 +16,20 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+function formatNum(n, forceDecimals = null) {
+  const num = typeof n === 'number' ? n : parseFloat(n);
+  if (isNaN(num)) return '0';
+  if (forceDecimals !== null) {
+    return num.toLocaleString('tr-TR', { minimumFractionDigits: forceDecimals, maximumFractionDigits: forceDecimals });
+  }
+  const hasDecimals = (num % 1) !== 0;
+  return num.toLocaleString('tr-TR', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0
+  });
+}
+window.formatNum = formatNum;
+
 function formatDate(d, includeTime = false) {
   if (!d) return '—';
   try {
@@ -3411,7 +3425,7 @@ function renderPrintDemands() {
             ${selectedCount > 0 ? `
               <button onclick="state.selectedPrintDemandIds=[]; renderApp();" class="text-sky-700 hover:underline">Seçimi Temizle</button>
             ` : `
-              <button onclick="toggleSelectAllPrintDemands(true, ${JSON.stringify(displayItems.map(d=>d.id || d.print_stock_code))});" class="text-sky-700 hover:underline">Tümünü Seç</button>
+              <button onclick="toggleSelectAllPrintDemands(true, ${JSON.stringify(displayItems.map(d=>d.id || d.print_stock_code)).replace(/"/g, '&quot;')});" class="text-sky-700 hover:underline">Tümünü Seç</button>
             `}
           </div>
           <div class="text-[11px] text-slate-500 font-sans">
@@ -3430,7 +3444,7 @@ function renderPrintDemands() {
                   <input
                     type="checkbox"
                     ${selectedCount > 0 && selectedCount === displayItems.length ? 'checked' : ''}
-                    onchange="toggleSelectAllPrintDemands(this.checked, ${JSON.stringify(displayItems.map(d=>d.id || d.print_stock_code))});"
+                    onchange="toggleSelectAllPrintDemands(this.checked, ${JSON.stringify(displayItems.map(d=>d.id || d.print_stock_code)).replace(/"/g, '&quot;')});"
                     class="rounded border-slate-300 text-sky-600"
                   />
                 </th>
@@ -3719,6 +3733,14 @@ async function generateProposalsFromUI() {
 }
 
 async function applyProposalFromUI(proposalId) {
+  if (state.proposalResults && state.proposalResults.proposals) {
+    const p = state.proposalResults.proposals.find(x => x.id === proposalId || x.proposalNo === proposalId);
+    if (p && (p.isSimulation || p.is_simulation)) {
+      alert('⚠️ SİMÜLASYON ENGELİ:\n\nSimülasyon önerileri gerçek üretim taslağına dönüştürülemez ve açık ihtiyaçları rezerve edemez.');
+      return;
+    }
+  }
+
   if (!confirm('Seçilen öneriyi taslak kombinasyona dönüştürmek ve açık miktarları rezerve etmek istiyor musunuz?')) {
     return;
   }
@@ -3948,12 +3970,25 @@ function renderProposalModal() {
                       </div>
 
                       <div class="flex items-center gap-3">
-                        <button
-                          onclick="applyProposalFromUI('${prop.id || prop.proposalNo}');"
-                          class="px-3.5 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                        >
-                          <span>📥 Taslağa Al & Rezerve Et</span>
-                        </button>
+                        ${(prop.is_simulation || prop.isSimulation) ? `
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                            ⚠️ SİMÜLASYON (Rezerve Edilemez)
+                          </span>
+                          <button
+                            disabled
+                            class="px-3 py-1.5 rounded bg-slate-100 text-slate-400 border border-slate-200 text-xs font-semibold cursor-not-allowed"
+                            title="Simülasyon önerileri gerçek üretim taslağına dönüştürülemez ve açık ihtiyaçları rezerve edemez."
+                          >
+                            Taslağa Alınamaz
+                          </button>
+                        ` : `
+                          <button
+                            onclick="applyProposalFromUI('${prop.id || prop.proposalNo}');"
+                            class="px-3.5 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <span>📥 Taslağa Al & Rezerve Et</span>
+                          </button>
+                        `}
                       </div>
                     </div>
 

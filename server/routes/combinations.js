@@ -194,9 +194,18 @@ async function handleCombinationRoutes(req, res, pathname, queryParams = {}) {
         } catch (err) {
           console.error('[API] /api/combinations/proposals/apply hatası:', err);
           const isConflict = err.message && err.message.includes('CONFLICT_DEMAND_CHANGED');
-          const statusCode = isConflict ? 409 : 400;
+          const isSimulation = err.code === 'SIMULATION_CANNOT_BE_APPLIED' || (err.message && err.message.includes('SIMULATION_CANNOT_BE_APPLIED'));
+          const statusCode = isConflict ? 409 : (isSimulation ? 422 : 400);
           res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ success: false, error: { message: err.message, isConflict } }));
+          res.end(JSON.stringify({ 
+            success: false, 
+            error: { 
+              code: isSimulation ? 'SIMULATION_CANNOT_BE_APPLIED' : (isConflict ? 'CONFLICT_DEMAND_CHANGED' : 'VALIDATION_ERROR'),
+              message: err.message, 
+              isConflict,
+              isSimulation
+            } 
+          }));
           resolve(true);
         }
       });

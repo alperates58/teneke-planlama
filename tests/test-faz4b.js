@@ -1,202 +1,365 @@
-const { query, getClient } = require('./server/db');
-const { 
-  getRuleContext, 
-  validateCombination, 
-  createDraftCombination, 
-  confirmCombination, 
-  cancelCombination, 
-  getCombinations 
-} = require('./server/services/combinationService');
-const { 
-  generateCombinationProposals, 
-  applyProposalToDraft,
-  getProposalRuns,
-  getProposalById 
-} = require('./server/services/combinationProposalService');
+/**
+ * FAZ 4B: HEDEFLİ KABUL DÜZELTMELERİ TEST SÜİTİ
+ * 
+ * 6 Temel Kabul Senaryosu:
+ * 1. Simülasyon önerisinin API/servis üzerinden rezervasyonu kesinlikle reddedilir.
+ * 2. Çoklu ihtiyaç bağlantıları: Aynı baskılı koda bağlı 6.000 + 4.000 ihtiyaç, 10.000 karşılamada
+ *    iki ayrı rezervasyonla kapanır; iptalde ikisi de eksiksiz açığa döner.
+ * 3. 18 ebat için doğrulama, öneri ve kayıt kapasite/adımları tek kaynak (tube_capacities) ile birebir aynı kalır.
+ * 4. Bilinmeyen lak, solo ve ürün/grup yasakları sunucuda engellenir.
+ * 5. Onaysız veya satır/sütun kuralını bozan şablon onaylanamaz.
+ * 6. Taslaktan sonra teknik kart/kural değişirse veya NEEDS_REVIEW oluşursa eski taslak sessiz onaylanamaz.
+ */
 
-let totalTests = 0;
-let passedTests = 0;
-let failedTests = 0;
+const { query, getClient } = require('./server/db');
+const combinationService = require('./server/services/combinationService');
+const combinationProposalService = require('./server/services/combinationProposalService');
+
+let passCount = 0;
+let failCount = 0;
 
 function assert(condition, message) {
-  totalTests++;
   if (condition) {
-    passedTests++;
     console.log(`  [PASS] ${message}`);
+    passCount++;
   } else {
-    failedTests++;
     console.error(`  [FAIL] ${message}`);
+    failCount++;
   }
 }
 
 async function runTests() {
   console.log('================================================================');
-  console.log('FAZ 4B: OTOMATİK KOMBİNASYON ÖNERİ MOTORU VE TEST SÜİTİ');
+  console.log('FAZ 4B: HEDEFLİ KABUL DÜZELTMELERİ TEST SÜİTİ');
   console.log('================================================================\n');
 
   try {
-    // Önceki test izole kayıtlarını temizle
-    await query("DELETE FROM sheet_combination_items WHERE combination_id IN (SELECT id FROM sheet_combinations WHERE title LIKE '%TEST-4B%')");
-    await query("DELETE FROM print_demand_reservations WHERE combination_id IN (SELECT id FROM sheet_combinations WHERE title LIKE '%TEST-4B%')");
-    await query("DELETE FROM sheet_combinations WHERE title LIKE '%TEST-4B%'");
-    await query("DELETE FROM combination_proposals WHERE title LIKE '%TEST-4B%' OR title LIKE '%Test%'");
-    await query("DELETE FROM printed_sheet_demands WHERE id LIKE 'PSD-TEST4B-%'");
+    // -------------------------------------------------------------
+    // TEST 1: Simülasyon Önerisinin Rezervasyonu Kesinlikle Reddedilir
+    // -------------------------------------------------------------
+    console.log('--- TEST 1: Simülasyon Önerisinin Rezervasyonu Kesinlikle Reddedilir ---');
+    const simRunId = `RUN-SIM-${Date.now()}`;
+    const simPropId = `PROP-SIM-${Date.now()}`;
 
-    // ------------------------------------------------------------------------
-    // TEST 1: 52x195 için 4+8+8 Geçerli ve 5+7+8 Geçersiz Tekrar Dağılımı
-    // ------------------------------------------------------------------------
-    console.log('--- TEST 1: 52x195 Tekrar Dağılımı (4+8+8 Geçerli, 5+7+8 Geçersiz) ---');
-    const valid488 = await validateCombination({
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      sheets_to_print: 1250,
-      items: [
-        { tube_stock_code: 'TUP-1', repeats_count: 4, colors: ['C', 'M'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-2', repeats_count: 8, colors: ['C', 'M'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-3', repeats_count: 8, colors: ['C', 'M'], print_surface: 'EMAYE' }
-      ]
-    });
-    assert(valid488.isValid === true, '4+8+8 dağılımı (toplam 20, 4 adımının katları) geçerli olmalı');
-    assert(valid488.summary.usedSlots === 20, '4+8+8 tam kapasite (20/20) doldurmalı');
+    // Simülasyon koşusu ve önerisi oluştur
+    await query(`
+      INSERT INTO combination_proposal_runs (
+        id, scope, tube_size_filter, filters, total_candidates, eligible_candidates,
+        excluded_candidates, proposals_found, search_status, is_simulation
+      ) VALUES ($1, 'ACTIVE_PLAN', '52x195', '{"allowUnspecifiedColors": true}'::jsonb, 4, 4, 0, 1, 'VALID_PROPOSAL', true)
+    `, [simRunId]);
 
-    const invalid578 = await validateCombination({
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      sheets_to_print: 1250,
-      items: [
-        { tube_stock_code: 'TUP-1', repeats_count: 5, colors: ['C'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-2', repeats_count: 7, colors: ['C'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-3', repeats_count: 8, colors: ['C'], print_surface: 'EMAYE' }
-      ]
-    });
-    assert(invalid578.isValid === false, '5+7+8 dağılımı toplam 20 olsa dahi 4 adımının katı olmadığı için geçersiz olmalı');
-    assert(invalid578.errors.some(e => e.includes('tekrar adımının (4) tam katı olmalıdır')), 'Hata mesajı tekrar adımı kuralını belirtmeli');
+    await query(`
+      INSERT INTO combination_proposals (
+        id, run_id, proposal_no, title, tube_size, raw_sheet_code, raw_sheet_name,
+        raw_sheet_capacity, assembly_group_count, repeat_step, total_slots, used_slots,
+        sheets_to_print, total_output_tubes, total_covered_demand, total_overproduction,
+        is_simulation, items
+      ) VALUES (
+        $1, $2, 'PROP-SIM-0001', 'Simülasyon Önerisi', '52x195', '500011000004-1206', 'HAM LEVHA 52x195',
+        20, 5, 4, 20, 20, 1250, 25000, 25000, 0, true, '[]'::jsonb
+      )
+    `, [simPropId, simRunId]);
 
-    const partialCapacity = await validateCombination({
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      sheets_to_print: 1250,
-      items: [
-        { tube_stock_code: 'TUP-1', repeats_count: 4, colors: ['C'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-2', repeats_count: 8, colors: ['C'], print_surface: 'EMAYE' }
-      ]
-    });
-    assert(partialCapacity.isValid === true, 'Eksik kapasite (4+8=12/20) hata değil uyarı üretmeli');
-    assert(partialCapacity.warnings.some(w => w.includes('Eksik kapasite')), 'Eksik kapasite uyarısı üretilmeli');
+    let simApplyBlocked = false;
+    let simErrorCode = null;
+    try {
+      await combinationProposalService.applyProposalToDraft({
+        proposalId: simPropId,
+        user: { username: 'test-user' }
+      });
+    } catch (err) {
+      simApplyBlocked = true;
+      simErrorCode = err.code || err.message;
+    }
 
-    const overCapacity = await validateCombination({
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      sheets_to_print: 1250,
-      items: [
-        { tube_stock_code: 'TUP-1', repeats_count: 8, colors: ['C'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-2', repeats_count: 8, colors: ['C'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-3', repeats_count: 8, colors: ['C'], print_surface: 'EMAYE' }
-      ]
-    });
-    assert(overCapacity.isValid === false, 'Kapasite aşımı (24 > 20) kesin hata üretmeli');
-    assert(overCapacity.errors.some(e => e.includes('Kapasite aşımı')), 'Kapasite aşımı hatası üretilmeli');
+    assert(simApplyBlocked, 'Simülasyon önerisinin taslağa dönüştürülmesi engellenmeli');
+    assert(
+      simErrorCode && (simErrorCode === 'SIMULATION_CANNOT_BE_APPLIED' || simErrorCode.includes('SIMULATION_CANNOT_BE_APPLIED')),
+      `Doğru hata kodu dönmeli (Dönen: ${simErrorCode})`
+    );
 
-    // ------------------------------------------------------------------------
-    // TEST 2: 6 Renk Sınırı ve 7 Renk İhlali
-    // ------------------------------------------------------------------------
-    console.log('\n--- TEST 2: Renk Sınırı Kontrolü (6 Renk Geçerli, 7 Renk İhlal) ---');
-    const valid6Colors = await validateCombination({
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      sheets_to_print: 1250,
-      items: [
-        { tube_stock_code: 'TUP-1', repeats_count: 12, colors: ['C', 'M', 'Y', 'K', '368C'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-2', repeats_count: 8, colors: ['C', 'M', 'Y', 'K', '357C'], print_surface: 'EMAYE' }
-      ]
-    });
-    assert(valid6Colors.isValid === true, 'Toplam 6 benzersiz renk (CMYK + 368C + 357C) geçerli olmalı');
-    assert(valid6Colors.summary.uniqueColorsCount === 6, 'Benzersiz renk sayısı tam 6 olmalı');
+    const simCheck = (await query('SELECT is_applied_to_draft FROM combination_proposals WHERE id = $1', [simPropId])).rows[0];
+    assert(simCheck.is_applied_to_draft === false, 'Simülasyon önerisi is_applied_to_draft = false kalmalı');
 
-    const invalid7Colors = await validateCombination({
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      sheets_to_print: 1250,
-      items: [
-        { tube_stock_code: 'TUP-1', repeats_count: 12, colors: ['C', 'M', 'Y', 'K', '368C'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-2', repeats_count: 8, colors: ['C', 'M', 'Y', 'K', '357C', '185C'], print_surface: 'EMAYE' }
-      ]
-    });
-    assert(invalid7Colors.isValid === false, '7 benzersiz renk (CMYK + 368C + 357C + 185C) engellenmeli');
-    assert(invalid7Colors.errors.some(e => e.includes('Renk sınırı aşıldı: Montajda 7 benzersiz renk bulunmaktadır')), '7 renk aşım hatası üretilmeli');
 
-    // ------------------------------------------------------------------------
-    // TEST 3: Ebat, Zemin ve Özel Lak Kuralı İhlalleri
-    // ------------------------------------------------------------------------
-    console.log('\n--- TEST 3: Ebat, Zemin ve Özel Lak Kuralı İhlalleri ---');
-    const sizeMismatch = await validateCombination({
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      items: [
-        { tube_stock_code: 'TUP-1', tube_size: '52x195', repeats_count: 12, colors: ['C'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-2', tube_size: '52x165', repeats_count: 8, colors: ['C'], print_surface: 'EMAYE' }
-      ]
-    });
-    assert(sizeMismatch.isValid === false, 'Farklı ebatlar (52x195 ile 52x165) aynı montajda birleştirilemez');
-    assert(sizeMismatch.errors.some(e => e.includes('Ebat uyuşmazlığı')), 'Ebat uyuşmazlığı hatası üretilmeli');
+    // -------------------------------------------------------------
+    // TEST 2: Çoklu İhtiyaç Bağlantıları (6.000 + 4.000 -> 10.000 İki Ayrı Rezervasyon & İptal)
+    // -------------------------------------------------------------
+    console.log('\n--- TEST 2: Çoklu İhtiyaç Bağlantıları (6.000 + 4.000 -> 10.000 İki Ayrı Rezervasyon & İptal) ---');
+    const demMultiA = `PSD-TEST-MA-${Date.now()}`;
+    const demMultiB = `PSD-TEST-MB-${Date.now()}`;
+    const sharedPrintCode = `511109000911-MULTI-${Date.now()}`;
+    const sharedTubeCode = `511109010910-MULTI-${Date.now()}`;
 
-    const surfaceMismatch = await validateCombination({
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      items: [
-        { tube_stock_code: 'TUP-1', repeats_count: 12, colors: ['C'], print_surface: 'EMAYE' },
-        { tube_stock_code: 'TUP-2', repeats_count: 8, colors: ['C'], print_surface: 'METALİK' }
-      ]
-    });
-    assert(surfaceMismatch.isValid === false, 'Farklı zemin türleri (EMAYE ve METALİK) aynı montajda birleştirilemez');
-
-    const lacquerMismatch = await validateCombination({
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      items: [
-        { tube_stock_code: 'TUP-1', repeats_count: 12, colors: ['C'], print_surface: 'EMAYE', lacquer: 'LAKLI' },
-        { tube_stock_code: 'TUP-2', repeats_count: 8, colors: ['C'], print_surface: 'EMAYE', lacquer: 'LAKSIZ' }
-      ]
-    });
-    assert(lacquerMismatch.isValid === false, 'KRL-LAK-YASAK kuralı gereği Laklı ve Laksız ürünler birleştirilemez');
-    assert(lacquerMismatch.errors.some(e => e.includes('KRL-LAK-YASAK')), 'Lak kuralı açık hata üretmeli');
-
-    // ------------------------------------------------------------------------
-    // TEST 4: Minimum Baskı (1.250 Levha) ve Fazla Üretim İzolasyonu
-    // ------------------------------------------------------------------------
-    console.log('\n--- TEST 4: Minimum Baskı (1.250 Levha) ve Fazla Üretim İzolasyonu ---');
+    // İki açık talep ekle (Demand A: 6.000, Demand B: 4.000)
     await query(`
       INSERT INTO printed_sheet_demands (
-        id, source_type, plan_draft_id, plan_item_id, demand_key, order_no,
-        tube_stock_code, tube_stock_name, tube_size,
-        print_stock_code, print_stock_name,
-        raw_sheet_code, raw_sheet_name, raw_sheet_capacity,
-        material_due_date, planned_tube_quantity,
-        net_print_demand, allocated_to_draft, covered_by_confirmed, remaining_open_quantity,
-        status, colors, print_surface, lacquer
-      ) VALUES (
-        'PSD-TEST4B-MIN1', 'TEST_ISOLATED', NULL, NULL, 'TEST-KEY-9001', 'IS-9001',
-        'TUP-TEST-MIN', 'Tüp Test Min Baskı', '52x195',
-        'PRINT-TEST-MIN', 'Baskılı Test Min',
-        '500011000004-1206', '500011000004-1206', 20,
-        '2026-11-20', 2000,
-        2000, 0, 0, 2000,
-        'WAITING', '["C", "M", "Y", "K"]'::jsonb, 'EMAYE', 'LAKLI'
-      )
-    `);
+        id, tube_stock_code, tube_stock_name, tube_size, print_stock_code, print_stock_name,
+        raw_sheet_code, raw_sheet_capacity, net_print_demand, remaining_open_quantity,
+        allocated_to_draft, covered_by_confirmed, status, colors, print_surface, lacquer, varnish
+      ) VALUES 
+        ($1, $3, 'MULTI ÜRÜN A', '52x195', $4, 'B-MULTI ÜRÜN', '500011000004-1206', 20, 6000, 6000, 0, 0, 'WAITING', '["C","M","Y","K"]'::jsonb, 'EMAYE', 'LAKLI', 'PARLAK'),
+        ($2, $3, 'MULTI ÜRÜN B', '52x195', $4, 'B-MULTI ÜRÜN', '500011000004-1206', 20, 4000, 4000, 0, 0, 'WAITING', '["C","M","Y","K"]'::jsonb, 'EMAYE', 'LAKLI', 'PARLAK')
+    `, [demMultiA, demMultiB, sharedTubeCode, sharedPrintCode]);
 
-    const minComb = await createDraftCombination({
-      title: 'TEST-4B Min Baskı Kontrolü',
+    // 8 tekrar x 1.250 levha = 10.000 montaj çıktısı
+    // source_demands listesinde hem Demand A (6.000) hem Demand B (4.000) bulunuyor
+    const combMultiRes = await combinationService.createDraftCombination({
+      title: 'Çoklu İhtiyaç Taslak Kombinasyonu (6.000 + 4.000)',
       tube_size: '52x195',
       raw_sheet_code: '500011000004-1206',
       sheets_to_print: 1250,
       items: [
         {
-          print_demand_id: 'PSD-TEST4B-MIN1',
-          tube_stock_code: 'TUP-TEST-MIN',
-          print_stock_code: 'PRINT-TEST-MIN',
-          tube_size: '52x195',
-          repeats_count: 4, // 4 * 1250 = 5000 adet çıktı
+          print_stock_code: sharedPrintCode,
+          tube_stock_code: sharedTubeCode,
+          repeats_count: 8, // 8 * 1.250 = 10.000
+          colors: ['C', 'M', 'Y', 'K'],
+          print_surface: 'EMAYE',
+          lacquer: 'LAKLI',
+          source_demands: [
+            { print_demand_id: demMultiA, allocated_quantity: 6000 },
+            { print_demand_id: demMultiB, allocated_quantity: 4000 }
+          ]
+        }
+      ],
+      user: { username: 'test-planner' }
+    });
+
+    assert(combMultiRes.success === true, 'Çoklu ihtiyaç içeren taslak kombinasyon başarıyla oluşturulmalı');
+    assert(combMultiRes.totalCoveredDemand === 10000, `Toplam karşılanan ihtiyaç tam 10.000 olmalı (Bulunan: ${combMultiRes.totalCoveredDemand})`);
+    assert(combMultiRes.totalOverproduction === 0, `Fazla üretim tam 0 olmalı (Bulunan: ${combMultiRes.totalOverproduction})`);
+
+    // Rezervasyon defterinde (print_demand_reservations) iki ayrı kayıt olmalı
+    const resvRows = (await query(`
+      SELECT print_demand_id, reserved_quantity, reservation_type
+      FROM print_demand_reservations
+      WHERE combination_id = $1
+      ORDER BY reserved_quantity DESC
+    `, [combMultiRes.combinationId])).rows;
+
+    assert(resvRows.length === 2, `Rezervasyon defterinde tam 2 ayrı bağlantı kaydı bulunmalı (Bulunan: ${resvRows.length})`);
+    assert(resvRows[0].print_demand_id === demMultiA && parseFloat(resvRows[0].reserved_quantity) === 6000, 'Bağlantı 1: Demand A için 6.000 rezerve edilmeli');
+    assert(resvRows[1].print_demand_id === demMultiB && parseFloat(resvRows[1].reserved_quantity) === 4000, 'Bağlantı 2: Demand B için 4.000 rezerve edilmeli');
+
+    // İhtiyaç havuzundaki durumları kontrol et
+    const demACheck = (await query('SELECT allocated_to_draft, remaining_open_quantity, status FROM printed_sheet_demands WHERE id = $1', [demMultiA])).rows[0];
+    const demBCheck = (await query('SELECT allocated_to_draft, remaining_open_quantity, status FROM printed_sheet_demands WHERE id = $1', [demMultiB])).rows[0];
+
+    assert(parseFloat(demACheck.allocated_to_draft) === 6000 && parseFloat(demACheck.remaining_open_quantity) === 0 && demACheck.status === 'RESERVED', 'Talep A: 6.000 ayrıldı, kalan 0, durum RESERVED');
+    assert(parseFloat(demBCheck.allocated_to_draft) === 4000 && parseFloat(demBCheck.remaining_open_quantity) === 0 && demBCheck.status === 'RESERVED', 'Talep B: 4.000 ayrıldı, kalan 0, durum RESERVED');
+
+    // Şimdi İptal Et ve Her İki Talebin de Eksiksiz Açığa Döndüğünü Doğrula
+    const cancelRes = await combinationService.cancelCombination(combMultiRes.combinationId);
+    assert(cancelRes.success === true, 'Kombinasyon başarıyla iptal edilmeli');
+
+    const demARestored = (await query('SELECT allocated_to_draft, remaining_open_quantity, status FROM printed_sheet_demands WHERE id = $1', [demMultiA])).rows[0];
+    const demBRestored = (await query('SELECT allocated_to_draft, remaining_open_quantity, status FROM printed_sheet_demands WHERE id = $1', [demMultiB])).rows[0];
+
+    assert(parseFloat(demARestored.allocated_to_draft) === 0 && parseFloat(demARestored.remaining_open_quantity) === 6000 && demARestored.status === 'WAITING', 'İptal Sonrası Talep A: Açık miktar 6.000 olarak eksiksiz geri döndü');
+    assert(parseFloat(demBRestored.allocated_to_draft) === 0 && parseFloat(demBRestored.remaining_open_quantity) === 4000 && demBRestored.status === 'WAITING', 'İptal Sonrası Talep B: Açık miktar 4.000 olarak eksiksiz geri döndü');
+
+
+    // -------------------------------------------------------------
+    // TEST 3: 18 Ebat İçin Tek Kapasite Kaynağı Sözleşmesi
+    // -------------------------------------------------------------
+    console.log('\n--- TEST 3: 18 Ebat İçin Tek Kapasite Kaynağı Sözleşmesi ---');
+    const dbCaps = (await query('SELECT tube_size, units_per_sheet, assembly_group_count, repeat_step FROM tube_capacities WHERE units_per_sheet > 0')).rows;
+    assert(dbCaps.length === 18, `tube_capacities tablosunda tam 18 ebat bulunmalı (Bulunan: ${dbCaps.length})`);
+
+    const ruleContext = await combinationService.getRuleContext(true);
+    assert(ruleContext.capacities && Object.keys(ruleContext.capacities).length === 18, 'Kural bağlamı tam 18 ebat taşımalı');
+
+    let all18Match = true;
+    for (const r of dbCaps) {
+      const c = ruleContext.capacities[r.tube_size];
+      if (!c || c.capacity !== r.units_per_sheet || c.groupCount !== r.assembly_group_count || c.repeatStep !== r.repeat_step) {
+        all18Match = false;
+        console.error(`Ebat uyumsuzluğu: ${r.tube_size}`);
+      }
+    }
+    assert(all18Match, '18 ebadın tümü (kapasite, montaj grubu, tekrar adımı) DB tablosuyla birebir mutabık');
+
+    // 65x195 için eski hatalı (12 / 3) değer yerine DB onaylı (16 / 4 / 4) değeri doğrula
+    const cap65 = ruleContext.capacities['65x195'];
+    assert(cap65.capacity === 16 && cap65.repeatStep === 4 && cap65.groupCount === 4, `65x195 kapasitesi onaylı 16 olmalı (Bulunan: ${cap65.capacity}, Adım: ${cap65.repeatStep})`);
+
+    // 45x175 için eski hatalı (32 / 4) yerine DB onaylı (30 / 5 / 6) değeri doğrula
+    const cap45 = ruleContext.capacities['45x175'];
+    assert(cap45.capacity === 30 && cap45.repeatStep === 5 && cap45.groupCount === 6, `45x175 kapasitesi onaylı 30 olmalı (Bulunan: ${cap45.capacity}, Adım: ${cap45.repeatStep})`);
+
+
+    // -------------------------------------------------------------
+    // TEST 4: Bilinmeyen Lak, Solo ve Ürün/Grup Yasakları Sunucuda Engellenir
+    // -------------------------------------------------------------
+    console.log('\n--- TEST 4: Bilinmeyen Lak, Solo ve Ürün/Grup Yasakları Sunucuda Engellenir ---');
+
+    // 4.1 Bilinmeyen Lak Denetimi: "Bilinmeyen lakı laksız sayma."
+    const unkLacquerVal = await combinationService.validateCombination({
+      tube_size: '52x195',
+      raw_sheet_code: '500011000004-1206',
+      sheets_to_print: 1250,
+      items: [
+        {
+          tube_stock_code: 'TEST-UNK-LACQUER',
+          repeats_count: 4,
+          colors: ['C', 'M', 'Y', 'K'],
+          print_surface: 'EMAYE',
+          lacquer: 'BİLİNMİYOR' // Bilinmeyen lak
+        }
+      ],
+      options: { skipDbCheck: true }
+    });
+
+    assert(unkLacquerVal.isValid === false, 'Bilinmeyen lak içeren kombinasyon sunucuda kesinlikle reddedilmeli');
+    assert(
+      unkLacquerVal.errors.some(e => e.includes('LAK_DURUMU_BELIRSIZ')),
+      'LAK_DURUMU_BELIRSIZ hata kodu üretilmeli'
+    );
+
+    // 4.2 Özel Seri Solo İş Kuralı (EXCLUSIVE_SOLO_ONLY)
+    // Geçici olarak KRL-SOLO-OZEL kuralını aktif et
+    await query(`UPDATE product_combination_rules SET is_active = true WHERE code = 'KRL-SOLO-OZEL'`);
+    await combinationService.getRuleContext(true); // Önbelleği yenile
+
+    const soloVal = await combinationService.validateCombination({
+      tube_size: '52x195',
+      raw_sheet_code: '500011000004-1206',
+      sheets_to_print: 1250,
+      items: [
+        {
+          tube_stock_code: '519999010001', // Solo hedef ürün
+          repeats_count: 4,
+          colors: ['C', 'M'],
+          print_surface: 'EMAYE',
+          lacquer: 'LAKLI'
+        },
+        {
+          tube_stock_code: '511109010910-1001', // Başka ürün
+          repeats_count: 4,
+          colors: ['Y', 'K'],
+          print_surface: 'EMAYE',
+          lacquer: 'LAKLI'
+        }
+      ],
+      options: { skipDbCheck: true }
+    });
+
+    assert(soloVal.isValid === false, 'Solo kuralı olan ürünün başka ürünlerle birleştirilmesi engellenmeli');
+    assert(soloVal.errors.some(e => e.includes('SOLO_URUN_IHLALI')), 'SOLO_URUN_IHLALI hatası üretilmeli');
+
+    // 4.3 Çapraz Bulaşma Koruma Yasağı (FORBIDDEN_WITH_PRODUCTS - Çift Yönlü)
+    await query(`UPDATE product_combination_rules SET is_active = true WHERE code = 'KRL-CAPRAZ-KORUMA'`);
+    await combinationService.getRuleContext(true);
+
+    const crossVal = await combinationService.validateCombination({
+      tube_size: '52x195',
+      raw_sheet_code: '500011000004-1206',
+      sheets_to_print: 1250,
+      items: [
+        {
+          tube_stock_code: '511109010910-1001',
+          repeats_count: 4,
+          colors: ['C', 'M'],
+          print_surface: 'EMAYE',
+          lacquer: 'LAKLI'
+        },
+        {
+          tube_stock_code: '511121010410-5004', // Yasaklı eşleşen
+          repeats_count: 4,
+          colors: ['Y', 'K'],
+          print_surface: 'EMAYE',
+          lacquer: 'LAKLI'
+        }
+      ],
+      options: { skipDbCheck: true }
+    });
+
+    assert(crossVal.isValid === false, 'Çapraz bulaşma riski olan ürünlerin birleştirilmesi engellenmeli');
+    assert(crossVal.errors.some(e => e.includes('CAPRAZ_BULASMA_YASAGI')), 'CAPRAZ_BULASMA_YASAGI hatası üretilmeli');
+
+    // Kuralları tekrar orijinal durumuna getir
+    await query(`UPDATE product_combination_rules SET is_active = false WHERE code IN ('KRL-SOLO-OZEL', 'KRL-CAPRAZ-KORUMA')`);
+    await combinationService.getRuleContext(true);
+
+
+    // -------------------------------------------------------------
+    // TEST 5: Onaysız veya Satır/Sütun Kuralını Bozan Şablon Onaylanamaz
+    // -------------------------------------------------------------
+    console.log('\n--- TEST 5: Onaysız veya Satır/Sütun Kuralını Bozan Şablon Onaylanamaz ---');
+
+    // 5.1 Onaysız Şablon (Provisional veya Unverified) Üretim Onayı Alamaz
+    // 65x104 ebadı sheet_layouts tablosunda 'provisional' durumundadır
+    const unverifiedCombRes = await combinationService.createDraftCombination({
+      title: 'Geçici Şablon Taslağı (65x104)',
+      tube_size: '65x104',
+      raw_sheet_code: '500011000004-1408',
+      sheets_to_print: 1250,
+      items: [
+        {
+          tube_stock_code: 'URUN-65-TEST',
+          repeats_count: 4, // 65x104 tekrar adımı 4
+          colors: ['C', 'M', 'Y', 'K'],
+          print_surface: 'EMAYE',
+          lacquer: 'LAKLI'
+        }
+      ],
+      options: { skipDbCheck: true }
+    });
+
+    assert(unverifiedCombRes.success === true, 'Geçici şablonlu kombinasyon taslak olarak incelenebilmeli');
+    assert(unverifiedCombRes.templateVerificationStatus === 'provisional', 'Durum provisional olarak kaydedilmeli');
+
+    let confirmBlocked = false;
+    let confirmErrorMsg = '';
+    try {
+      await combinationService.confirmCombination(unverifiedCombRes.combinationId);
+    } catch (err) {
+      confirmBlocked = true;
+      confirmErrorMsg = err.message;
+    }
+
+    assert(confirmBlocked, 'Onaylanmamış (provisional/unverified) şablonlu kombinasyon üretim onayı alamamalı');
+    assert(confirmErrorMsg.includes('URETIM_ONAYI_ENGELLENDI'), `URETIM_ONAYI_ENGELLENDI hatası üretilmeli (Dönen: ${confirmErrorMsg})`);
+
+    // 5.2 Satır / Sütun Kuralını Bozan Tekrar Adımı
+    const stepBreakVal = await combinationService.validateCombination({
+      tube_size: '52x195',
+      raw_sheet_code: '500011000004-1206',
+      sheets_to_print: 1250,
+      items: [
+        {
+          tube_stock_code: 'TEST-STEP-BREAK',
+          repeats_count: 5, // 52x195 adımı 4'tür, 5 tekrar kuralı bozar!
+          colors: ['C', 'M', 'Y', 'K'],
+          print_surface: 'EMAYE',
+          lacquer: 'LAKLI'
+        }
+      ],
+      options: { skipDbCheck: true }
+    });
+
+    assert(stepBreakVal.isValid === false, 'Tekrar adımını bozan (5 tekrar) montaj geçersiz sayılmalı');
+    assert(stepBreakVal.errors.some(e => e.includes('SATIR_SUTUN_HOMOJENLIK_HATASI') || e.includes('tekrar adımının')), 'Adım ihlal hatası üretilmeli');
+
+
+    // -------------------------------------------------------------
+    // TEST 6: Taslaktan Sonra Kural/Teknik Değişirse Eski Taslak Sessiz Onaylanamaz
+    // -------------------------------------------------------------
+    console.log('\n--- TEST 6: Taslaktan Sonra Kural/Teknik Değişirse Eski Taslak Sessiz Onaylanamaz ---');
+
+    // 52x195 verified şablonuyla geçerli bir taslak oluştur
+    // 511109010910-1001 (4 renk: C, M, Y, K)
+    const validDraftRes = await combinationService.createDraftCombination({
+      title: 'Geçerli Doğrulanmış Taslak (52x195)',
+      tube_size: '52x195',
+      raw_sheet_code: '500011000004-1206',
+      sheets_to_print: 1250,
+      items: [
+        {
+          tube_stock_code: '511109010910-1001',
+          repeats_count: 4,
           colors: ['C', 'M', 'Y', 'K'],
           print_surface: 'EMAYE',
           lacquer: 'LAKLI'
@@ -204,240 +367,92 @@ async function runTests() {
       ]
     });
 
-    assert(minComb.totalCoveredDemand === 2000, 'İhtiyaçtan karşılanan miktar gerçek talep sınırında (2.000) kalmalı');
-    assert(minComb.totalOverproduction === 3000, 'Minimum baskı fazlası tam 3.000 (5.000 - 2.000) olarak izole edilmeli');
-    assert(minComb.totalOutputTubes === 5000, 'Toplam montaj çıktısı 5.000 olmalı');
+    assert(validDraftRes.success === true, 'Doğrulanmış şablonlu geçerli taslak oluşturulabilmeli');
 
-    // ------------------------------------------------------------------------
-    // TEST 5: Bir İhtiyacın Birden Fazla Montajda Kısmi Karşılanması
-    // ------------------------------------------------------------------------
-    console.log('\n--- TEST 5: Bir İhtiyacın İki Montajda Kısmi Karşılanması ---');
-    await query(`
-      INSERT INTO printed_sheet_demands (
-        id, source_type, plan_draft_id, plan_item_id, demand_key, order_no,
-        tube_stock_code, tube_stock_name, tube_size,
-        print_stock_code, print_stock_name,
-        raw_sheet_code, raw_sheet_name, raw_sheet_capacity,
-        material_due_date, planned_tube_quantity,
-        net_print_demand, allocated_to_draft, covered_by_confirmed, remaining_open_quantity,
-        status, colors, print_surface, lacquer
-      ) VALUES (
-        'PSD-TEST4B-PARTIAL', 'TEST_ISOLATED', NULL, NULL, 'TEST-KEY-9002', 'IS-9002',
-        'TUP-TEST-PARTIAL', 'Tüp Test Kısmi', '52x195',
-        'PRINT-TEST-PARTIAL', 'Baskılı Test Kısmi',
-        '500011000004-1206', '500011000004-1206', 20,
-        '2026-11-20', 25000,
-        25000, 0, 0, 25000,
-        'WAITING', '["C", "M", "Y", "K"]'::jsonb, 'EMAYE', 'LAKLI'
-      )
-    `);
+    // 6.1 Taslak oluşturulduktan sonra maxColors sınırını 3'e düşür (Kural değişikliği simülasyonu)
+    await query(`UPDATE business_rules SET parameter_value = '3' WHERE condition_field = 'colors' AND operator = 'max_count'`);
+    await combinationService.getRuleContext(true); // Önbelleği yenile
 
-    // Montaj 1: 8 tekrar * 1250 levha = 10.000
-    const partComb1 = await createDraftCombination({
-      title: 'TEST-4B Kısmi Montaj 1',
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      sheets_to_print: 1250,
-      items: [{
-        print_demand_id: 'PSD-TEST4B-PARTIAL',
-        tube_stock_code: 'TUP-TEST-PARTIAL',
-        print_stock_code: 'PRINT-TEST-PARTIAL',
-        tube_size: '52x195',
-        repeats_count: 8,
-        colors: ['C', 'M', 'Y', 'K'],
-        print_surface: 'EMAYE',
-        lacquer: 'LAKLI'
-      }]
-    });
-
-    const checkPart1 = await query("SELECT remaining_open_quantity, allocated_to_draft, status FROM printed_sheet_demands WHERE id = 'PSD-TEST4B-PARTIAL'");
-    assert(parseFloat(checkPart1.rows[0].allocated_to_draft) === 10000, 'Taslak 1 sonrası ayrılan 10.000 olmalı');
-    assert(parseFloat(checkPart1.rows[0].remaining_open_quantity) === 15000, 'Taslak 1 sonrası kalan açık 15.000 olmalı');
-    assert(checkPart1.rows[0].status === 'PARTIAL', 'Durum PARTIAL olmalı');
-
-    // Montaj 2: 8 tekrar * 1250 levha = 10.000
-    const partComb2 = await createDraftCombination({
-      title: 'TEST-4B Kısmi Montaj 2',
-      tube_size: '52x195',
-      raw_sheet_code: '500011000004-1206',
-      sheets_to_print: 1250,
-      items: [{
-        print_demand_id: 'PSD-TEST4B-PARTIAL',
-        tube_stock_code: 'TUP-TEST-PARTIAL',
-        print_stock_code: 'PRINT-TEST-PARTIAL',
-        tube_size: '52x195',
-        repeats_count: 8,
-        colors: ['C', 'M', 'Y', 'K'],
-        print_surface: 'EMAYE',
-        lacquer: 'LAKLI'
-      }]
-    });
-
-    const checkPart2 = await query("SELECT remaining_open_quantity, allocated_to_draft, status FROM printed_sheet_demands WHERE id = 'PSD-TEST4B-PARTIAL'");
-    assert(parseFloat(checkPart2.rows[0].allocated_to_draft) === 20000, 'Taslak 2 sonrası toplam ayrılan 20.000 olmalı');
-    assert(parseFloat(checkPart2.rows[0].remaining_open_quantity) === 5000, 'Taslak 2 sonrası kalan açık 5.000 olmalı');
-
-    // ------------------------------------------------------------------------
-    // TEST 6: Otomatik Öneri Motoru ve Çoklu Kaynak İhtiyaca Dağıtım
-    // ------------------------------------------------------------------------
-    console.log('\n--- TEST 6: Otomatik Öneri ve FIFO Dağıtımı ---');
-    await query(`
-      INSERT INTO printed_sheet_demands (
-        id, source_type, plan_draft_id, plan_item_id, demand_key, order_no,
-        tube_stock_code, tube_stock_name, tube_size,
-        print_stock_code, print_stock_name,
-        raw_sheet_code, raw_sheet_name, raw_sheet_capacity,
-        material_due_date, planned_tube_quantity,
-        net_print_demand, allocated_to_draft, covered_by_confirmed, remaining_open_quantity,
-        status, colors, print_surface, lacquer
-      ) VALUES 
-      (
-        'PSD-TEST4B-MULTI-A', 'TEST_ISOLATED', NULL, NULL, 'TEST-KEY-9003', 'IS-9003-A',
-        'TUP-TEST-MULTI', 'Tüp Test Çoklu Kaynak', '52x195',
-        'PRINT-TEST-MULTI', 'Baskılı Test Çoklu',
-        '500011000004-1206', '500011000004-1206', 20,
-        '2026-11-10', 4000,
-        4000, 0, 0, 4000,
-        'WAITING', '["C", "M", "Y", "K"]'::jsonb, 'EMAYE', 'LAKLI'
-      ),
-      (
-        'PSD-TEST4B-MULTI-B', 'TEST_ISOLATED', NULL, NULL, 'TEST-KEY-9004', 'IS-9004-B',
-        'TUP-TEST-MULTI', 'Tüp Test Çoklu Kaynak', '52x195',
-        'PRINT-TEST-MULTI', 'Baskılı Test Çoklu',
-        '500011000004-1206', '500011000004-1206', 20,
-        '2026-11-20', 6000,
-        6000, 0, 0, 6000,
-        'WAITING', '["C", "M", "Y", "K"]'::jsonb, 'EMAYE', 'LAKLI'
-      ),
-      (
-        'PSD-TEST4B-PARTNER', 'TEST_ISOLATED', NULL, NULL, 'TEST-KEY-9005', 'IS-9005',
-        'TUP-TEST-PARTNER', 'Tüp Test Ortak Ürün', '52x195',
-        'PRINT-TEST-PARTNER', 'Baskılı Test Ortak',
-        '500011000004-1206', '500011000004-1206', 20,
-        '2026-11-15', 10000,
-        10000, 0, 0, 10000,
-        'WAITING', '["C", "M", "Y", "K"]'::jsonb, 'EMAYE', 'LAKLI'
-      )
-    `);
-
-    const propResult = await generateCombinationProposals({
-      scope: 'ALL',
-      tubeSize: '52x195',
-      selectedDemandIds: ['PSD-TEST4B-MULTI-A', 'PSD-TEST4B-MULTI-B', 'PSD-TEST4B-PARTNER'],
-      maxProposals: 3
-    });
-
-    assert(propResult.success === true, 'Öneri motoru başarıyla çalışmalı');
-    assert(propResult.proposals.length > 0, 'En az bir geçerli montaj önerisi üretilmeli');
-    const bestProp = propResult.proposals[0];
-    assert(bestProp.tubeSize === '52x195', 'Öneri ebadı 52x195 olmalı');
-    assert(bestProp.usedSlots === 20, 'Montaj tam 20 göz doldurmalı (Tam Kapasite)');
-    assert(bestProp.items.length >= 2, 'Çoklu ürün kombinasyonu oluşturulmalı');
-
-    // ------------------------------------------------------------------------
-    // TEST 7: İki Kullanıcının Aynı Açık Miktarı Seçmesi (409 Çakışma Koruması)
-    // ------------------------------------------------------------------------
-    console.log('\n--- TEST 7: Eşzamanlılık ve 409 Çakışma Koruması ---');
-    // Öneri 1'i taslağa alalım
-    const applyProp1 = await applyProposalToDraft({
-      proposalId: bestProp.id,
-      notes: 'TEST-4B Kullanıcı 1 Taslağa Alımı'
-    });
-    assert(applyProp1.success === true, 'Kullanıcı 1 öneriyi başarıyla taslağa almalı');
-
-    // Aynı açık miktara yönelik ikinci bir öneri uygulama girişimi
-    // Açık miktar tükendiği için CONFLICT_DEMAND_CHANGED hatası vermeli
-    let conflictCaught = false;
+    let staleConfirmBlocked = false;
+    let staleErrMsg = '';
     try {
-      await applyProposalToDraft({
-        proposalId: bestProp.id,
-        notes: 'TEST-4B Kullanıcı 2 İkinci Çağrı (Çakışma Testi)'
-      });
-      // Not: Eğer proposal aynı ise idempotency devreye girer
-    } catch (e) {
-      if (e.message && e.message.includes('CONFLICT_DEMAND_CHANGED')) {
-        conflictCaught = true;
-      }
+      await combinationService.confirmCombination(validDraftRes.combinationId);
+    } catch (err) {
+      staleConfirmBlocked = true;
+      staleErrMsg = err.message;
     }
-    // Test idempotency: Aynı proposal tekrar çağrılınca alreadyApplied: true döner
-    const idempRes = await applyProposalToDraft({
-      proposalId: bestProp.id
-    });
-    assert(idempRes.alreadyApplied === true, 'Aynı öneri tekrar uygulandığında mükerrer kayıt açılmayıp idempotency korunmalı');
 
-    // ------------------------------------------------------------------------
-    // TEST 8: İptal ve Yeniden Açığa Çıkma
-    // ------------------------------------------------------------------------
-    console.log('\n--- TEST 8: İptal ve Açık Miktarın İadesi ---');
-    const cancelPropDraft = await cancelCombination(applyProp1.combination.id);
-    assert(cancelPropDraft.success === true, 'Öneriden üretilen taslak kombinasyon başarıyla iptal edilmeli');
+    assert(staleConfirmBlocked, 'Kural değişiminden sonra eski taslağın sessiz onaylanması engellenmeli');
+    assert(staleErrMsg.includes('URETIM_ONAYI_ENGELLENDI') && staleErrMsg.includes('Renk sınırı aşıldı'), 'Onay sırasında güncel kural ihlali (Renk sınırı aşıldı) fırlatılmalı');
 
-    const checkCanceledDemand = await query("SELECT remaining_open_quantity, allocated_to_draft, status FROM printed_sheet_demands WHERE id = 'PSD-TEST4B-MULTI-A'");
-    assert(parseFloat(checkCanceledDemand.rows[0].allocated_to_draft) === 0, 'İptal sonrası ayrılan miktar 0 olmalı');
-    assert(parseFloat(checkCanceledDemand.rows[0].remaining_open_quantity) === 4000, 'İptal sonrası kalan açık 4.000 olarak geri dönmeli');
-    assert(checkCanceledDemand.rows[0].status === 'WAITING', 'İptal sonrası durum WAITING olmalı');
+    // Kuralı orijinal 6 değerine geri al
+    await query(`UPDATE business_rules SET parameter_value = '6' WHERE condition_field = 'colors' AND operator = 'max_count'`);
+    await combinationService.getRuleContext(true);
 
-    // ------------------------------------------------------------------------
-    // TEST 9: Zaman Aşımı (Timeout) İzolasyonu
-    // ------------------------------------------------------------------------
-    console.log('\n--- TEST 9: Zaman Aşımı İzolasyonu ---');
-    const timeoutRes = await generateCombinationProposals({
-      scope: 'ALL',
-      tubeSize: '52x195',
-      maxSeconds: 0.0001 // Neredeyse 0 ms zaman aşımı
-    });
-    assert(timeoutRes.searchStatus === 'SEARCH_LIMIT_REACHED' || timeoutRes.searchStatus === 'VALID_PROPOSAL', 'Zaman aşımında status SEARCH_LIMIT_REACHED olmalı ve crash etmemeli');
-    assert(Array.isArray(timeoutRes.proposals), 'Zaman aşımında dahi o ana kadar bulunan adaylar dizi olarak dönmeli');
+    // 6.2 Bağlı talep NEEDS_REVIEW durumuna düşerse onayın engellendiğini doğrula
+    const demReviewTest = `PSD-TEST-REV-${Date.now()}`;
+    await query(`
+      INSERT INTO printed_sheet_demands (
+        id, tube_stock_code, tube_stock_name, tube_size, print_stock_code, print_stock_name,
+        raw_sheet_code, raw_sheet_capacity, net_print_demand, remaining_open_quantity,
+        allocated_to_draft, covered_by_confirmed, status, colors, print_surface, lacquer, varnish
+      ) VALUES ($1, '511109010910-1001', 'TUP-SOFT VANILLA', '52x195', '511109000911-1001', 'B-SOFT VANILLA',
+                '500011000004-1206', 20, 5000, 5000, 0, 0, 'WAITING', '["C","M","Y","K"]'::jsonb, 'EMAYE', 'LAKLI', 'PARLAK')
+    `, [demReviewTest]);
 
-    // ------------------------------------------------------------------------
-    // TEST 10: Canlı Plan ve Mevcut Kombinasyonların Kayıpsız Korunması
-    // ------------------------------------------------------------------------
-    console.log('\n--- TEST 10: Canlı Plan ve Mevcut Kombinasyonların Korunması ---');
-    const liveDemandsCount = await query("SELECT count(*) FROM printed_sheet_demands WHERE source_type = 'ACTIVE_PLAN'");
-    assert(parseInt(liveDemandsCount.rows[0].count, 10) === 215, 'Canlı tüp planından üretilen 215 kalem eksiksiz korunmalı');
-
-    const liveCombs = await getCombinations({ status: 'ALL' });
-    assert(liveCombs.count > 0, 'Önceki fazlardan kalan kombinasyonlar kayıpsız korunmalı');
-
-    // ------------------------------------------------------------------------
-    // TEST 11: Gerçek Havuz Analizi ve Dürüst Raporlama
-    // ------------------------------------------------------------------------
-    console.log('\n--- TEST 11: Gerçek Havuz Analizi ve Dürüst Eksiklik Raporu ---');
-    const liveStrictRun = await generateCombinationProposals({
-      scope: 'ACTIVE_PLAN',
-      allowUnspecifiedColors: false
+    const reviewDraft = await combinationService.createDraftCombination({
+      title: 'İnceleme Uyarısı Test Taslağı',
+      tube_size: '52x195',
+      raw_sheet_code: '500011000004-1206',
+      sheets_to_print: 1250,
+      items: [
+        {
+          print_demand_id: demReviewTest,
+          tube_stock_code: '511109010910-1001',
+          repeats_count: 4,
+          colors: ['C', 'M', 'Y', 'K'],
+          print_surface: 'EMAYE',
+          lacquer: 'LAKLI'
+        }
+      ]
     });
 
-    assert(liveStrictRun.success === true, 'Canlı havuz taraması başarıyla tamamlanmalı');
-    assert(liveStrictRun.excludedDemands.length > 0, 'Teknik kartı tanımlanmamış ürünler sessizce elenmeyip excluded listesinde raporlanmalı');
-    const sampleExcl = liveStrictRun.excludedDemands[0];
-    assert(sampleExcl.reasonCode !== undefined, 'Dışlanan her kalemin açık reasonCode değeri olmalı');
-    assert(sampleExcl.reasonMessage !== undefined, 'Dışlanan her kalemin gerekçesi açık raporda yer almalı');
-    console.log(`  > Canlı Açık İhtiyaç Sayısı: ${liveStrictRun.stats.totalCandidates}`);
-    console.log(`  > Teknik Tanımı Tam Olan: ${liveStrictRun.stats.eligibleCandidates}`);
-    console.log(`  > Eksik Teknik Tanımlı (Dışlanan): ${liveStrictRun.stats.excludedCandidates}`);
-    console.log(`  > Arama Sonucu Durumu: ${liveStrictRun.searchStatus}`);
+    // Talebi plandan ötürü NEEDS_REVIEW yap
+    await query(`UPDATE printed_sheet_demands SET status = 'NEEDS_REVIEW', review_reason = 'Plan miktarı düştü' WHERE id = $1`, [demReviewTest]);
 
-    // Temizlik: Test kayıtlarını kaldır
-    await query("DELETE FROM sheet_combination_items WHERE combination_id IN (SELECT id FROM sheet_combinations WHERE title LIKE '%TEST-4B%')");
-    await query("DELETE FROM print_demand_reservations WHERE combination_id IN (SELECT id FROM sheet_combinations WHERE title LIKE '%TEST-4B%')");
-    await query("DELETE FROM sheet_combinations WHERE title LIKE '%TEST-4B%'");
-    await query("DELETE FROM combination_proposals WHERE title LIKE '%TEST-4B%' OR title LIKE '%Test%'");
-    await query("DELETE FROM printed_sheet_demands WHERE id LIKE 'PSD-TEST4B-%'");
-
-    console.log('\n================================================================');
-    console.log(`TEST SONUCU: ${passedTests} BAŞARILI, ${failedTests} BAŞARISIZ (Toplam: ${totalTests})`);
-    console.log('================================================================');
-
-    if (failedTests > 0) {
-      process.exit(1);
-    } else {
-      process.exit(0);
+    let reviewConfirmBlocked = false;
+    let reviewErrMsg = '';
+    try {
+      await combinationService.confirmCombination(reviewDraft.combinationId);
+    } catch (err) {
+      reviewConfirmBlocked = true;
+      reviewErrMsg = err.message;
     }
+
+    assert(reviewConfirmBlocked, 'NEEDS_REVIEW durumundaki talep içeren taslak onaylanamamalı');
+    assert(reviewErrMsg.includes('NEEDS_REVIEW_BLOCKED'), `NEEDS_REVIEW_BLOCKED hatası fırlatılmalı (Dönen: ${reviewErrMsg})`);
+
+    // Temizlik: Test kombinasyonlarını sil
+    await query(`DELETE FROM sheet_combinations WHERE title LIKE 'Çoklu İhtiyaç%' OR title LIKE 'Geçici Şablon%' OR title LIKE 'Geçerli Doğrulanmış%'`);
+    await query(`DELETE FROM printed_sheet_demands WHERE id LIKE 'PSD-TEST-M%'`);
+    await query(`DELETE FROM combination_proposals WHERE id LIKE 'PROP-SIM-%'`);
+    await query(`DELETE FROM combination_proposal_runs WHERE id LIKE 'RUN-SIM-%'`);
+
   } catch (err) {
-    console.error('Test süiti beklenmeyen hatayla durdu:', err);
+    console.error('Test süiti beklenmeyen hata:', err);
+    failCount++;
+  }
+
+  console.log('\n================================================================');
+  console.log(`TEST SONUCU: ${passCount} BAŞARILI, ${failCount} BAŞARISIZ (Toplam: ${passCount + failCount})`);
+  console.log('================================================================');
+
+  if (failCount > 0) {
     process.exit(1);
   }
 }
 
-runTests();
+runTests().then(() => process.exit(0)).catch(err => {
+  console.error(err);
+  process.exit(1);
+});

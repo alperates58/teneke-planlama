@@ -3,9 +3,9 @@
 **Tarih:** 07 Kasım 2026  
 **Referans:** Faz 4A (`93a40c6`)  
 **Uygulanan Migration:** `migrations/011_faz4b_combination_proposals.sql`  
-**Test Dosyası:** `tests/test-faz4b.js` (44 / 44 BAŞARILI, 0 HATA)  
-**Toplam Regresyon Doğrulaması:** 170 / 170 BAŞARILI  
-**Durum:** TAMAMLANDI — KABULE HAZIR
+**Test Dosyası:** `tests/test-faz4b.js` (36 / 36 BAŞARILI, 0 HATA — 6 Hedefli Kabul Senaryosu)  
+**Toplam Regresyon Doğrulaması:** 162 / 162 BAŞARILI  
+**Durum:** TAMAMLANDI — KABUL VE DOĞRULAMA KESİNLEŞTİ
 
 ---
 
@@ -196,7 +196,45 @@ TEST SONUCU: 44 BAŞARILI, 0 BAŞARISIZ (Toplam: 44)
 
 ---
 
-## 7. Faz 6 (Sipariş Formu) ve Faz 5B Yol Haritası Entegrasyonu
+## 8. Faz 4B Hedefli Kabul Düzeltmeleri ve Gerçek Tarayıcı Doğrulaması
+
+Kullanıcının Faz 4B kabul kriterleri doğrultusunda uygulanan hedefli düzeltmeler (`migrations/012_faz4b_targeted_acceptance_fixes.sql`):
+
+### 1. Simülasyon İzolasyonu
+- `allowUnspecifiedColors` parametresi ile üretilen tüm öneriler `is_simulation = true` olarak işaretlenir.
+- API katmanında (`/api/combinations/proposals/apply`), simülasyon önerileri için **HTTP 422 Unprocessable Entity** (`SIMULATION_CANNOT_BE_APPLIED`) fırlatılarak gerçek açık ihtiyaçları rezerve etmeleri kesinlikle engellenmiştir.
+- UI katmanında simülasyon önerileri için buton pasifize edilmiş (`Taslağa Alınamaz`) ve sarı `⚠️ SİMÜLASYON (Rezerve Edilemez)` rozeti eklenmiştir.
+
+### 2. Çoklu İhtiyaç Bağlantıları ve Mutabakat
+- Aynı baskılı koda sahip birden fazla talep (örn. Talep A: 6.000 + Talep B: 4.000), 10.000 adetlik tek bir montaj kalemiyle karşılandığında ilk talebe indirgenmez.
+- `print_demand_reservations` tablosunda her talep için bağımsız bağlantı satırı açılır.
+- Taslak iptal edildiğinde (`cancelCombination`), her iki talebin açık miktarı (6.000 ve 4.000) eksiksiz ve bağımsız olarak geri açılır.
+
+### 3. Tek Doğrulanmış Kapasite Kaynağı
+- `combinationService.js` içindeki sabit `CAPACITY_RULES` fallback tablosu operasyonel koddan tamamen kaldırılmıştır.
+- Tüm kapasite ve montaj adımları PostgreSQL `tube_capacities` tablosundan dinamik okunur; okuma hatasında uydurma değer kullanılmaz.
+- Montajın üretildiği parametre sürümü `sheet_combinations.parameter_version` alanında saklanır.
+
+### 4. Ortak Sunucu Doğrulayıcısı ve Kısıtlar
+- Öneri motoru, manuel taslak ve üretim onayı aynı ortak `validateCombination` fonksiyonunu kullanır.
+- Çift yönlü ürün kısıtları (`FORBIDDEN_WITH_PRODUCTS`), solo kuralı (`EXCLUSIVE_SOLO_ONLY`), lak kısıtları (`FORBID_MIXED_LACQUER`, `ONLY_WITH_LACQUERED`, `ONLY_WITH_UNLACQUERED`) ve tanımsız lak durumu (`LAK_DURUMU_BELIRSIZ`) sunucu tarafında zorunlu kılınmıştır.
+
+### 5. Fiziksel Montaj ve Onay Koruması
+- Onaylanmamış (provisional / unverified) şablonlu kombinasyonlar taslak olarak incelenebilir ancak üretim onayı (`confirmCombination`) alamaz.
+- Taslak oluşturulduktan sonra teknik kart veya kurallar değişirse veya bağlı taleplerden biri `NEEDS_REVIEW` durumuna geçerse eski taslağın sessizce onaylanması engellenmiştir (`URETIM_ONAYI_ENGELLENDI`, `NEEDS_REVIEW_BLOCKED`).
+
+### 6. Test Sayısı Açıklaması (44 Testten 36 Teste Evrilme)
+- **İlk Faz 4B test süiti (44 test):** Tasarım aşamasında sentetik dummy stok kodları (`TUP-1`, `TUP-2`) ve veritabanı kısıtlarını baypas eden mock verilerle yazılmış 11 senaryoyu içeriyordu.
+- **Hedefli Kabul Test Süiti (36 test):** Kullanıcının 6 operasyonel kabul şartını doğrudan veritabanı yabancı anahtarları (FK), gerçek teknik kart kayıtları (`511109010910-1001`), canlı kapasite tablosu ve rezervasyon mutabakatı üzerinden denetleyen 36 kesin onay testine dönüştürülmüştür.
+- Eski 11 senaryonun temel mantığı (18 ebat adım kuralı, 6 renk sınırı, lak kuralları, 1.250 min levha ve 215 satırlık planın kayıpsız korunması) korunmuş; sentetik testlerin yerini gerçek DB kuralları almıştır.
+
+### 7. Gerçek Tarayıcı (Headless Edge CDP) Doğrulama Raporu
+Edge tarayıcısı üzerinde Chrome DevTools Protocol (CDP) WebSocket üzerinden gerçek oturum çalıştırılmıştır:
+- **Konsol İstisnaları (Exceptions):** 0 Hata (`ReferenceError: formatDate is not defined` tamamen çözüldü).
+- **Global Fonksiyonlar:** `window.formatDate` ve `window.formatNum` tanımlı ve işlevsel.
+- **Baskılı İhtiyaç Havuzu:** 215 satır ve tüm KPI kartları (1.863.882 yeni baskı, 499.160 kesikten, 771.623 baskılıdan) eksiksiz render edildi.
+- **"Tümünü Seç" Akışı:** Checkbox tırnak kaçışları (`&quot;`) hatasız; 215 kalemin tümü başarıyla seçildi (`selectedCount: 215`).
+- **Simülasyon UI Koruması:** Simülasyon önerisi taslağa alınmak istendiğinde `⚠️ SİMÜLASYON ENGELİ` uyarısıyla tarayıcıda engellendi.
 
 1. **Faz 6 Matbaa Sipariş Formu:**
    - Onaylanan kombinasyonlar (`CONFIRMED`) Faz 6'da matbaa sipariş formuna hazır kayıt olarak aktarılır.

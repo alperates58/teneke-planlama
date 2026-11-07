@@ -236,6 +236,22 @@ async function generateCombinationProposals({
       continue;
     }
 
+    // Denetim 5: Lak Durumu Tanımlı mı? Bilinmeyen lak laksız kabul edilemez!
+    if ((!dLacquer || dLacquer === 'BELİRTİLMEMİŞ' || dLacquer === 'BİLİNMİYOR' || dLacquer === 'TANIMSIZ') && !allowUnspecifiedColors) {
+      excludedDemands.push({
+        printDemandId: d.id,
+        orderNo: d.order_no,
+        tubeStockCode: d.tube_stock_code,
+        tubeStockName: d.tube_stock_name,
+        printStockCode: d.print_stock_code,
+        tubeSize: d.tube_size,
+        remainingOpenQuantity: openQty,
+        reasonCode: 'LAK_DURUMU_BELIRSIZ',
+        reasonMessage: 'Lak durumu (laklı/laksız) tanımlanmamış. Bilinmeyen lak laksız kabul edilemez.'
+      });
+      continue;
+    }
+
     eligibleDemands.push({
       ...d,
       raw_sheet_code: dRawSheet,
@@ -330,9 +346,9 @@ async function generateCombinationProposals({
     const minSheets = ruleContext.minSheets || 1250;
     const maxColors = ruleContext.maxColors || 6;
 
-    // Şablon ve matbaa kuralları
+    // Şablon ve matbaa kuralları (Tam ebat + ham levha eşleşmesi; sessiz fallback yok!)
     const layoutKey = `${tubeSize}__${rawSheetCode}`;
-    const layout = ruleContext.layouts.get(layoutKey) || ruleContext.layouts.get(tubeSize);
+    const layout = ruleContext.layouts ? ruleContext.layouts.get(layoutKey) : null;
     const templateVerificationStatus = layout ? (layout.verification_status || 'unverified') : 'unverified';
 
     // Grup bölüntülerini üret (1..min(groupCount, products.length) ürünlü)
@@ -514,6 +530,8 @@ async function generateCombinationProposals({
               uniqueColorsCount: uniqueColors.length,
               uniqueColors,
               templateVerificationStatus,
+              isSimulation: !!allowUnspecifiedColors,
+              is_simulation: !!allowUnspecifiedColors,
               validationWarnings,
               items: proposalItems,
               score: Math.round(score * 100) / 100
@@ -578,15 +596,16 @@ async function generateCombinationProposals({
         id, scope, tube_size_filter, filters,
         total_candidates, eligible_candidates, excluded_candidates,
         proposals_found, search_status, search_duration_ms,
-        excluded_demands, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        excluded_demands, created_by, is_simulation
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     `, [
       runId, scope, tubeSize,
       JSON.stringify({ dateFrom, dateTo, selectedDemandIds, allowUnspecifiedColors }),
       rawDemands.length, eligibleDemands.length, excludedDemands.length,
       sortedProposals.length, searchStatus, durationMs,
       JSON.stringify(excludedDemands),
-      user?.username || 'planner'
+      user?.username || 'planner',
+      !!allowUnspecifiedColors
     ]);
 
     for (const prop of sortedProposals) {
@@ -601,7 +620,7 @@ async function generateCombinationProposals({
           total_output_tubes, total_covered_demand, total_overproduction,
           unique_colors_count, unique_colors,
           template_verification_status, validation_warnings,
-          items, score
+          items, score, is_simulation
         ) VALUES (
           $1, $2, $3, $4, $5,
           $6, $7, $8,
@@ -610,7 +629,7 @@ async function generateCombinationProposals({
           $14, $15, $16,
           $17, $18,
           $19, $20,
-          $21, $22
+          $21, $22, $23
         )
       `, [
         propId, runId, prop.proposalNo, prop.title, prop.tubeSize,
@@ -620,7 +639,7 @@ async function generateCombinationProposals({
         prop.totalOutputTubes, prop.totalCoveredDemand, prop.totalOverproduction,
         prop.uniqueColorsCount, JSON.stringify(prop.uniqueColors),
         prop.templateVerificationStatus, JSON.stringify(prop.validationWarnings),
-        JSON.stringify(prop.items), prop.score
+        JSON.stringify(prop.items), prop.score, !!allowUnspecifiedColors
       ]);
     }
   } catch (err) {
@@ -669,6 +688,14 @@ async function applyProposalToDraft({
 
     const proposal = propRes.rows[0];
 
+    // Simülasyon Koruması: Simülasyon önerileri kesinlikle taslağa alınamaz ve rezerve edilemez!
+    if (proposal.is_simulation) {
+      await client.query('ROLLBACK');
+      const simErr = new Error('SIMULATION_CANNOT_BE_APPLIED: Simülasyon önerileri gerçek üretim taslağına dönüştürülemez ve açık ihtiyaçları rezerve edemez.');
+      simErr.code = 'SIMULATION_CANNOT_BE_APPLIED';
+      throw simErr;
+    }
+
     // Idempotency: Daha önce uygulandıysa doğrudan mevcut kombinasyonu dön
     if (proposal.is_applied_to_draft && proposal.applied_combination_id) {
       await client.query('COMMIT');
@@ -712,10 +739,17 @@ async function applyProposalToDraft({
       }
     }
 
-    // 3. Kombinasyon Kalemlerini Hazırla ve Taslak Oluştur
+    // 3. Çoklu İhtiyaç Bağlantılarını Koruyarak Taslak Oluştur (sourceDemands indirgenmez!)
     const draftItems = items.map((it, idx) => ({
       slot_index: idx + 1,
       print_demand_id: it.printDemandId || it.sourceDemands?.[0]?.printDemandId || null,
+      source_demands: (it.sourceDemands || []).map(sd => ({
+        print_demand_id: sd.printDemandId,
+        order_no: sd.orderNo,
+        material_due_date: sd.materialDueDate,
+        allocated_quantity: sd.allocatedQuantity,
+        remaining_open: sd.remainingOpen
+      })),
       tube_stock_code: it.tubeStockCode,
       tube_stock_name: it.tubeStockName,
       print_stock_code: it.printStockCode,
@@ -728,17 +762,25 @@ async function applyProposalToDraft({
       print_surface: it.printSurface
     }));
 
-    // Mevcut createDraftCombination fonksiyonunu çağır (Rezervasyonlar ve sheet_combinations üretilir)
+    // Mevcut createDraftCombination fonksiyonunu çağır (Çoklu rezervasyonlar ve sheet_combinations üretilir)
     const draftResult = await createDraftCombination({
       title: `${proposal.tube_size} Otomatik Öneri Taslağı (${proposal.proposal_no})`,
       tube_size: proposal.tube_size,
       raw_sheet_code: proposal.raw_sheet_code,
       sheets_to_print: proposal.sheets_to_print,
       items: draftItems,
+      is_simulation: false,
       notes: notes || `Otomatik öneriden (${proposal.proposal_no}) dönüştürülmüştür.`,
       user,
       client
     });
+
+    // Karşılama ve Fazla Üretim Mutabakatı
+    const propCovered = parseFloat(proposal.total_covered_demand) || 0;
+    const draftCovered = parseFloat(draftResult.totalCoveredDemand) || 0;
+    if (Math.abs(propCovered - draftCovered) > 0.01) {
+      throw new Error(`MUTABAKAT_HATASI: Önerilen karşılama (${propCovered}) ile kaydedilen karşılama (${draftCovered}) mutabık değildir.`);
+    }
 
     const combId = draftResult.combinationId || draftResult.id;
     const combNo = draftResult.combinationNo || draftResult.combination_no;
